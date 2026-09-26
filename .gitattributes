@@ -1,2 +1,19 @@
-# Auto detect text files and perform LF normalization
-* text=auto
+# Normalisation des fins de ligne.
+#
+# Les fichiers sont stockés en LF dans le dépôt ET extraits en LF sur toutes
+# les plateformes, y compris Windows. Sans `eol=lf`, un poste Windows avec
+# core.autocrlf=true récupérerait des fichiers en CRLF, que Prettier
+# (endOfLine: "lf") signalerait alors comme mal formatés. La CI tournant sous
+# Linux, le contrôle de formatage passerait en CI et échouerait en local.
+* text=auto eol=lf
+
+# Fichiers binaires : aucune conversion.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
