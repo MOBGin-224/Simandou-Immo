@@ -8,12 +8,12 @@
 >
 > | Décision | Effet sur ce document |
 > |---|---|
-> | DEC-005 | Une part de charge est une **créance payable** — BR-052, BR-055, BR-056 |
-> | DEC-022 | Allocation **multi-créances** dans le périmètre MVP — BR-041 |
-> | DEC-023 | Paiement supérieur au montant dû **refusé** — BR-097, §37 |
-> | DEC-015 | Statuts de créance unifiés loyer / charge — BR-037 |
-> | DEC-017 / DEC-018 | Cycles distincts incident et intervention — BR-060 |
-> | DEC-014 | Montants en entier minor unit + devise — BR-085 |
+> | DEC-005 | Une part de charge est une **créance payable** (BR-052, BR-055, BR-056) |
+> | DEC-022 | Allocation **multi-créances** dans le périmètre MVP (BR-041) |
+> | DEC-023 | Paiement supérieur au montant dû **refusé** (BR-097, §37) |
+> | DEC-015 | Statuts de créance unifiés loyer / charge (BR-037) |
+> | DEC-017 / DEC-018 | Cycles distincts incident et intervention (BR-060) |
+> | DEC-014 | Montants en entier minor unit + devise (BR-085) |
 
 ## 1. Objet du document
 
@@ -490,7 +490,7 @@ L'échéance reste ouverte.
 
 ## BR-041 : Un paiement peut couvrir plusieurs créances
 
-> **Règle du MVP — DEC-022, conséquence de DEC-005.**
+> **Règle du MVP, DEC-022, conséquence de DEC-005.**
 
 L'allocation multi-créances fait partie du périmètre MVP.
 
@@ -613,7 +613,7 @@ sauf cas explicitement justifié par une règle métier.
 
 ## BR-052 : Une charge publiée crée des créances payables
 
-> **Décision verrouillée — DEC-005.**
+> **Décision verrouillée : DEC-005.**
 
 La publication d'une charge crée, pour chaque appartement concerné, une **créance payable** distincte de l'échéance de loyer.
 
@@ -734,7 +734,7 @@ Le locataire n'a pas à le sélectionner manuellement sauf cas particulier.
 
 ## BR-060 : Le statut d'un incident suit un cycle défini
 
-> **Valeurs canoniques — DEC-017.**
+> **Valeurs canoniques : DEC-017.**
 
 ```text id="n2rlq0"
 OPEN           Nouveau
@@ -1016,7 +1016,7 @@ Plutôt que de modifier silencieusement un paiement de 2 500 000 GNF en 2 000 00
 
 ## BR-085 : Les calculs doivent utiliser la devise associée
 
-> **Convention unique — DEC-014.**
+> **Convention unique : DEC-014.**
 
 Tout montant est un **entier** exprimé dans la plus petite unité de la devise, accompagné d'un **code ISO 4217 explicite**.
 
@@ -1199,7 +1199,7 @@ pour cette transaction.
 
 ## BR-097 : Un paiement supérieur au total dû est refusé
 
-> **Règle arrêtée — DEC-023.** Cette règle n'est plus une option ouverte.
+> **Règle arrêtée : DEC-023.** Cette règle n'est plus une option ouverte.
 
 Exemple :
 

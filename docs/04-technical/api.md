@@ -440,7 +440,7 @@ POST /api/v1/manager-invitations
 }
 ```
 
-> **DEC-025** — le champ `permissions[]` est **retiré du MVP**.
+> **DEC-025** : le champ `permissions[]` est **retiré du MVP**.
 >
 > Les droits d'un gestionnaire résultent de son rôle `MANAGER` et de son périmètre `propertyIds`.
 >
@@ -850,7 +850,7 @@ Un paiement manuel est créé directement en statut `CONFIRMED` : c'est le gesti
 
 ### Permissions
 
-`payment.create` — Gestionnaire sur son périmètre, ou Propriétaire.
+`payment.create`, Gestionnaire sur son périmètre, ou Propriétaire.
 
 ---
 
@@ -860,7 +860,7 @@ Un paiement manuel est créé directement en statut `CONFIRMED` : c'est le gesti
 POST /api/v1/payments
 ```
 
-> **DEC-034 OUVERTE** — aucun fournisseur n'est sélectionné.
+> **DEC-034 OUVERTE** : aucun fournisseur n'est sélectionné.
 >
 > Cette route et l'interface `PaymentProvider` sont spécifiées, mais le paiement digital n'est pas opérationnel au MVP.
 >
@@ -1045,7 +1045,7 @@ Elle retourne :
 POST /api/v1/charges/:id/publish
 ```
 
-> **DEC-005** — la publication **crée des créances payables**, une par appartement concerné.
+> **DEC-005** : la publication **crée des créances payables**, une par appartement concerné.
 
 Avant publication, le backend doit vérifier :
 
@@ -1216,7 +1216,7 @@ POST /api/v1/incidents/:id/status
 }
 ```
 
-Valeurs autorisées — DEC-017 :
+Valeurs autorisées, DEC-017 :
 
 ```text
 OPEN | ASSIGNED | IN_PROGRESS | ON_HOLD | RESOLVED | CLOSED
@@ -1409,7 +1409,7 @@ period
 }
 ```
 
-> **DEC-005** — les indicateurs distinguent explicitement **loyers** et **charges**.
+> **DEC-005** : les indicateurs distinguent explicitement **loyers** et **charges**.
 >
 > `totalOutstanding` agrège les deux types de créance. Il ne doit jamais être confondu avec `rentOutstanding`.
 >
@@ -1907,7 +1907,7 @@ Le frontend se charge de l'affichage local.
 
 # 72. Montants API
 
-> **Convention unique — DEC-014.**
+> **Convention unique : DEC-014.**
 
 Tout montant est transmis comme un **entier** exprimé dans la plus petite unité de la devise, accompagné du code ISO 4217.
 

@@ -4,13 +4,13 @@
 
 Ce document définit la direction visuelle du produit.
 
-> **STATUT : VALIDÉE — DEC-012.**
+> **STATUT : VALIDÉE (DEC-012).**
 >
 > La direction visuelle **« Property Infrastructure »** est arrêtée par le fondateur.
 >
 > Les valeurs de référence figurent dans le **Design System, section 2**, qui fait autorité. Le présent document en décrit l'intention et les règles d'application.
 >
-> Le nom du produit est **SIMANDOU IMMO** (DEC-031, VERROUILLÉE). Seuls les éléments graphiques de marque — logo, monogramme, favicon — restent à produire.
+> Le nom du produit est **SIMANDOU IMMO** (DEC-031, VERROUILLÉE). Seuls les éléments graphiques de marque (logo, monogramme, favicon) restent à produire.
 
 Il établit :
 
@@ -299,7 +299,7 @@ Mes incidents
 
 # 15. MVP-UI-009 : Couleurs
 
-> **Palette validée — DEC-012.**
+> **Palette validée : DEC-012.**
 
 | Rôle | Token | Valeur |
 |---|---|---|
@@ -389,7 +389,7 @@ Les couleurs finales seront définies dans le Design System final.
 
 # 19. MVP-UI-012 : Typographie
 
-> **Typographie validée — DEC-012.**
+> **Typographie validée : DEC-012.**
 
 | Famille | Usage |
 |---|---|
@@ -793,7 +793,7 @@ Date
 
 # 47. MVP-UI-027 : Iconographie
 
-> **Bibliothèque validée — DEC-012 : Lucide.**
+> **Bibliothèque validée, DEC-012 : Lucide.**
 
 Aucune autre bibliothèque d'icônes ne doit être introduite.
 
@@ -1346,7 +1346,7 @@ Construire une interface desktop puis la réduire pour mobile.
 
 # 75. Direction visuelle : statut des décisions
 
-> **VALIDÉE — DEC-012.**
+> **VALIDÉE : DEC-012.**
 
 ## Arrêté
 

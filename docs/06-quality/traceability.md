@@ -819,7 +819,7 @@ Le gestionnaire peut suivre l'intervention.
 
 ### States
 
-Intervention — DEC-018 :
+Intervention, DEC-018 :
 
 ```text id="g3u9y5"
 PLANNED
@@ -828,7 +828,7 @@ COMPLETED
 CANCELLED
 ```
 
-Incident — DEC-017, cycle **distinct** :
+Incident, DEC-017, cycle **distinct** :
 
 ```text
 OPEN

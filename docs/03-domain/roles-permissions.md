@@ -1,6 +1,6 @@
 # Roles & Permissions Matrix
 
-> **Note de consolidation — DEC-025**
+> **Note de consolidation, DEC-025**
 >
 > Le MVP évalue les droits sur **deux dimensions uniquement** : le **rôle** et le **périmètre d'immeubles**.
 >
@@ -781,7 +781,7 @@ Le système doit permettre cette distinction.
 
 # 28. Gestionnaire principal et gestionnaire secondaire
 
-> **Hors périmètre MVP — `FUT-FEAT-018` (DEC-025).**
+> **Hors périmètre MVP, `FUT-FEAT-018` (DEC-025).**
 
 Le produit pourra ultérieurement distinguer deux niveaux dans la gestion opérationnelle.
 
@@ -825,7 +825,7 @@ L'interface présente les permissions du rôle en lecture seule, à titre d'info
 
 ## Future Evolution
 
-> **`FUT-FEAT-017`** — l'attribution de droits par domaine, sous forme de cases à cocher, n'appartient pas au MVP.
+> **`FUT-FEAT-017`** : l'attribution de droits par domaine, sous forme de cases à cocher, n'appartient pas au MVP.
 
 ```text
 Permissions :

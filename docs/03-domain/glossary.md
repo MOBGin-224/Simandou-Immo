@@ -694,7 +694,7 @@ Les valeurs réelles dépendent des moyens retenus.
 
 **Payment Status**
 
-### Valeurs canoniques du MVP — DEC-016
+### Valeurs canoniques du MVP, DEC-016
 
 ```text
 PENDING
@@ -1362,7 +1362,7 @@ Chaque action possède une signification métier propre.
 
 **Transition d'état**
 
-### Incident — DEC-017
+### Incident, DEC-017
 
 ```text
 OPEN → ASSIGNED → IN_PROGRESS → RESOLVED → CLOSED
@@ -1370,7 +1370,7 @@ OPEN → ASSIGNED → IN_PROGRESS → RESOLVED → CLOSED
 
 avec `ON_HOLD` intercalable.
 
-### Intervention — DEC-018
+### Intervention, DEC-018
 
 ```text
 PLANNED → IN_PROGRESS → COMPLETED
@@ -2215,7 +2215,7 @@ Exemples :
 
 Utiliser des valeurs stables en **MAJUSCULES**, en anglais, identiques entre base, domaine, API, frontend et tests.
 
-## Liste canonique du MVP — DEC-021
+## Liste canonique du MVP, DEC-021
 
 ```text
 user_status           PENDING_ACTIVATION | ACTIVE | SUSPENDED

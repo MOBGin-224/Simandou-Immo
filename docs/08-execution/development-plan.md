@@ -127,7 +127,7 @@ Une interface visuellement terminée mais sans contrôle backend n'est pas consi
 
 # 3. Architecture cible de développement
 
-> **Stack verrouillée — DEC-006.**
+> **Stack verrouillée : DEC-006.**
 >
 > ```text
 > Next.js (App Router) + React + TypeScript strict
@@ -136,7 +136,7 @@ Une interface visuellement terminée mais sans contrôle backend n'est pas consi
 > Zod + React Hook Form + TanStack Query (si nécessaire)
 > ```
 >
-> Infrastructure — DEC-007 : Docker en local, Supabase PostgreSQL ailleurs, Vercel pour l'application.
+> Infrastructure, DEC-007 : Docker en local, Supabase PostgreSQL ailleurs, Vercel pour l'application.
 
 Le MVP sera développé comme un **modular monolith**, dans un repository unique.
 
@@ -485,7 +485,7 @@ Historique
 
 ## MVP-DEV-018 : Statuts appartement
 
-Valeurs canoniques — DEC-019 :
+Valeurs canoniques, DEC-019 :
 
 ```text
 VACANT
@@ -556,7 +556,7 @@ Le gestionnaire doit pouvoir créer un locataire dans son périmètre.
 
 ## MVP-DEV-024 : Invitation locataire
 
-> **DEC-026** — au MVP, la diffusion se fait par **lien de partage sécurisé** copié par le gestionnaire.
+> **DEC-026** : au MVP, la diffusion se fait par **lien de partage sécurisé** copié par le gestionnaire.
 
 ```text
 Le système génère l'invitation et le lien.
@@ -649,7 +649,7 @@ Loyer septembre
 
 Ces statuts sont ceux de la **créance**, pas du paiement.
 
-Enum `receivable_status`, partagé par les créances de loyer et de charge — DEC-015 :
+Enum `receivable_status`, partagé par les créances de loyer et de charge, DEC-015 :
 
 ```text
 UNPAID
@@ -659,7 +659,7 @@ OVERDUE
 CANCELLED
 ```
 
-Les statuts du **paiement** sont distincts — DEC-016 :
+Les statuts du **paiement** sont distincts, DEC-016 :
 
 ```text
 PENDING
@@ -830,7 +830,7 @@ Associer à un incident :
 
 L'incident et l'intervention ont **deux cycles distincts**.
 
-Incident — DEC-017 :
+Incident, DEC-017 :
 
 ```text
 OPEN
@@ -841,7 +841,7 @@ RESOLVED
 CLOSED
 ```
 
-Intervention — DEC-018 :
+Intervention, DEC-018 :
 
 ```text
 PLANNED
@@ -882,7 +882,7 @@ Le propriétaire et les gestionnaires autorisés doivent pouvoir consulter les d
 
 ## MVP-DEV-046 : Notifications applicatives
 
-> **DEC-027** — au MVP, le seul canal actif est `IN_APP`.
+> **DEC-027** : au MVP, le seul canal actif est `IN_APP`.
 
 Prévoir les notifications essentielles :
 

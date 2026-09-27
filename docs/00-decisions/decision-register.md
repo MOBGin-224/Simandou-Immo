@@ -87,38 +87,38 @@ Lorsqu'une contradiction est détectée, elle doit être corrigée dans le docum
 
 | ID | Sujet | Statut | Bloque |
 |---|---|---|---|
-| DEC-001 | Positionnement et principe produit | VERROUILLÉE | — |
-| DEC-002 | Mobile first | VERROUILLÉE | — |
-| DEC-003 | Rôles MVP | VERROUILLÉE | — |
-| DEC-004 | Périmètre fonctionnel MVP | VERROUILLÉE | — |
-| DEC-005 | Créances de charges distinctes du loyer | VERROUILLÉE | — |
-| DEC-006 | Stack applicative | VERROUILLÉE | — |
-| DEC-007 | Infrastructure et environnements | VERROUILLÉE | — |
-| DEC-008 | Intégrations externes non implémentées au MVP | VERROUILLÉE | — |
-| DEC-009 | Confirmation des paiements | VERROUILLÉE | — |
-| DEC-010 | Exigences de sécurité | VERROUILLÉE | — |
-| DEC-011 | Conventions de données | VERROUILLÉE | — |
-| DEC-012 | Direction visuelle « Property Infrastructure » | VERROUILLÉE | — |
-| DEC-013 | Préservation de l'historique | VERROUILLÉE | — |
-| DEC-014 | Convention de stockage des montants | VERROUILLÉE | — |
-| DEC-015 | Statuts de créance (loyer et charge) | VERROUILLÉE | — |
-| DEC-016 | Statuts de paiement | VERROUILLÉE | — |
-| DEC-017 | Statuts d'incident | VERROUILLÉE | — |
-| DEC-018 | Statuts d'intervention | VERROUILLÉE | — |
-| DEC-019 | Statuts d'appartement | VERROUILLÉE | — |
-| DEC-020 | Archivage et suppression | VERROUILLÉE | — |
-| DEC-021 | Enums PostgreSQL et listes de référence | DÉDUITE | — |
-| DEC-022 | Allocation des paiements | VERROUILLÉE | — |
-| DEC-023 | Paiement supérieur au montant dû | VERROUILLÉE | — |
-| DEC-024 | Rattachement des documents | DÉDUITE | — |
+| DEC-001 | Positionnement et principe produit | VERROUILLÉE | aucun |
+| DEC-002 | Mobile first | VERROUILLÉE | aucun |
+| DEC-003 | Rôles MVP | VERROUILLÉE | aucun |
+| DEC-004 | Périmètre fonctionnel MVP | VERROUILLÉE | aucun |
+| DEC-005 | Créances de charges distinctes du loyer | VERROUILLÉE | aucun |
+| DEC-006 | Stack applicative | VERROUILLÉE | aucun |
+| DEC-007 | Infrastructure et environnements | VERROUILLÉE | aucun |
+| DEC-008 | Intégrations externes non implémentées au MVP | VERROUILLÉE | aucun |
+| DEC-009 | Confirmation des paiements | VERROUILLÉE | aucun |
+| DEC-010 | Exigences de sécurité | VERROUILLÉE | aucun |
+| DEC-011 | Conventions de données | VERROUILLÉE | aucun |
+| DEC-012 | Direction visuelle « Property Infrastructure » | VERROUILLÉE | aucun |
+| DEC-013 | Préservation de l'historique | VERROUILLÉE | aucun |
+| DEC-014 | Convention de stockage des montants | VERROUILLÉE | aucun |
+| DEC-015 | Statuts de créance (loyer et charge) | VERROUILLÉE | aucun |
+| DEC-016 | Statuts de paiement | VERROUILLÉE | aucun |
+| DEC-017 | Statuts d'incident | VERROUILLÉE | aucun |
+| DEC-018 | Statuts d'intervention | VERROUILLÉE | aucun |
+| DEC-019 | Statuts d'appartement | VERROUILLÉE | aucun |
+| DEC-020 | Archivage et suppression | VERROUILLÉE | aucun |
+| DEC-021 | Enums PostgreSQL et listes de référence | DÉDUITE | aucun |
+| DEC-022 | Allocation des paiements | VERROUILLÉE | aucun |
+| DEC-023 | Paiement supérieur au montant dû | VERROUILLÉE | aucun |
+| DEC-024 | Rattachement des documents | DÉDUITE | aucun |
 | DEC-025 | Modèle de permissions du MVP | VERROUILLÉE | Lot Gestionnaires |
-| DEC-026 | Canal de diffusion des invitations au MVP | VERROUILLÉE | — |
-| DEC-027 | Canaux de notification du MVP | VERROUILLÉE | — |
-| DEC-028 | Jobs et tâches planifiées | DÉDUITE | — |
-| DEC-029 | Méthodes de répartition des charges | VERROUILLÉE | — |
-| DEC-030 | Documents de référence manquants | DÉDUITE | — |
-| DEC-031 | Nom du produit — SIMANDOU IMMO | VERROUILLÉE | — |
-| DEC-032 | Fournisseur d'authentification : Better Auth | VERROUILLÉE | — |
+| DEC-026 | Canal de diffusion des invitations au MVP | VERROUILLÉE | aucun |
+| DEC-027 | Canaux de notification du MVP | VERROUILLÉE | aucun |
+| DEC-028 | Jobs et tâches planifiées | DÉDUITE | aucun |
+| DEC-029 | Méthodes de répartition des charges | VERROUILLÉE | aucun |
+| DEC-030 | Documents de référence manquants | DÉDUITE | aucun |
+| DEC-031 | Nom du produit : SIMANDOU IMMO | VERROUILLÉE | aucun |
+| DEC-032 | Fournisseur d'authentification : Better Auth | VERROUILLÉE | aucun |
 | DEC-033 | Fournisseur de stockage objet | OUVERTE | Lot Documents |
 | DEC-034 | Fournisseur de paiement | OUVERTE | Paiement digital |
 
@@ -642,7 +642,7 @@ Cette section regroupe les décisions issues de la consolidation documentaire.
 
 La **majorité a été explicitement verrouillée par le fondateur** : elles portent le statut VERROUILLÉE et ne sont plus réversibles sans nouvelle décision de sa part.
 
-Quatre d'entre elles conservent le statut DÉDUITE — **DEC-021, DEC-024, DEC-028, DEC-030**. Elles relèvent de choix d'implémentation sans impact produit, et restent réversibles.
+Quatre d'entre elles conservent le statut DÉDUITE, **DEC-021, DEC-024, DEC-028, DEC-030**. Elles relèvent de choix d'implémentation sans impact produit, et restent réversibles.
 
 Chaque fiche indique son impact en cas de changement.
 
@@ -912,7 +912,7 @@ Libellés UI : Vacant / Occupé / En maintenance.
 |---|---|
 | Statut fermé et stable, contrôlé par le domaine | **Enum PostgreSQL natif** (`pgEnum` Drizzle) |
 | Liste métier destinée à s'étendre sans changement de logique | **`text` + contrainte `CHECK`** |
-| Liste éditable par les utilisateurs | Table de référence — **aucune au MVP** |
+| Liste éditable par les utilisateurs | Table de référence : **aucune au MVP** |
 
 Répartition MVP :
 
@@ -950,7 +950,7 @@ Toutes les valeurs d'enum sont en **MAJUSCULES**, en anglais, et identiques entr
 
 ## DEC-022 : Allocation des paiements
 
-**Statut** : VERROUILLÉE — conséquence directe de DEC-005
+**Statut** : VERROUILLÉE, conséquence directe de DEC-005
 
 **Contradiction résolue** : la documentation limitait le MVP à une allocation « un paiement -> une échéance », ce qui est incompatible avec la décision verrouillée DEC-005 puisqu'un paiement global couvre à la fois du loyer et des charges.
 
@@ -1021,7 +1021,7 @@ receivable.balance                >=  0
 
 **Contradiction résolue** : Business Rules laissait explicitement deux options ouvertes (bloquer, ou créer un crédit), en indiquant que la règle devait être arrêtée avant l'implémentation du paiement.
 
-**Décision retenue : option A — refus.**
+**Décision retenue : option A, refus.**
 
 Un paiement dont le montant dépasse le **total dû restant** du locataire est **refusé** par le backend.
 
@@ -1050,7 +1050,7 @@ La gestion des crédits et trop-perçus est classée **Future Evolution**.
 
 **Statut** : DÉDUITE
 
-**Contradiction résolue** : trois approches coexistaient dans le même document — colonnes `document_id` directes, tables de liaison explicites, et relation polymorphe.
+**Contradiction résolue** : trois approches coexistaient dans le même document, colonnes `document_id` directes, tables de liaison explicites, et relation polymorphe.
 
 **Décision** :
 
@@ -1124,7 +1124,7 @@ Le service d'autorisation conserve la signature `can(user, permission, resource)
 
 ## DEC-026 : Canal de diffusion des invitations au MVP
 
-**Statut** : VERROUILLÉE — conséquence de DEC-008
+**Statut** : VERROUILLÉE, conséquence de DEC-008
 
 **Contradiction résolue** : les parcours d'invitation supposaient un envoi automatique par SMS ou WhatsApp, or ces intégrations sont explicitement reportées.
 
@@ -1150,7 +1150,7 @@ Toutes les propriétés de sécurité de l'invitation restent inchangées : toke
 
 ## DEC-027 : Canaux de notification du MVP
 
-**Statut** : VERROUILLÉE — conséquence de DEC-008
+**Statut** : VERROUILLÉE, conséquence de DEC-008
 
 **Décision** :
 
@@ -1378,3 +1378,4 @@ Toute fonctionnalité reste gouvernée par le Master Product Specification et le
 | 1.1 | 2026-09-19 | Nom du produit verrouillé : **SIMANDOU IMMO** (DEC-031). Promotion en VERROUILLÉE de 13 décisions auparavant déduites : DEC-014 à DEC-020, DEC-022, DEC-023, DEC-025 à DEC-027, DEC-029. Clarification de DEC-008 : aucun fournisseur n'est écarté, R2 et les solutions compatibles S3 restent candidats. Hiérarchie documentaire renumérotée 1 à 9. Ordre des migrations aligné sur la séquence de référence. Élimination des définitions dupliquées. |
 | 1.2 | 2026-09-26 | Verrouillage de DEC-032 : l'authentification est assurée par **Better Auth** avec son adaptateur Drizzle, tables dans notre PostgreSQL, identification téléphone et mot de passe, aucune adhérence à Supabase Auth. DEC-032 déplacée de la section 7 vers la section 5. Il ne reste que DEC-033 et DEC-034 ouvertes. |
 | 1.3 | 2026-09-26 | Lot 0 exécuté. Les 33 documents sont réorganisés dans `docs/` selon la structure du Master §48, avec un dossier `08-execution/` ajouté pour les documents d'exécution. Les douze ADR (ADR-001 à ADR-012) sont rédigées dans `docs/architecture/adr/`, dont ADR-006 pour Better Auth. La table d'ADR dupliquée de la gouvernance d'architecture est remplacée par un renvoi vers l'index unique du dossier ADR, et ses sections 14 à 19 sont fusionnées en une section de correspondance. |
+| 1.4 | 2026-09-27 | Suppression des 198 tirets cadratins répartis dans 28 documents, selon une règle par rôle syntaxique : deux-points quand le second membre définit le premier, virgule pour une incise, parenthèses pour une référence, mot explicite dans une cellule de tableau vide. La convention est inscrite dans les standards d'ingénierie sous MVP-ENG-093-bis, avec une commande de contrôle vérifiée. Aucune règle métier modifiée. |

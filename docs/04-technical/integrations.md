@@ -156,11 +156,11 @@ Exemples :
 
 | Service | Interface définie | Implémentation MVP | Décision |
 |---|---|---|---|
-| Base de données | — | PostgreSQL : Docker local, Supabase ailleurs | **VERROUILLÉE** (DEC-007) |
-| Hébergement | — | Vercel | **VERROUILLÉE** (DEC-007) |
+| Base de données | aucun | PostgreSQL : Docker local, Supabase ailleurs | **VERROUILLÉE** (DEC-007) |
+| Hébergement | aucun | Vercel | **VERROUILLÉE** (DEC-007) |
 | Jobs / scheduler | Oui | Cron plateforme + routes internes | **DÉDUITE** (DEC-028) |
 | Authentification | Oui | Better Auth, tables dans notre PostgreSQL | **VERROUILLÉE** (DEC-032) |
-| Stockage objet | Oui | — | **OUVERTE** (DEC-033) |
+| Stockage objet | Oui | aucune | **OUVERTE** (DEC-033) |
 | Paiement | Oui | Paiement manuel uniquement | **OUVERTE** (DEC-034) |
 | SMS | Oui | Adapter inerte journalisé | Reporté (DEC-008) |
 | WhatsApp | Oui | Adapter inerte journalisé | Reporté (DEC-008) |

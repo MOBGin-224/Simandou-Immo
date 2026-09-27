@@ -194,7 +194,7 @@ ENDED
 CANCELLED
 ```
 
-### Receivable — loyer ET charge (DEC-015)
+### Receivable, loyer ET charge (DEC-015)
 
 ```text id="m8p8oo"
 UNPAID
@@ -300,7 +300,7 @@ La liste définitive est gouvernée par Roles & Permissions Matrix.
 
 # 9. MVP-HANDOFF-007 : Architecture validée
 
-Architecture de référence — DEC-006 :
+Architecture de référence, DEC-006 :
 
 ```text id="j5sa9e"
 Next.js (App Router)
@@ -322,7 +322,7 @@ Modular Monolith
 Repository unique
 ```
 
-Infrastructure — DEC-007 :
+Infrastructure, DEC-007 :
 
 ```text
 Local                             PostgreSQL via Docker
@@ -1028,19 +1028,19 @@ Ils doivent toutefois rester compatibles avec le MVP.
 
 # 48. Ce qui doit être décidé avant le développement des modules concernés
 
-## Storage — DEC-033 OUVERTE
+## Storage, DEC-033 OUVERTE
 
 Le fournisseur de stockage objet.
 
 **Bloque le lot Documents (Lot 16) et les photos d'incident.** Ne bloque pas les lots antérieurs si l'interface `StorageProvider` est définie dès le Lot 1.
 
-## Paiement — DEC-034 OUVERTE
+## Paiement, DEC-034 OUVERTE
 
 Le fournisseur de paiement.
 
 **Bloque uniquement le paiement digital.** Le paiement manuel, les créances, les allocations, les quittances et les tableaux de bord ne sont pas bloqués.
 
-## Messaging — DEC-008 TRANCHÉE
+## Messaging, DEC-008 TRANCHÉE
 
 SMS, WhatsApp et email sont **reportés**. Au MVP :
 
@@ -1049,7 +1049,7 @@ SMS, WhatsApp et email sont **reportés**. Au MVP :
 
 Aucune décision supplémentaire n'est requise.
 
-## Branding — DEC-012 et DEC-031 VERROUILLÉES
+## Branding, DEC-012 et DEC-031 VERROUILLÉES
 
 La **direction visuelle** est validée : « Property Infrastructure », palette, typographie Manrope + Inter, icônes Lucide, touch target 44 px.
 
@@ -1247,13 +1247,13 @@ Le principe directeur est :
 | Business Rules | Présent |
 | Domain Glossary | Présent |
 | Product UX Structure | Présent |
-| **Screen Specification** | **ABSENT — lacune reconnue (DEC-030)** |
+| **Screen Specification** | **ABSENT, lacune reconnue (DEC-030)** |
 | Design System | Présent |
 | Visual Identity | Présent |
 | Component Specification | Présent |
 | API & Backend | Présent |
-| Database Schema | Présent — tient lieu de modèle de données |
-| Architecture Governance | Présent — tient lieu de document d'architecture |
+| Database Schema | Présent, tient lieu de modèle de données |
+| Architecture Governance | Présent, tient lieu de document d'architecture |
 | Engineering Standards | Présent |
 | Security | Présent |
 | Privacy | Présent |

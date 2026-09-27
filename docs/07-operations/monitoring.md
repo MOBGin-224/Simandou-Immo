@@ -111,7 +111,7 @@ Assume payment confirmed
 
 # 3. MVP
 
-> **Statut au MVP — DEC-008.**
+> **Statut au MVP : DEC-008.**
 >
 > Aucun fournisseur d'analytics ni de monitoring externe n'est intégré : PostHog et Sentry sont **reportés**.
 >
@@ -392,7 +392,7 @@ charge_receivable_paid
 charge_viewed
 ```
 
-> **DEC-005** — la publication d'une charge crée des **créances payables**. La taxonomie doit permettre de mesurer leur règlement, pas seulement leur affichage.
+> **DEC-005** : la publication d'une charge crée des **créances payables**. La taxonomie doit permettre de mesurer leur règlement, pas seulement leur affichage.
 
 ---
 

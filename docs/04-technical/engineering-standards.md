@@ -244,7 +244,7 @@ Une valeur d'enum ne doit jamais être redéclarée indépendamment dans plusieu
 
 ## MVP-ENG-007 : Argent en entier
 
-> **Convention unique — DEC-014.**
+> **Convention unique : DEC-014.**
 
 Tout montant est un **entier** exprimé dans la plus petite unité de la devise, accompagné d'un code ISO 4217.
 
@@ -337,7 +337,7 @@ La timezone métier doit être explicite lorsqu'elle influence un calcul ou un j
 
 ## MVP-ENG-013 : Server-first lorsque pertinent
 
-> **Note de version — DEC-006.**
+> **Note de version : DEC-006.**
 >
 > Le repository utilise **Next.js 16 et React 19**, en App Router.
 >
@@ -1264,6 +1264,33 @@ Un commentaire doit expliquer :
 ## MVP-ENG-093 : Pas de documentation obsolète
 
 Lorsqu'une implémentation change, les commentaires et documents concernés doivent être mis à jour.
+
+---
+
+## MVP-ENG-093-bis : Pas de tiret cadratin
+
+Le **tiret cadratin** est interdit dans la documentation, les commentaires, le code, les libellés d'interface et les messages produits par l'application.
+
+Remplacements attendus selon le rôle joué :
+
+| Rôle du tiret | Remplacement |
+|---|---|
+| Le second membre définit ou nomme le premier | deux-points |
+| Le second membre est une incise ou une précision | virgule |
+| Le second membre est une référence (règle, décision) | parenthèses |
+| Cellule de tableau sans valeur | un mot explicite, par exemple `aucun` ou `sans objet` |
+
+Le tiret demi-cadratin est soumis à la même interdiction.
+
+Contrôle, écrit avec les octets UTF-8 des deux caractères afin que la commande ne se détecte pas elle-même :
+
+```bash
+grep -rn $'\xe2\x80\x94\|\xe2\x80\x93' docs/ src/
+```
+
+Elle doit ne rien afficher et sortir en code 1.
+
+Deux pièges à éviter. Ne pas écrire le caractère littéralement dans la commande, sinon le contrôle se signale lui-même. Ne pas utiliser `grep -P '\x{2014}'` : hors mode UTF-8, PCRE rejette le motif, et l'échec de la commande se confond alors avec un résultat vide.
 
 ---
 

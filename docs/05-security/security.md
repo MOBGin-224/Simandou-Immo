@@ -164,7 +164,7 @@ L'activation doit être atomique lorsque plusieurs opérations sont réalisées.
 
 # 6. Invitations
 
-> **Note de consolidation** — ces règles portaient initialement les identifiants `SEC-001` à `SEC-005`, déjà utilisés par les principes fondamentaux de la section 2.
+> **Note de consolidation** : ces règles portaient initialement les identifiants `SEC-001` à `SEC-005`, déjà utilisés par les principes fondamentaux de la section 2.
 >
 > Elles sont renumérotées `SEC-INV-001` à `SEC-INV-005` afin que chaque exigence reste référençable de manière unique (exigence TRACE-001).
 
@@ -206,7 +206,7 @@ Une invitation peut être révoquée avant son acceptation.
 
 ## SEC-INV-006 : Diffusion par lien au MVP
 
-> **DEC-026** — au MVP, l'invitation est diffusée par **lien de partage sécurisé** copié par l'inviteur.
+> **DEC-026** : au MVP, l'invitation est diffusée par **lien de partage sécurisé** copié par l'inviteur.
 
 Ce mode de diffusion ne réduit **aucune** des propriétés ci-dessus.
 
@@ -324,7 +324,7 @@ Le résultat dépend de :
 
 # 14. RBAC + Scope
 
-> **Modèle du MVP — DEC-025.**
+> **Modèle du MVP : DEC-025.**
 >
 > Les droits sont évalués sur **deux dimensions uniquement** : le **rôle** et le **périmètre**.
 

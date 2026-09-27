@@ -247,7 +247,7 @@ Accès à son propre contexte locatif.
 
 # 8. MVP : Permissions
 
-> **Modèle du MVP — DEC-025.**
+> **Modèle du MVP : DEC-025.**
 >
 > Les droits sont évalués sur **deux dimensions uniquement** : le **rôle** et le **périmètre**.
 >
@@ -403,7 +403,7 @@ Le gestionnaire crée le profil locataire.
 
 Le gestionnaire génère une invitation sécurisée pour le locataire.
 
-**Au MVP, la diffusion se fait par lien de partage sécurisé** — voir DEC-026 :
+**Au MVP, la diffusion se fait par lien de partage sécurisé**, voir DEC-026 :
 
 ```text
 Le système génère l'invitation et le lien.
@@ -475,7 +475,7 @@ Créer les échéances selon les contrats actifs.
 
 ## MVP-FEAT-032 : Statut
 
-Cycle `receivable_status`, partagé avec les créances de charge — voir DEC-015 :
+Cycle `receivable_status`, partagé avec les créances de charge, voir DEC-015 :
 
 ```text
 UNPAID
@@ -530,7 +530,7 @@ Exemples :
 
 Mettre en place l'**architecture** `PaymentProvider` permettant l'intégration ultérieure d'un fournisseur.
 
-Le fournisseur n'est pas sélectionné — décision DEC-034 OUVERTE.
+Le fournisseur n'est pas sélectionné, décision DEC-034 OUVERTE.
 
 **Au MVP, le paiement manuel est le seul moyen opérationnel.**
 
@@ -548,7 +548,7 @@ Paiement partiel
 Solde
 ```
 
-Un paiement supérieur au total dû est **refusé** — voir DEC-023.
+Un paiement supérieur au total dû est **refusé**, voir DEC-023.
 
 ---
 
@@ -606,7 +606,7 @@ Créer une charge au niveau d'un immeuble.
 
 ## MVP-FEAT-044 : Répartition uniforme
 
-Le MVP supporte **uniquement** la répartition uniforme (`EQUAL`) — voir DEC-029.
+Le MVP supporte **uniquement** la répartition uniforme (`EQUAL`), voir DEC-029.
 
 `CUSTOM` et `CONSUMPTION` sont classés Future Evolution.
 
@@ -684,7 +684,7 @@ Le locataire peut déclarer un incident.
 
 Ajouter une ou plusieurs photos.
 
-Dépend du stockage objet — décision DEC-033 OUVERTE.
+Dépend du stockage objet, décision DEC-033 OUVERTE.
 
 ---
 
@@ -692,7 +692,7 @@ Dépend du stockage objet — décision DEC-033 OUVERTE.
 
 Voir le statut de l'incident.
 
-Cycle `incident_status` — voir DEC-017 :
+Cycle `incident_status`, voir DEC-017 :
 
 ```text
 OPEN
@@ -717,7 +717,7 @@ Un incident peut être affecté à un intervenant.
 
 ## MVP-FEAT-051 : Suivi
 
-L'intervention possède un cycle **distinct** de celui de l'incident — voir DEC-018 :
+L'intervention possède un cycle **distinct** de celui de l'incident, voir DEC-018 :
 
 ```text
 PLANNED
@@ -766,7 +766,7 @@ Associer un document ou justificatif lorsque nécessaire.
 
 # 21. MVP : Notifications
 
-> **Canal du MVP — DEC-027.**
+> **Canal du MVP : DEC-027.**
 >
 > Le seul canal actif au MVP est **`IN_APP`**.
 >
@@ -1027,7 +1027,7 @@ incident
 
 # 33. MVP : Intégrations externes
 
-> **Statut des fournisseurs — DEC-008, DEC-032, DEC-033, DEC-034.**
+> **Statut des fournisseurs, DEC-008, DEC-032, DEC-033, DEC-034.**
 >
 > Au MVP, l'**interface** de chaque fournisseur est définie et utilisée. L'**implémentation réelle** dépend de la décision correspondante.
 >
@@ -1036,7 +1036,7 @@ incident
 | Feature | Interface | Implémentation MVP |
 |---|---|---|
 | MVP-FEAT-090 Authentification | Requise | **Better Auth** (DEC-032) |
-| MVP-FEAT-091 Payment Provider | Requise | **DEC-034 OUVERTE** — paiement manuel seul |
+| MVP-FEAT-091 Payment Provider | Requise | **DEC-034 OUVERTE**, paiement manuel seul |
 | MVP-FEAT-092 Email Provider | Définie | Adapter inerte (DEC-008) |
 | MVP-FEAT-093 SMS Provider | Définie | Adapter inerte (DEC-008) |
 | MVP-FEAT-094 WhatsApp Provider | Définie | Adapter inerte (DEC-008) |
@@ -1058,7 +1058,7 @@ Aucun module métier n'appelle Better Auth directement.
 
 Interface `PaymentProvider` : `createPayment`, `getPaymentStatus`, `verifyWebhook`.
 
-Fournisseur non sélectionné — **DEC-034 OUVERTE**. Bloque uniquement le paiement digital.
+Fournisseur non sélectionné : **DEC-034 OUVERTE**. Bloque uniquement le paiement digital.
 
 ---
 
@@ -1088,7 +1088,7 @@ Interface `StorageProvider` : `upload`, `delete`, `createSignedUrl`.
 
 Bucket privé obligatoire, aucune URL publique permanente.
 
-Fournisseur non sélectionné — **DEC-033 OUVERTE**, bloque le lot Documents.
+Fournisseur non sélectionné : **DEC-033 OUVERTE**, bloque le lot Documents.
 
 ---
 

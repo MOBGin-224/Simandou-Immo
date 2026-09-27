@@ -244,7 +244,7 @@ ACTIVE
 SUSPENDED
 ```
 
-`ARCHIVED` n'est pas une valeur de cet enum — l'archivage est porté par `archived_at` (DEC-020).
+`ARCHIVED` n'est pas une valeur de cet enum, l'archivage est porté par `archived_at` (DEC-020).
 
 `REVOKED` n'est pas un statut d'utilisateur : la révocation concerne un **accès**, pas une personne. Voir `user_access.status`.
 
@@ -283,7 +283,7 @@ MANAGER
 TENANT
 ```
 
-Une table de rôles ne deviendrait utile que si des rôles définissables par l'utilisateur apparaissaient — ce qui est hors périmètre MVP.
+Une table de rôles ne deviendrait utile que si des rôles définissables par l'utilisateur apparaissaient, ce qui est hors périmètre MVP.
 
 ---
 
@@ -371,7 +371,7 @@ Un immeuble peut avoir plusieurs gestionnaires.
 
 # 11. Permissions
 
-> **DEC-025 — Périmètre MVP.**
+> **DEC-025 : périmètre MVP.**
 >
 > Les tables `permissions` et `access_permissions` **ne sont pas créées au MVP**.
 
@@ -1027,7 +1027,7 @@ La colonne `document_id` est **supprimée** : le justificatif est rattaché via 
 
 # 29. Types de charges
 
-Liste extensible sans changement de logique — implémentée en `text` + `CHECK` (DEC-021) :
+Liste extensible sans changement de logique, implémentée en `text` + `CHECK` (DEC-021) :
 
 ```text
 WATER
@@ -1037,7 +1037,7 @@ CLEANING
 OTHER
 ```
 
-Méthodes de répartition — enum `allocation_method` (DEC-029) :
+Méthodes de répartition, enum `allocation_method` (DEC-029) :
 
 ```text
 EQUAL          MVP
@@ -1051,7 +1051,7 @@ Le MVP n'accepte que `EQUAL`.
 
 # 30. Créances de charge
 
-> **DEC-005 — décision verrouillée.**
+> **DEC-005, décision verrouillée.**
 >
 > Une part de charge est une **créance payable**, au même titre qu'une échéance de loyer.
 
@@ -1227,7 +1227,7 @@ URGENT
 
 ### Catégories
 
-Liste extensible — `text` + `CHECK` (DEC-021) :
+Liste extensible, `text` + `CHECK` (DEC-021) :
 
 ```text
 PLUMBING
@@ -1273,7 +1273,7 @@ updated_at             timestamptz NOT NULL
 
 ### Statuts
 
-Cycle **distinct** de celui de l'incident — voir DEC-018 :
+Cycle **distinct** de celui de l'incident, voir DEC-018 :
 
 ```text
 intervention_status
@@ -1357,7 +1357,7 @@ CANCELLED
 
 ### Catégories
 
-Liste extensible — `text` + `CHECK` (DEC-021) :
+Liste extensible, `text` + `CHECK` (DEC-021) :
 
 ```text
 PLUMBING
@@ -1408,7 +1408,7 @@ Le fichier réel est stocké dans le stockage objet.
 
 # 38. Rattachement des documents
 
-> **DEC-024 — décision appliquée.**
+> **DEC-024, décision appliquée.**
 >
 > Aucune relation polymorphe `entity_type` / `entity_id` n'est utilisée.
 
@@ -1655,13 +1655,13 @@ Les données financières centrales restent relationnelles.
 
 # 46. Enums et listes de référence
 
-> **DEC-021 — décision appliquée.**
+> **DEC-021, décision appliquée.**
 
 | Nature de la liste | Implémentation |
 |---|---|
 | Statut fermé et stable, contrôlé par le domaine | Enum PostgreSQL natif (`pgEnum` Drizzle) |
 | Liste métier destinée à s'étendre sans changement de logique | `text` + contrainte `CHECK` |
-| Liste éditable par les utilisateurs | Table de référence — **aucune au MVP** |
+| Liste éditable par les utilisateurs | Table de référence : **aucune au MVP** |
 
 ## Enums PostgreSQL du MVP
 
@@ -1765,7 +1765,7 @@ La suppression doit être choisie relation par relation.
 
 # 50. Archivage et suppression
 
-> **DEC-020 — décision appliquée.**
+> **DEC-020, décision appliquée.**
 
 1. L'archivage est porté **exclusivement** par `archived_at timestamptz NULL`.
 2. `deleted_at` est **banni** du modèle du MVP.
@@ -1909,7 +1909,7 @@ Les deux index uniques partiels de `payment_allocations` empêchent qu'un paieme
 
 # 54. Représentation des montants
 
-> **DEC-014 — décision appliquée.**
+> **DEC-014, décision appliquée.**
 
 Tout montant monétaire est stocké comme un **entier signé** exprimé dans la **plus petite unité de la devise** (*minor unit*), accompagné d'un **code devise ISO 4217 explicite**.
 
@@ -2111,8 +2111,8 @@ Aucune autre table ne présente ce cas.
 
 ```text
 roles                  le rôle est un enum sur user_access
-permissions            DEC-025 — catalogue défini en code
-access_permissions     DEC-025 — FUT-FEAT-017
+permissions            DEC-025, catalogue défini en code
+access_permissions     DEC-025, FUT-FEAT-017
 occupancy_history      reconstruit depuis leases
 ```
 

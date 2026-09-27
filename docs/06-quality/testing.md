@@ -541,7 +541,7 @@ Paiement
 
 ## MVP-QA-022-bis : Allocation multi-créances
 
-> **Test obligatoire — DEC-005 / DEC-022.**
+> **Test obligatoire, DEC-005 / DEC-022.**
 
 Scénario de référence :
 
@@ -567,7 +567,7 @@ Vérifier également :
 
 ## MVP-QA-022-ter : Paiement supérieur au montant dû
 
-> **Test obligatoire — DEC-023.**
+> **Test obligatoire : DEC-023.**
 
 ```text
 Total dû   2 800 000
@@ -637,7 +637,7 @@ Vérifier :
 
 # 16. MVP : tests des charges
 
-> **DEC-005** — la publication crée des **créances payables**. Les tests doivent le vérifier explicitement.
+> **DEC-005** : la publication crée des **créances payables**. Les tests doivent le vérifier explicitement.
 
 Tester :
 
@@ -692,7 +692,7 @@ Tester :
 
 Les deux cycles sont **distincts** et doivent être testés séparément.
 
-## Incident — DEC-017
+## Incident, DEC-017
 
 ```text
 OPEN -> ASSIGNED -> IN_PROGRESS -> RESOLVED -> CLOSED
@@ -700,7 +700,7 @@ OPEN -> ASSIGNED -> IN_PROGRESS -> RESOLVED -> CLOSED
 
 avec `ON_HOLD` intercalable.
 
-## Intervention — DEC-018
+## Intervention, DEC-018
 
 ```text
 PLANNED -> IN_PROGRESS -> COMPLETED

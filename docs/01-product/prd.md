@@ -9,7 +9,7 @@
 **Statut :** Document de cadrage fonctionnel  
 **Périmètre :** MVP
 
-> **Note de consolidation** — Ce document est subordonné au **Product & Technical Decision Register** et au **Master Product Specification**.
+> **Note de consolidation** : ce document est subordonné au **Product & Technical Decision Register** et au **Master Product Specification**.
 >
 > Lorsqu'une valeur de statut, une règle financière ou un périmètre décrit ici diverge d'une décision enregistrée dans le registre, **la décision du registre fait foi**.
 >
@@ -173,7 +173,7 @@ Il peut ensuite :
 
 Le locataire reçoit une invitation.
 
-**Au MVP, l'invitation est diffusée par lien de partage sécurisé** — voir DEC-026.
+**Au MVP, l'invitation est diffusée par lien de partage sécurisé**, voir DEC-026.
 
 ```text
 Le système génère l'invitation et le lien.
@@ -388,7 +388,7 @@ Chaque appartement doit être rattaché à un immeuble.
 
 ## Statuts
 
-Valeurs canoniques — voir DEC-019 :
+Valeurs canoniques, voir DEC-019 :
 
 ```text
 VACANT        Vacant
@@ -511,7 +511,7 @@ Chaque échéance doit comporter :
 
 ## Statuts du loyer
 
-Une échéance de loyer est une **créance**. Elle partage son cycle de statut avec une créance de charge — voir DEC-015.
+Une échéance de loyer est une **créance**. Elle partage son cycle de statut avec une créance de charge, voir DEC-015.
 
 Valeurs canoniques :
 
@@ -555,7 +555,7 @@ Le système doit supporter plusieurs moyens de paiement.
 
 ## Moyens de paiement
 
-Valeurs canoniques — voir DEC-016 :
+Valeurs canoniques, voir DEC-016 :
 
 ```text
 CASH             Espèces
@@ -582,7 +582,7 @@ La **période** n'est pas un attribut du paiement : elle appartient aux créance
 
 ## Statuts
 
-Valeurs canoniques — voir DEC-016 :
+Valeurs canoniques, voir DEC-016 :
 
 ```text
 PENDING      En attente
@@ -597,11 +597,11 @@ CANCELLED    Annulé
 
 ## Règle fondamentale
 
-Un paiement confirmé est rattaché aux créances correspondantes par une ou plusieurs **allocations** — voir DEC-022.
+Un paiement confirmé est rattaché aux créances correspondantes par une ou plusieurs **allocations**, voir DEC-022.
 
 Un même paiement peut couvrir à la fois une créance de loyer et une créance de charge.
 
-Un paiement dont le montant dépasse le total dû restant est **refusé** — voir DEC-023.
+Un paiement dont le montant dépasse le total dû restant est **refusé**, voir DEC-023.
 
 ---
 
@@ -650,7 +650,7 @@ Informer qu'un retard persiste.
 
 ## Canaux
 
-Valeurs canoniques — voir DEC-027 :
+Valeurs canoniques, voir DEC-027 :
 
 ```text
 IN_APP      actif au MVP
@@ -687,7 +687,7 @@ Le système calcule :
 
 ## Méthodes de répartition
 
-Valeurs canoniques — voir DEC-029 :
+Valeurs canoniques, voir DEC-029 :
 
 ```text
 EQUAL          Répartition égale        MVP
@@ -721,7 +721,7 @@ somme des parts = montant total de la charge
 
 # 10.13 Affectation d'une charge au locataire
 
-> **Décision structurante — DEC-005.**
+> **Décision structurante : DEC-005.**
 >
 > La publication d'une charge crée, pour chaque appartement concerné, une **créance de charge payable**, distincte de l'échéance de loyer.
 
@@ -751,7 +751,7 @@ Le système conserve les **composantes séparées** :
 - le total ;
 - le reste à payer par composante.
 
-Un paiement unique peut être alloué aux deux créances — voir DEC-022.
+Un paiement unique peut être alloué aux deux créances, voir DEC-022.
 
 ---
 
@@ -786,7 +786,7 @@ Un incident doit pouvoir être créé par :
 
 ## Priorités
 
-Valeurs canoniques — voir DEC-017 :
+Valeurs canoniques, voir DEC-017 :
 
 ```text
 LOW       Faible
@@ -796,7 +796,7 @@ URGENT    Urgente
 
 ## Statuts
 
-Valeurs canoniques — voir DEC-017 :
+Valeurs canoniques, voir DEC-017 :
 
 ```text
 OPEN           Nouveau
@@ -809,7 +809,7 @@ CLOSED         Clôturé
 
 **« À traiter » n'est pas un statut.** C'est un filtre du tableau de bord gestionnaire portant sur `OPEN` et `ASSIGNED`.
 
-L'intervention possède un cycle distinct — voir DEC-018.
+L'intervention possède un cycle distinct, voir DEC-018.
 
 ---
 
@@ -956,7 +956,7 @@ Un gestionnaire peut avoir accès à :
 - tous les immeubles de l'organisation ;
 - ou certains immeubles uniquement.
 
-> **Périmètre MVP — DEC-025.**
+> **Périmètre MVP : DEC-025.**
 >
 > Le MVP évalue les droits à partir de **deux dimensions seulement** : le **rôle** et le **périmètre d'immeubles**.
 >
@@ -1173,7 +1173,7 @@ PENDING
 FAILED | CANCELLED
 ```
 
-Le passage à `CONFIRMED` ne peut jamais provenir du frontend — voir DEC-009.
+Le passage à `CONFIRMED` ne peut jamais provenir du frontend, voir DEC-009.
 
 ## 17.4 Incident
 
@@ -1381,7 +1381,7 @@ Toute correction importante doit être traçable.
 
 ## Convention monétaire
 
-Convention unique — voir DEC-014 :
+Convention unique, voir DEC-014 :
 
 ```text
 amount    entier signé, exprimé dans la plus petite unité de la devise

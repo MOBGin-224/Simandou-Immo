@@ -468,7 +468,7 @@ Le gestionnaire choisit :
 
 > Inviter le locataire
 
-> **Au MVP — DEC-026** : le système génère un **lien de partage sécurisé**.
+> **Au MVP, DEC-026** : le système génère un **lien de partage sécurisé**.
 
 ```text
 Le système crée l'invitation et affiche le lien.
@@ -643,8 +643,8 @@ Il voit son **total dû**, composé de ses créances ouvertes (DEC-005) :
 
 > **Total à payer : 2 800 000 GNF**
 >
-> Loyer septembre : 2 500 000 GNF — À payer
-> Eau septembre : 300 000 GNF — À payer
+> Loyer septembre : 2 500 000 GNF, À payer
+> Eau septembre : 300 000 GNF, À payer
 
 Le total est l'information principale. Les composantes restent consultables.
 
@@ -719,7 +719,7 @@ Eau septembre     payé         0   reste   300 000   À payer
 
 Le solde reste dû sur chaque créance concernée.
 
-> **DEC-023** — un paiement supérieur au total dû est refusé. Il n'existe ni crédit ni trop-perçu au MVP.
+> **DEC-023** : un paiement supérieur au total dû est refusé. Il n'existe ni crédit ni trop-perçu au MVP.
 
 ---
 
