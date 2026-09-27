@@ -908,17 +908,17 @@ Une distinction claire doit exister entre :
 
 **Montant payé**
 
-**Montant restant** — solde d'une créance
+**Montant restant** : solde d'une créance
 
-**Total dû** — somme des soldes des créances ouvertes d'un locataire
+**Total dû** : somme des soldes des créances ouvertes d'un locataire
 
-**Dépense** — sortie financière supportée par l'immeuble
+**Dépense** : sortie financière supportée par l'immeuble
 
-**Charge** — montant réparti et refacturé aux locataires
+**Charge** : montant réparti et refacturé aux locataires
 
 Ces concepts ne doivent jamais être présentés comme des synonymes.
 
-> **DEC-005** — une part de charge est une **créance payable**, au même titre qu'une échéance de loyer.
+> **DEC-005** : une part de charge est une **créance payable**, au même titre qu'une échéance de loyer.
 >
 > L'espace locataire présente un **montant global à payer**, tout en conservant les composantes séparées et consultables.
 
@@ -932,7 +932,7 @@ Exemples :
 
 > Valeurs canoniques : **Decision Register DEC-015 à DEC-021**. Les libellés ci-dessous sont les termes UI correspondants.
 
-### Paiement — `payment_status`
+### Paiement, `payment_status`
 
 | Valeur | Libellé UI |
 |---|---|
@@ -941,7 +941,7 @@ Exemples :
 | `FAILED` | Échoué |
 | `CANCELLED` | Annulé |
 
-### Créance — `receivable_status`
+### Créance, `receivable_status`
 
 Identique pour le loyer et pour les charges.
 
@@ -955,7 +955,7 @@ Identique pour le loyer et pour les charges.
 
 **« À venir »** est un affichage dérivé lorsque la créance est `UNPAID` et que l'échéance est future. Ce n'est pas un statut.
 
-### Incident — `incident_status`
+### Incident, `incident_status`
 
 | Valeur | Libellé UI |
 |---|---|
@@ -968,7 +968,7 @@ Identique pour le loyer et pour les charges.
 
 **« À traiter »** est un filtre du tableau de bord gestionnaire sur `OPEN` et `ASSIGNED`.
 
-### Intervention — `intervention_status`
+### Intervention, `intervention_status`
 
 | Valeur | Libellé UI |
 |---|---|
@@ -977,7 +977,7 @@ Identique pour le loyer et pour les charges.
 | `COMPLETED` | Terminée |
 | `CANCELLED` | Annulée |
 
-### Appartement — `apartment_status`
+### Appartement, `apartment_status`
 
 | Valeur | Libellé UI |
 |---|---|

@@ -247,7 +247,7 @@ Les relations importantes doivent rester cohérentes.
 
 ## Contrôles de soldes obligatoires
 
-> **DEC-005 / DEC-022** — le modèle financier comporte **deux types de créance**. Une restauration qui ne vérifie que les loyers est incomplète.
+> **DEC-005 / DEC-022** : le modèle financier comporte **deux types de créance**. Une restauration qui ne vérifie que les loyers est incomplète.
 
 Pour **chaque** créance, de loyer comme de charge :
 

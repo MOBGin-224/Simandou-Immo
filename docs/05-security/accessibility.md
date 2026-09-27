@@ -885,7 +885,7 @@ Une erreur de paiement doit clairement indiquer :
 
 Les statuts doivent être immédiatement compréhensibles, avec le **libellé UI officiel** (DEC-015, DEC-016) :
 
-Créance — loyer et charge :
+Créance, loyer et charge :
 
 ```text id="l3b9as"
 À payer
@@ -912,7 +912,7 @@ Les couleurs de statut validées (DEC-012) doivent respecter les exigences de co
 
 # 62. Accessibilité des charges
 
-> **DEC-005** — la part de charge est une créance payable, au même titre que le loyer.
+> **DEC-005** : la part de charge est une créance payable, au même titre que le loyer.
 
 Une charge doit afficher séparément :
 

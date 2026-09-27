@@ -50,7 +50,7 @@ Les documents de référence sont :
 21. Deployment & DevOps Specification
 ```
 
-> **Documents inexistants — DEC-030**
+> **Documents inexistants, DEC-030**
 >
 > | Référence ancienne | Résolution |
 > |---|---|
@@ -697,7 +697,7 @@ Créer :
 
 ## MVP-BACKLOG-052 : Charge Allocation
 
-> **DEC-005 — décision verrouillée.**
+> **DEC-005, décision verrouillée.**
 
 La publication d'une charge crée une **créance payable** par appartement.
 
@@ -913,7 +913,7 @@ Créer :
 
 ## MVP-BACKLOG-059 : Intervention Workflow
 
-> **DEC-018** — l'intervention a un cycle **distinct** de l'incident.
+> **DEC-018** : l'intervention a un cycle **distinct** de l'incident.
 
 ```text
 PLANNED
@@ -1026,7 +1026,7 @@ Mettre en place les jobs pour :
 
 ## MVP-BACKLOG-070 : Provider Adapters
 
-> **DEC-008, DEC-027** — au MVP, ces adapters sont **inertes**.
+> **DEC-008, DEC-027** : au MVP, ces adapters sont **inertes**.
 
 Encapsuler derrière `NotificationProvider` :
 
@@ -1502,7 +1502,7 @@ Lot 29   Staging
 Lot 30   Production
 ```
 
-> **Réordonnancement appliqué — DEC-005 / DEC-022**
+> **Réordonnancement appliqué, DEC-005 / DEC-022**
 >
 > Les **Charges** passent avant les **Paiements**.
 >
@@ -1538,7 +1538,7 @@ Payment         allocation multi-créances
 Receipt
 ```
 
-> **Pourquoi Charges avant Payments — DEC-005 / DEC-022**
+> **Pourquoi Charges avant Payments, DEC-005 / DEC-022**
 >
 > Une allocation de paiement référence soit une créance de loyer, soit une créance de charge.
 >

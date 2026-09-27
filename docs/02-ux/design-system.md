@@ -27,7 +27,7 @@ Les interfaces sont ensuite adaptées à la tablette et au desktop.
 
 # 2. Statut de la charte visuelle
 
-> **VALIDÉE — DEC-012.**
+> **VALIDÉE : DEC-012.**
 >
 > La direction visuelle **« Property Infrastructure »** est arrêtée. Elle ne constitue plus une décision ouverte.
 
@@ -1252,7 +1252,7 @@ Le Design System deviendra donc progressivement une spécification directement e
 
 > La direction visuelle est **VALIDÉE** (DEC-012). Cette section ne liste plus que les points réellement ouverts.
 
-## Déjà arrêté — ne plus rouvrir
+## Déjà arrêté, ne plus rouvrir
 
 ```text
 Identité visuelle      « Property Infrastructure »

@@ -28,7 +28,7 @@ Sa promesse :
 
 > **Complexe technologiquement. Simple humainement.**
 
-> **Nom du produit — DEC-031, VERROUILLÉE.**
+> **Nom du produit, DEC-031, VERROUILLÉE.**
 >
 > Le nom officiel est **SIMANDOU IMMO**.
 >
@@ -704,7 +704,7 @@ La délégation fine par gestionnaire est classée FUT-017.
 ## MVP-011 : Paiements
 
 - paiement manuel ;
-- paiement digital — **architecture seule**, provider OUVERT (DEC-034) ;
+- paiement digital, **architecture seule**, provider OUVERT (DEC-034) ;
 - paiement partiel ;
 - allocation multi-créances loyer et charge (DEC-022) ;
 - refus du paiement supérieur au montant dû (DEC-023) ;
@@ -923,7 +923,7 @@ Le système doit notamment supporter :
 
 # 22. MVP : infrastructure
 
-Architecture de référence — voir DEC-006 :
+Architecture de référence, voir DEC-006 :
 
 ```text id="91c168"
 Next.js (App Router)
@@ -980,16 +980,16 @@ En conséquence :
 
 # 23. MVP : infrastructure externe
 
-Services externes et leur statut au MVP — voir DEC-008, DEC-026, DEC-027, DEC-028 :
+Services externes et leur statut au MVP, voir DEC-008, DEC-026, DEC-027, DEC-028 :
 
 | Service | Statut MVP | Décision |
 |---|---|---|
-| Base de données | Actif | PostgreSQL — Docker local, Supabase ailleurs |
+| Base de données | Actif | PostgreSQL : Docker local, Supabase ailleurs |
 | Hébergement applicatif | Actif | Vercel |
 | Jobs / tâches planifiées | Actif | Cron plateforme + routes internes protégées |
 | Authentification | Actif | **Better Auth** avec adaptateur Drizzle (DEC-032) |
 | Object Storage | Requis | **DEC-033 OUVERTE** |
-| Payment Provider | Architecture seule | **DEC-034 OUVERTE** — paiement manuel seul au MVP |
+| Payment Provider | Architecture seule | **DEC-034 OUVERTE**, paiement manuel seul au MVP |
 | Email Provider | Adapter inerte | Reporté (DEC-008) |
 | SMS Provider | Adapter inerte | Reporté (DEC-008) |
 | WhatsApp Provider | Adapter inerte | Reporté (DEC-008) |

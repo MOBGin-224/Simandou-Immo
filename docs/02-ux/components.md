@@ -459,7 +459,7 @@ ApartmentStatus
   MAINTENANCE      En maintenance
 ```
 
-Couleurs de statut — DEC-012 :
+Couleurs de statut, DEC-012 :
 
 ```text
 Success  #18794E   PAID, RESOLVED, CONFIRMED, COMPLETED

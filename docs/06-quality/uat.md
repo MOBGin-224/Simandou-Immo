@@ -572,7 +572,7 @@ Reste : 1 300 000 GNF
 
 ## MVP-UAT-023
 
-> **DEC-034 OUVERTE** — aucun fournisseur de paiement n'est sélectionné.
+> **DEC-034 OUVERTE** : aucun fournisseur de paiement n'est sélectionné.
 >
 > **Au MVP, ce scénario n'est pas testable en pilote réel.** Le paiement manuel est le seul moyen opérationnel.
 
@@ -594,7 +594,7 @@ Le test devra vérifier que l'interface ne présente jamais comme confirmé un p
 
 ## MVP-UAT-023-bis : Paiement manuel multi-créances
 
-> **Testable dès le pilote — DEC-005.**
+> **Testable dès le pilote : DEC-005.**
 
 Scénario :
 

@@ -607,7 +607,7 @@ L'utilisateur ne doit jamais devoir faire lui-même le calcul.
 
 ## Ventilation par composante
 
-> **DEC-005** — le total dû se compose de créances distinctes.
+> **DEC-005** : le total dû se compose de créances distinctes.
 
 Le locataire doit pouvoir ouvrir le détail :
 
@@ -627,7 +627,7 @@ La ventilation est secondaire mais toujours accessible, et provient des allocati
 
 ## Paiement supérieur au montant dû
 
-> **DEC-023** — refusé.
+> **DEC-023** : refusé.
 
 Le montant proposé est plafonné au total dû. L'interface ne doit pas laisser saisir un montant supérieur puis afficher une erreur tardive.
 
@@ -661,7 +661,7 @@ Il peut vérifier avant publication.
 
 Il voit sa part comme une **créance payable**, au même titre que son loyer :
 
-> Eau septembre : **300 000 GNF** — À payer
+> Eau septembre : **300 000 GNF** (À payer)
 
 avec un accès au détail du calcul :
 
@@ -709,7 +709,7 @@ Le gestionnaire doit pouvoir comprendre l'état d'un incident en un coup d'œil.
 
 Exemple :
 
-> **Fuite d'eau — A04**
+> **Fuite d'eau, A04**
 >
 > Nouveau
 >
@@ -1367,7 +1367,7 @@ Le système ne doit pas afficher une opération comme terminée avant confirmati
 
 # 57. UX des notifications WhatsApp et SMS
 
-> **Périmètre MVP** — voir DEC-027.
+> **Périmètre MVP** : voir DEC-027.
 >
 > Les canaux WhatsApp, SMS et email sont **définis mais inactifs au MVP**. Le seul canal de notification actif est `IN_APP`.
 >

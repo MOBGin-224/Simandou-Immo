@@ -92,7 +92,7 @@ Une fonctionnalité critique ne doit pas être mise en production sans possibili
 
 # 3. Architecture d'infrastructure du MVP
 
-> **Infrastructure validée — DEC-007.**
+> **Infrastructure validée : DEC-007.**
 
 Architecture cible :
 
@@ -139,7 +139,7 @@ Cette contrainte permet de changer d'hébergeur PostgreSQL sans réécrire l'app
 
 ## Intégrations non implémentées au MVP
 
-Règle applicable — DEC-008 :
+Règle applicable, DEC-008 :
 
 > **Fournisseur non sélectionné, abstraction définie, intégration réelle ultérieure.**
 
@@ -571,7 +571,7 @@ La configuration doit tenir compte :
 
 # 26. MVP : Stockage objet
 
-> **DEC-033 OUVERTE** — aucun fournisseur n'est sélectionné.
+> **DEC-033 OUVERTE** : aucun fournisseur n'est sélectionné.
 >
 > **Cloudflare R2 et les solutions compatibles S3 restent des candidats valides.** Aucun fournisseur n'est écarté.
 
@@ -639,7 +639,7 @@ Cas d'usage :
 - synchronisations ;
 - tâches de maintenance.
 
-> **DEC-028** — au MVP, les tâches planifiées utilisent les **Cron Jobs de la plateforme d'hébergement**, déclenchant des routes internes protégées.
+> **DEC-028** : au MVP, les tâches planifiées utilisent les **Cron Jobs de la plateforme d'hébergement**, déclenchant des routes internes protégées.
 
 ```text
 Cron plateforme
