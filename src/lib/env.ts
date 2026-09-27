@@ -29,6 +29,26 @@ const envSchema = z.object({
     }, 'DATABASE_URL doit être une URL PostgreSQL, par exemple postgresql://user:pass@localhost:5432/base'),
 
   APP_URL: z.url('APP_URL doit être une URL absolue, par exemple http://localhost:3000'),
+
+  /**
+   * Signature des sessions et des jetons (ADR-006). Une rotation invalide
+   * toutes les sessions en cours : c'est un levier de sécurité, à utiliser
+   * sciemment.
+   *
+   * 32 caractères au minimum. Un secret court est la faiblesse qui rend
+   * l'ensemble du mécanisme de session attaquable, d'où un refus au démarrage
+   * plutôt qu'un avertissement ignoré.
+   */
+  BETTER_AUTH_SECRET: z.string().min(32, 'BETTER_AUTH_SECRET doit faire au moins 32 caractères'),
+
+  /**
+   * URL canonique utilisée par Better Auth (ADR-006). Vaut normalement APP_URL,
+   * mais reste distincte : derrière un proxy, l'URL vue par le navigateur n'est
+   * pas toujours celle de l'application.
+   */
+  BETTER_AUTH_URL: z.url(
+    'BETTER_AUTH_URL doit être une URL absolue, par exemple http://localhost:3000',
+  ),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -12,9 +12,17 @@ import * as schema from './schema';
  * connexion est un secret, et le frontend ne décide jamais d'un accès aux
  * données (ADR-001, ADR-007).
  *
- * L'instance est mise en cache sur l'objet global afin qu'un rechargement à
- * chaud en développement n'ouvre pas une connexion de plus à chaque
- * modification de fichier, ce qui finirait par saturer le pool.
+ * Volontairement exposée par des FONCTIONS et non par des constantes. Importer
+ * ce fichier ne doit ni lire l'environnement ni ouvrir une connexion, pour une
+ * raison très concrète : `next build` charge chaque route afin d'en collecter
+ * les métadonnées. Avec une constante de module, construire l'application
+ * exigerait une `DATABASE_URL` et un secret de session valides, et la CI
+ * échouerait faute de `.env`. Une compilation n'a pas besoin d'une base de
+ * données.
+ *
+ * L'instance est mise en cache afin qu'un rechargement à chaud en développement
+ * n'ouvre pas une connexion de plus à chaque modification de fichier, ce qui
+ * finirait par saturer le pool.
  */
 const globalForDb = globalThis as unknown as {
   simandouDbClient?: ReturnType<typeof postgres>;
@@ -32,19 +40,35 @@ function createClient() {
   });
 }
 
-const client = globalForDb.simandouDbClient ?? createClient();
+let client: ReturnType<typeof postgres> | undefined;
 
-if (process.env.NODE_ENV !== 'production') {
-  globalForDb.simandouDbClient = client;
+/** Client bas niveau. Utile pour fermer proprement la connexion d'un script. */
+export function getRawClient(): ReturnType<typeof postgres> {
+  client ??= globalForDb.simandouDbClient ?? createClient();
+
+  if (process.env.NODE_ENV !== 'production') {
+    globalForDb.simandouDbClient = client;
+  }
+
+  return client;
 }
 
-export const db = drizzle(client, {
-  schema,
-  // Les identifiants TypeScript sont en camelCase, les colonnes en snake_case.
-  // Doit rester identique à drizzle.config.ts, sinon les requêtes visent des
-  // colonnes inexistantes.
-  casing: 'snake_case',
-});
+function createDatabase() {
+  return drizzle(getRawClient(), {
+    schema,
+    // Les identifiants TypeScript sont en camelCase, les colonnes en snake_case.
+    // Doit rester identique à drizzle.config.ts, sinon les requêtes visent des
+    // colonnes inexistantes.
+    casing: 'snake_case',
+  });
+}
 
-export type Database = typeof db;
-export { client as rawClient };
+export type Database = ReturnType<typeof createDatabase>;
+
+let database: Database | undefined;
+
+/** Accès Drizzle applicatif, créé au premier usage. */
+export function getDb(): Database {
+  database ??= createDatabase();
+  return database;
+}
