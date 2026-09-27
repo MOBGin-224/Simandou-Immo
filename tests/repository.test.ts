@@ -35,6 +35,21 @@ describe('MVP-BACKLOG-001 : commandes de qualité du repository', () => {
   });
 });
 
+describe('Vérification des types exécutable sur une copie neuve', () => {
+  it('génère les types de routes Next avant de lancer tsc', () => {
+    // Next 16 expose `LayoutProps`, `PageProps` et `RouteContext` comme types
+    // globaux GÉNÉRÉS, écrits dans .next/types. Ce dossier est ignoré par git.
+    //
+    // Sur un poste où un serveur `next dev` tourne, ces types sont régénérés en
+    // continu et `tsc` seul réussit. Sur une copie neuve, en CI notamment, ils
+    // n'existent pas encore au moment du typecheck et `tsc` échoue avec
+    // « Cannot find name 'LayoutProps' ».
+    //
+    // Le script doit donc rester autonome. Ne pas retirer `next typegen`.
+    expect(packageJson.scripts?.typecheck).toContain('next typegen');
+  });
+});
+
 describe('MVP-ENG-003 : TypeScript strict', () => {
   const tsconfig = readFileSync(resolve(process.cwd(), 'tsconfig.json'), 'utf8');
 
