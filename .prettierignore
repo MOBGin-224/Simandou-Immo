@@ -3,4 +3,11 @@ node_modules
 package-lock.json
 public
 next-env.d.ts
+
+# Documentation : la mise en forme des tableaux et des blocs est délibérée.
 docs
+
+# Migrations et métadonnées produites par drizzle-kit. Les reformater créerait un
+# conflit permanent : l'outil les réécrit à chaque génération, et les marqueurs
+# `--> statement-breakpoint` du SQL sont significatifs.
+src/db/migrations

@@ -28,6 +28,9 @@ describe('MVP-BACKLOG-001 : commandes de qualité du repository', () => {
     'test',
     'format',
     'format:check',
+    'db:generate',
+    'db:migrate',
+    'db:seed',
   ];
 
   it.each(requiredScripts)('expose le script npm "%s"', (script) => {

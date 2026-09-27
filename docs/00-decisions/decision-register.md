@@ -121,6 +121,7 @@ Lorsqu'une contradiction est détectée, elle doit être corrigée dans le docum
 | DEC-032 | Fournisseur d'authentification : Better Auth | VERROUILLÉE | aucun |
 | DEC-033 | Fournisseur de stockage objet | OUVERTE | Lot Documents |
 | DEC-034 | Fournisseur de paiement | OUVERTE | Paiement digital |
+| DEC-035 | Base de données des tests : PGlite | VERROUILLÉE | aucun |
 
 ---
 
@@ -633,6 +634,49 @@ Le mécanisme de récupération de compte reste dépendant d'un canal de communi
 La version exacte et la compatibilité avec Next.js 16 et React 19 doivent être vérifiées au moment de l'installation, au lot Authentification. Si une incompatibilité bloquante apparaît, elle constitue une nouvelle décision à porter au registre, pas un contournement silencieux.
 
 ---
+
+## DEC-035 : Base de données des tests automatisés
+
+**Statut** : VERROUILLÉE
+
+**Date** : 27 septembre 2026
+
+**Décision du fondateur** :
+
+```text
+PGlite pour les tests automatisés.
+Docker reste la base de développement (DEC-007, inchangée).
+```
+
+### Le problème
+
+Les invariants du produit vivent dans la base : contraintes `CHECK`, clés étrangères en `RESTRICT`, unicités, énumérations. Les tester avec des doublures ne prouve rien, puisque ce sont précisément ces contraintes que l'on veut vérifier.
+
+Faire dépendre les tests d'un serveur PostgreSQL pose deux problèmes : la CI n'en a pas, et un poste de développement neuf ne peut rien exécuter avant une installation.
+
+### La décision
+
+**PGlite**, PostgreSQL compilé en WebAssembly, exécuté dans le processus de test.
+
+Les tests appliquent la **vraie migration** de `src/db/migrations`. Les contraintes vérifiées sont donc celles que la production appliquera.
+
+### Ce que cette décision ne change pas
+
+DEC-007 reste intacte. La base de **développement** est PostgreSQL via Docker.
+
+PGlite n'est pas un environnement, c'est un outil de test. Il n'apparaît ni dans la liste des environnements, ni dans le déploiement.
+
+### Limite à respecter
+
+PGlite n'est pas identique à un serveur PostgreSQL : extensions, réglages serveur et comportements de concurrence peuvent différer.
+
+Un comportement qui dépend de l'un de ces trois points doit être validé sur le vrai moteur, en local ou en staging, et non considéré comme acquis parce qu'un test PGlite passe.
+
+### Conséquence outillage
+
+`tsx` est ajouté en dépendance de développement pour exécuter les scripts TypeScript, dont le seed. Node 24 sait exécuter du TypeScript nativement, mais exige l'extension `.ts` dans les imports relatifs, ce qui imposerait d'activer `allowImportingTsExtensions` et rendrait les imports incohérents entre le code applicatif et les scripts.
+
+**Appliqué dans** : `tests/helpers/database.ts`, `src/db/seed.ts`, Testing Strategy.
 
 ---
 
@@ -1379,3 +1423,4 @@ Toute fonctionnalité reste gouvernée par le Master Product Specification et le
 | 1.2 | 2026-09-26 | Verrouillage de DEC-032 : l'authentification est assurée par **Better Auth** avec son adaptateur Drizzle, tables dans notre PostgreSQL, identification téléphone et mot de passe, aucune adhérence à Supabase Auth. DEC-032 déplacée de la section 7 vers la section 5. Il ne reste que DEC-033 et DEC-034 ouvertes. |
 | 1.3 | 2026-09-26 | Lot 0 exécuté. Les 33 documents sont réorganisés dans `docs/` selon la structure du Master §48, avec un dossier `08-execution/` ajouté pour les documents d'exécution. Les douze ADR (ADR-001 à ADR-012) sont rédigées dans `docs/architecture/adr/`, dont ADR-006 pour Better Auth. La table d'ADR dupliquée de la gouvernance d'architecture est remplacée par un renvoi vers l'index unique du dossier ADR, et ses sections 14 à 19 sont fusionnées en une section de correspondance. |
 | 1.4 | 2026-09-27 | Suppression des 198 tirets cadratins répartis dans 28 documents, selon une règle par rôle syntaxique : deux-points quand le second membre définit le premier, virgule pour une incise, parenthèses pour une référence, mot explicite dans une cellule de tableau vide. La convention est inscrite dans les standards d'ingénierie sous MVP-ENG-093-bis, avec une commande de contrôle vérifiée. Aucune règle métier modifiée. |
+| 1.5 | 2026-09-27 | Lot 1 exécuté. Enregistrement de DEC-035 : les tests automatisés utilisent PGlite, PostgreSQL en WebAssembly, et appliquent la vraie migration ; DEC-007 reste inchangée, Docker demeure la base de développement. Ajout de `tsx` pour l'exécution des scripts TypeScript. Correction d'un double séparateur en fin de section 5. |
