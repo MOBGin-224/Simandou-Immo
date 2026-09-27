@@ -327,3 +327,109 @@ export async function signInWithPhone(
     }
   }
 }
+
+/**
+ * Lit le code d'erreur du CORPS d'une réponse de Better Auth.
+ *
+ * Distinct de `apiErrorCode`, qui lit une exception : avec `asResponse`, un échec
+ * n'est pas levé mais renvoyé comme réponse HTTP.
+ */
+async function responseErrorCode(response: Response): Promise<string | undefined> {
+  try {
+    const body: unknown = await response.json();
+
+    if (typeof body !== 'object' || body === null) return undefined;
+
+    const code = (body as { code?: unknown }).code;
+
+    return typeof code === 'string' ? code : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Session créée, avec les en-têtes `Set-Cookie` qui la matérialisent. */
+export type SignInSessionResult = {
+  user: AuthenticatedUser;
+  /** À recopier tels quels dans la réponse de la route appelante. */
+  cookies: string[];
+};
+
+/**
+ * Connexion destinée à un formulaire HTML (DEC-032).
+ *
+ * Pourquoi cette fonction en plus de `signInWithPhone` : un formulaire a besoin
+ * du COOKIE de session, pas du jeton. Le cookie est signé, il n'est donc pas égal
+ * au jeton, et le reconstruire à la main produirait une session que la production
+ * ne reconnaîtrait pas. Passer par `asResponse` récupère exactement l'en-tête que
+ * la bibliothèque aurait posé.
+ *
+ * Better Auth reste confiné à ce module : la route appelante ne voit que des
+ * chaînes de cookies à recopier (DEC-032).
+ *
+ * Le greffon `nextCookies()` n'est toujours pas nécessaire : il sert à poser un
+ * cookie depuis une Server Action, où les en-têtes ne sont pas accessibles. Un
+ * gestionnaire de route, lui, écrit ses en-têtes lui-même.
+ */
+export async function signInWithPhoneSession(
+  auth: AuthInstance,
+  input: { phone: string; password: string },
+): Promise<SignInSessionResult> {
+  const response = await auth.api.signInPhoneNumber({
+    body: { phoneNumber: input.phone, password: input.password },
+    asResponse: true,
+  });
+
+  if (!response.ok) {
+    switch (await responseErrorCode(response)) {
+      case 'FAILED_TO_CREATE_SESSION':
+        throw new AccountNotActiveError();
+
+      case 'INVALID_PHONE_NUMBER_OR_PASSWORD':
+      case 'INVALID_PHONE_NUMBER':
+      case 'PASSWORD_TOO_LONG':
+        throw new InvalidCredentialsError();
+
+      default:
+        throw new InvalidCredentialsError();
+    }
+  }
+
+  const body: unknown = await response.json();
+  const user = (body as { user?: Record<string, unknown> }).user ?? {};
+
+  return {
+    user: {
+      id: String(user.id ?? ''),
+      fullName: String(user.name ?? ''),
+      phone: typeof user.phoneNumber === 'string' ? user.phoneNumber : null,
+      email: typeof user.email === 'string' ? user.email : null,
+      // Nécessairement ACTIF : le hook de création de session refuse tout autre
+      // statut, donc ce chemin serait passé par le refus ci-dessus.
+      status: 'ACTIVE',
+    },
+    cookies: response.headers.getSetCookie(),
+  };
+}
+
+/**
+ * Déconnexion destinée à un formulaire HTML.
+ *
+ * Renvoie les cookies d'EFFACEMENT. Sans eux, la session serait révoquée côté
+ * serveur mais le navigateur conserverait son cookie, et l'utilisateur verrait un
+ * écran de connexion alors qu'il se croit encore connecté.
+ *
+ * Idempotent : sans session, il n'y a rien à révoquer et la liste est vide.
+ */
+export async function endSessionWithCookies(
+  auth: AuthInstance,
+  headers: Headers,
+): Promise<string[]> {
+  const session = await auth.api.getSession({ headers });
+
+  if (!session) return [];
+
+  const response = await auth.api.signOut({ headers, asResponse: true });
+
+  return response.headers.getSetCookie();
+}

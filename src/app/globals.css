@@ -1,26 +1,88 @@
 @import 'tailwindcss';
 
+/*
+ * Design tokens de SIMANDOU IMMO (DEC-012, Design System section 2).
+ *
+ * La charte visuelle est verrouillée : ces valeurs viennent du document et ne se
+ * recopient JAMAIS en dur dans un composant (règle d'implémentation 2.6). Un
+ * composant écrit `bg-action`, jamais `bg-[#138A8A]`.
+ *
+ * Correspondance avec les noms du document :
+ *
+ *   color.brand.navy      -> brand
+ *   color.action.primary  -> action
+ *   color.action.secondary-> action-soft
+ *   color.background      -> canvas
+ *   color.surface         -> surface
+ *   color.text.primary    -> ink
+ *   color.text.muted      -> muted
+ *   color.border.default  -> line
+ *   color.status.*        -> success, warning, danger, info
+ *
+ * Les points des noms du document sont impossibles en Tailwind : un nom plat par
+ * token est le seul choix, et cette table garde la traçabilité.
+ *
+ * Aucun thème sombre. La charte n'en définit pas, et en inventer un anticiperait
+ * le Design System final (Lot 23) avec des valeurs que personne n'a validées.
+ */
+@theme {
+  --color-brand: #123b4a;
+  --color-action: #138a8a;
+  --color-action-soft: #2b9a8f;
+  --color-canvas: #f7f9f8;
+  --color-surface: #ffffff;
+  --color-ink: #172126;
+  --color-muted: #66747a;
+  --color-line: #dce4e5;
+
+  --color-success: #18794e;
+  --color-warning: #a15c00;
+  --color-danger: #b42318;
+  --color-info: #1769aa;
+
+  /* Inter pour le contenu, Manrope pour l'identité, les titres et les montants. */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-manrope), var(--font-inter), ui-sans-serif, sans-serif;
+
+  /* Formes contemporaines, légèrement arrondies, jamais enfantines (MVP-UI-013). */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+
+  /* Élévation au service de la hiérarchie, pas de la décoration (MVP-UI-015). */
+  --shadow-sm: 0 1px 2px 0 rgb(23 33 38 / 0.05);
+  --shadow-md: 0 2px 8px -2px rgb(23 33 38 / 0.08);
+  --shadow-lg: 0 8px 24px -8px rgb(23 33 38 / 0.12);
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  color-scheme: light;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--color-canvas);
+  color: var(--color-ink);
+}
+
+/*
+ * Cible tactile minimale de 44 px (Design System 2.4), appliquée aux commandes
+ * plutôt que laissée à la vigilance de chaque écran.
+ */
+@layer base {
+  button,
+  a[role='button'],
+  input[type='submit'] {
+    touch-action: manipulation;
+  }
+
+  /*
+   * Anneau de focus visible partout. L'accessibilité minimale n'est pas
+   * négociable (UI-007), et le retirer pour « faire propre » casse la navigation
+   * au clavier.
+   */
+  :focus-visible {
+    outline: 2px solid var(--color-action);
+    outline-offset: 2px;
+  }
 }

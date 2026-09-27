@@ -72,9 +72,10 @@ describe('Association des rôles', () => {
   });
 
   /**
-   * Ces exclusions sont les interprétations documentées de la matrice, celle-ci
-   * ne parlant pas en `resource.action`. Les figer ici rend tout changement
-   * visible en revue plutôt que silencieux.
+   * Ces exclusions résolvaient la mention « selon droits » de la matrice, qui ne
+   * parle pas en `resource.action`. Elles sont confirmées depuis le 27 septembre
+   * 2026 (DEC-025). Les figer ici rend tout changement visible en revue plutôt
+   * que silencieux.
    */
   const MANAGER_MUST_NOT_HAVE: Permission[] = [
     'property.create',

@@ -20,6 +20,13 @@ export { membershipsIn, organizationsOf } from './access-context';
 export type { Permission, Role } from './permissions';
 export { PERMISSIONS, ROLE_PERMISSIONS, roleHasPermission } from './permissions';
 
+export type { PropertyScope } from './list-scope';
+export {
+  hasNoReadableScope,
+  organizationsWhereAllowed,
+  readablePropertyScopes,
+} from './list-scope';
+
 export type { Decision, DenialReason, ResourceRef } from './service';
 export {
   PermissionDeniedError,

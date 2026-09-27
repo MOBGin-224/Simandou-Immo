@@ -172,7 +172,7 @@ describe('Isolation multi-tenant', () => {
   });
 
   it('permet de vérifier le périmètre sans jointure', async () => {
-    const { db, schema } = harness;
+    const { db } = harness;
 
     // organization_id est dénormalisé sur les appartements précisément pour que
     // la vérification d'accès ne nécessite aucune jointure (ADR-007).

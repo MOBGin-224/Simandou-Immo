@@ -122,6 +122,8 @@ Lorsqu'une contradiction est détectée, elle doit être corrigée dans le docum
 | DEC-033 | Fournisseur de stockage objet | OUVERTE | Lot Documents |
 | DEC-034 | Fournisseur de paiement | OUVERTE | Paiement digital |
 | DEC-035 | Base de données des tests : PGlite | VERROUILLÉE | aucun |
+| DEC-036 | Formulaires et mutations de l'interface | DÉDUITE | aucun |
+| DEC-037 | Socle d'interface introduit au Lot 4 | DÉDUITE | aucun |
 
 ---
 
@@ -713,11 +715,11 @@ Un comportement qui dépend de l'un de ces trois points doit être validé sur l
 
 # 6. Décisions consolidées
 
-Cette section regroupe les décisions issues de la consolidation documentaire.
+Cette section regroupe les décisions issues de la consolidation documentaire, ainsi que les décisions déduites apparues à l'exécution des lots.
 
 La **majorité a été explicitement verrouillée par le fondateur** : elles portent le statut VERROUILLÉE et ne sont plus réversibles sans nouvelle décision de sa part.
 
-Quatre d'entre elles conservent le statut DÉDUITE, **DEC-021, DEC-024, DEC-028, DEC-030**. Elles relèvent de choix d'implémentation sans impact produit, et restent réversibles.
+Six d'entre elles conservent le statut DÉDUITE, **DEC-021, DEC-024, DEC-028, DEC-030, DEC-036, DEC-037**. Elles relèvent de choix d'implémentation sans impact produit, et restent réversibles.
 
 Chaque fiche indique son impact en cas de changement.
 
@@ -1195,13 +1197,13 @@ Le service d'autorisation conserve la signature `can(user, permission, resource)
 
 À confirmer avant le lot **Gestionnaires**, car c'est à ce moment que l'écran d'invitation et l'attribution de périmètre sont construits.
 
-### Résolution de la mention « selon droits », 27 septembre 2026, À CONFIRMER
+### Résolution de la mention « selon droits », 27 septembre 2026, CONFIRMÉE
 
 La matrice globale des rôles porte la mention « selon droits » sur sept lignes du gestionnaire. Cette mention visait la délégation fine que DEC-025 abandonne : elle n'a donc plus de référent, et le Lot 3 devait la résoudre pour écrire le catalogue en code.
 
 **Ce qui n'est pas une interprétation** : tous les gestionnaires d'une organisation disposent du même ensemble de capacités, et « selon droits » ne peut donc plus signifier qu'une chose, la borne du périmètre d'immeubles.
 
-**Ce qui est une interprétation**, et que le fondateur doit valider avant le lot **Gestionnaires** :
+**Ce qui était une interprétation, et que le fondateur a CONFIRMÉE le 27 septembre 2026** :
 
 | Permission | Décision retenue | Sur quoi elle s'appuie |
 |---|---|---|
@@ -1212,6 +1214,10 @@ La matrice globale des rôles porte la mention « selon droits » sur sept ligne
 | `audit.read` | Propriétaire seul | Le journal d'audit est une donnée de sécurité, et aucun document ne l'ouvre au gestionnaire |
 
 Chacune se modifie en ajoutant une ligne dans `src/lib/authorization/permissions.ts`, et un test fige aujourd'hui chaque exclusion afin qu'un changement soit visible en revue.
+
+**Portée exacte de la confirmation** : ces cinq permissions, et elles seules. La question du gestionnaire principal et du gestionnaire secondaire, classée Future Evolution au point 6 ci-dessus, reste à confirmer avant le lot **Gestionnaires** : c'est pourquoi DEC-025 continue de le bloquer.
+
+**Une formulation du PRD ne rouvre pas le sujet.** Le PRD section 10.3 écrit que « le propriétaire ou un gestionnaire autorisé » peut créer un immeuble. Cette formulation désignait la délégation fine qu'abandonne le point 1 de DEC-025 : elle est sans référent depuis, et ne constitue pas une contradiction.
 
 ### Deux conséquences du modèle à deux dimensions
 
@@ -1381,6 +1387,101 @@ Les listes de références et les tableaux d'état des documents sont corrigés 
 
 ---
 
+## DEC-036 : Formulaires et mutations de l'interface
+
+**Statut** : DÉDUITE
+
+**Date** : 27 septembre 2026
+
+### Le problème
+
+MVP-ENG-013 retient **React Hook Form** pour les formulaires. Or cette liste a été écrite avant le choix de Next 16 et React 19 (DEC-006), qui offrent les **Server Actions** et `useActionState`. Trois questions se posaient donc au premier écran : par quel mécanisme une mutation part de l'interface, où la validation est appliquée, et faut-il installer une bibliothèque de formulaires.
+
+### La décision
+
+**Les mutations d'interface passent par des Server Actions**, qui appellent exactement les mêmes cas d'usage que les routes HTTP. Une règle ne peut donc pas exister d'un côté et manquer de l'autre.
+
+**La validation Zod est appliquée DANS le cas d'usage**, et non dans la route ni dans l'action. C'est ce qui garantit qu'aucun appelant ne peut l'oublier, et c'est la lecture stricte de « le schéma est appliqué avant la logique métier » (API section 47).
+
+**L'état d'un formulaire vient de `useActionState`**, et l'état de soumission de `useFormStatus`. Les messages par champ sont renvoyés par le serveur, jamais recalculés côté client.
+
+**React Hook Form n'est pas installé à ce lot.** Les formulaires d'immeuble comptent cinq champs sans dépendance entre eux : la bibliothèque n'apporterait rien qu'une dépendance de plus. Elle reste disponible pour un formulaire qui le justifiera, par exemple la création groupée d'appartements, dont les champs sont dynamiques.
+
+**Tout formulaire fonctionne sans JavaScript.** Sur un réseau mobile guinéen, un script peut ne jamais arriver : la soumission native reste le comportement de repli, et la connexion passe pour cette raison par un gestionnaire de route et non par une Server Action.
+
+### Conséquence sur l'autorisation
+
+Une Server Action est joignable par une requête POST directe, indépendamment de l'écran qui l'expose. Chacune vérifie donc l'autorisation pour son propre compte. **Un bouton masqué n'est pas une sécurité**, il n'est qu'une honnêteté d'interface.
+
+### Impact si changé
+
+Introduire React Hook Form est additif et se fait formulaire par formulaire. Le contrat avec le serveur ne change pas, la validation restant côté serveur.
+
+**Appliqué dans** : `src/app/(app)/immeubles/actions.ts`, `src/components/property/`, `src/modules/properties/service.ts`.
+
+---
+
+## DEC-037 : Socle d'interface introduit au Lot 4
+
+**Statut** : DÉDUITE
+
+**Date** : 27 septembre 2026
+
+### Le problème
+
+Trois documents se contredisaient en apparence. Le Lot 23 s'appelle « Design System Implementation », donc l'interface semblait devoir attendre. MVP-BACKLOG-018 exige pourtant les écrans d'immeuble au Lot 4. Et la Component Specification section 88 interdit explicitement de développer des écrans avant les primitives.
+
+S'ajoutait la lacune consignée par DEC-030 : la **Screen & UX Specification n'existe pas**, et devait être produite écran par écran avant les tickets d'interface. Elle ne l'a pas été.
+
+### La décision
+
+**Le socle strictement nécessaire aux écrans du Lot 4 est construit maintenant**, dans l'ordre imposé par la section 88 : tokens, typographie, boutons, champs, navigation, cartes, statuts, retours, puis écrans.
+
+**Les tokens sont ceux de la charte verrouillée** (DEC-012), exposés dans `globals.css` par le mécanisme `@theme` de Tailwind 4. Aucun composant ne contient de couleur littérale. Une table de correspondance entre les noms du document, en `color.action.primary`, et les noms Tailwind, en `action`, est inscrite dans le fichier : les points sont impossibles dans un nom de classe.
+
+Primitives créées : `Button`, `SubmitButton`, `Field`, `Input`, `Textarea`, `Card`, `Badge`, `PropertyStatusBadge`, `Alert`, `EmptyState`, `PageHeader`, `AppHeader`, `PropertyCard`.
+
+### Écrans livrés, qui tiennent lieu de spécification d'écran
+
+En l'absence de Screen & UX Specification, cette liste est la référence jusqu'à ce que le Lot 22 ou 23 la remplace. Elle est dérivée de l'Information Architecture sections 4 et 5.3, de la Component Specification sections 23, 39, 45 et 60, du parcours 2 des User Flows et du PRD section 10.3.
+
+```text
+/connexion                          telephone et mot de passe, sans inscription
+/immeubles                          liste, recherche, filtre actifs/archives/tous, pagination
+/immeubles/nouveau                  creation, proprietaire seul
+/immeubles/[id]                     fiche, informations, occupation, actions
+/immeubles/[id]/modifier            modification, gestionnaire compris
+/immeubles/[id]/archiver            confirmation d'archivage, proprietaire seul
+```
+
+Recherche, filtre et page vivent dans l'**URL** et non dans un état local : l'écran est partageable, le bouton retour fonctionne, et la recherche marche sans JavaScript.
+
+### L'écran de connexion, livré hors périmètre du ticket
+
+Le Lot 2 a construit le service d'authentification, pas son interface, et aucun ticket ne demande d'écran de connexion. Sans lui, **les écrans de ce lot sont inatteignables par un humain**, donc MVP-BACKLOG-018 serait invérifiable. Il est donc livré, réduit au strict nécessaire. Le parcours complet, activation d'une invitation comprise, reste au lot Gestionnaires (ADR-008, DEC-026).
+
+### Ce qui est délibérément reporté
+
+| Élément | Raison |
+|---|---|
+| `BottomNavigation` | Le produit n'a qu'une destination à ce lot. Une barre d'onglets à une entrée est un ornement. Elle arrive au lot Appartements. |
+| Thème sombre | La charte n'en définit pas. En inventer un anticiperait le Lot 23 avec des valeurs que personne n'a validées. |
+| `Toast`, `Skeleton`, `Modal`, `BottomSheet` | Aucun écran de ce lot n'en a besoin : la confirmation d'archivage est une page, plus lisible sur téléphone et fonctionnelle sans JavaScript. |
+| Tests de rendu de composants | `jsdom` et React Testing Library ne sont pas installés. MVP-BACKLOG-019 demande des tests de création, modification, archivage, permissions et isolation, qui sont tous des tests de cas d'usage. |
+| Indicateur financier de `PropertyCard` | Aucun montant n'existe avant le lot Loyers. Un zéro serait lu comme une information. |
+
+### Le chrome ne porte pas d'identité
+
+L'en-tête affiche le **rôle** de l'utilisateur, jamais son nom. Ce qui sert en permanence est le point de vue depuis lequel les données se lisent, puisqu'il commande le périmètre visible. Bénéfice secondaire réel : une capture d'écran qui circule ne divulgue pas l'identité d'un agent.
+
+### Impact si changé
+
+Le Lot 23 consolidera ces primitives. Les valeurs de couleur et de typographie étant déjà celles de la charte verrouillée, un changement portera sur les composants, pas sur la palette.
+
+**Appliqué dans** : `src/app/globals.css`, `src/app/layout.tsx`, `src/components/`, `src/app/(app)/`, `src/app/connexion/`.
+
+---
+
 # 7. Décisions ouvertes
 
 Ces décisions nécessitent une validation explicite du fondateur.
@@ -1492,3 +1593,4 @@ Toute fonctionnalité reste gouvernée par le Master Product Specification et le
 | 1.5 | 2026-09-27 | Lot 1 exécuté. Enregistrement de DEC-035 : les tests automatisés utilisent PGlite, PostgreSQL en WebAssembly, et appliquent la vraie migration ; DEC-007 reste inchangée, Docker demeure la base de développement. Ajout de `tsx` pour l'exécution des scripts TypeScript. Correction d'un double séparateur en fin de section 5. |
 | 1.6 | 2026-09-27 | Lot 2 exécuté. Consignation du résultat de la vérification exigée par DEC-032 : `better-auth` 1.7.6 est compatible avec Next 16.3.5 et React 19.2.8, aucune incompatibilité bloquante, donc aucune décision nouvelle. Téléphone et mot de passe sans OTP confirmés supportés nativement. `users.email` reste facultatif. Trois colonnes exigées par la bibliothèque ajoutées à `users` : `phone_verified`, `email_verified`, `image`. Connexion et inscription par email désactivées. Contrôle métier ajouté : un compte non ACTIF ou archivé n'obtient aucune session. |
 | 1.7 | 2026-09-27 | Lot 3 exécuté. Le catalogue des 41 permissions et son association aux rôles sont écrits en code, et un test compare le catalogue à la liste de `database.md` section 11 afin que code et document ne puissent plus diverger. Résolution de la mention « selon droits » de la matrice, devenue sans référent depuis DEC-025 : cinq permissions sont réservées au propriétaire, `property.create`, `property.archive`, les trois `manager.*` en écriture, `manager.read` et `audit.read`. **Ces interprétations sont à confirmer avant le lot Gestionnaires.** Deux conséquences consignées : un gestionnaire n'atteint aucune ressource de niveau organisation, et un locataire n'atteint que ses propres données jusqu'au lot Contrats. Le service distingue `out-of-scope`, à traduire en NOT_FOUND, de `permission-denied`, à traduire en FORBIDDEN. |
+| 1.8 | 2026-09-27 | Lot 4 exécuté, premier lot qui produit des écrans. **Confirmation par le fondateur de la résolution « selon droits » de DEC-025** : les cinq permissions restent réservées au propriétaire, `property.create` et `property.archive` comprises. La question du gestionnaire principal et secondaire reste ouverte, donc DEC-025 continue de bloquer le lot Gestionnaires. La formulation « ou un gestionnaire autorisé » du PRD section 10.3 est consignée comme sans référent depuis l'abandon de la délégation fine, et non comme une contradiction. Enregistrement de **DEC-036**, formulaires et mutations par Server Actions avec validation Zod dans le cas d'usage, React Hook Form non installé, fonctionnement sans JavaScript garanti. Enregistrement de **DEC-037**, socle d'interface introduit maintenant selon l'ordre imposé par la Component Specification section 88 : la liste des six écrans livrés y tient lieu de spécification d'écran, en attendant de combler la lacune consignée par DEC-030. Le périmètre de lecture des collections est dérivé du point de décision unique et non réécrit, et un test confronte ce filtre à `can()` sur les 41 permissions. L'écran de connexion est livré hors périmètre du ticket, faute de quoi MVP-BACKLOG-018 serait invérifiable. Deux défauts corrigés au passage : les fonctions de `@/lib/auth` lisaient l'environnement avant `headers()`, ce qui faisait échouer `next build` sur le pré-rendu de la connexion, et une surface client distincte du module Immeubles évite d'embarquer le pilote PostgreSQL dans le navigateur. |
