@@ -1,36 +1,176 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SIMANDOU IMMO
 
-## Getting Started
+SaaS de gestion opérationnelle des immeubles et biens locatifs, adapté au contexte guinéen.
 
-First, run the development server:
+> **Complexe technologiquement. Simple humainement.**
+
+Produit **mobile first** : tout parcours est conçu d'abord pour smartphone, puis adapté au responsive tablette et desktop.
+
+SIMANDOU IMMO est un projet **distinct de SIMANDOU SEJOUR**. Les deux ne partagent ni code, ni base de données, ni périmètre.
+
+---
+
+## État du projet
+
+|                 |                                             |
+| --------------- | ------------------------------------------- |
+| Phase           | Lot 0 terminé, développement du MVP à venir |
+| Documentation   | 33 documents consolidés dans `docs/`        |
+| Code métier     | Aucun à ce stade                            |
+| Base de données | Aucune migration à ce stade                 |
+
+La documentation est la **source de vérité** fonctionnelle, produit, UX, technique et opérationnelle. Elle précède le code, et non l'inverse.
+
+---
+
+## Stack
+
+| Couche           | Choix                               |
+| ---------------- | ----------------------------------- |
+| Framework        | Next.js 16, App Router              |
+| UI               | React 19, Tailwind CSS 4, shadcn/ui |
+| Langage          | TypeScript strict                   |
+| Base de données  | PostgreSQL                          |
+| ORM              | Drizzle                             |
+| Validation       | Zod                                 |
+| Formulaires      | React Hook Form                     |
+| Authentification | Better Auth                         |
+| Tests            | Vitest                              |
+| Hébergement      | Vercel                              |
+
+Architecture : **modular monolith**, un seul repository, pas de microservices.
+
+PostgreSQL est la source de vérité. Supabase n'est utilisé que comme **hébergeur PostgreSQL managé** : l'accès aux données passe exclusivement par Drizzle, jamais par une API propriétaire Supabase.
+
+---
+
+## Prérequis
+
+- Node.js 24 ou supérieur
+- npm 11 ou supérieur
+- Docker, à partir du Lot 1, pour le PostgreSQL local
+
+---
+
+## Démarrage
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+L'application démarre sur http://localhost:3000.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Aucune variable d'environnement n'est requise à ce stade. Elles apparaîtront au Lot 1 avec la base de données.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+---
 
-## Learn More
+## Commandes
 
-To learn more about Next.js, take a look at the following resources:
+| Commande               | Rôle                                  |
+| ---------------------- | ------------------------------------- |
+| `npm run dev`          | Serveur de développement              |
+| `npm run build`        | Build de production                   |
+| `npm run start`        | Serveur de production                 |
+| `npm run lint`         | ESLint                                |
+| `npm run typecheck`    | Vérification des types, sans émission |
+| `npm run test`         | Tests, une passe                      |
+| `npm run test:watch`   | Tests en observation continue         |
+| `npm run format`       | Formatage Prettier                    |
+| `npm run format:check` | Vérification du formatage             |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+La CI exécute `lint`, `typecheck`, `format:check`, `test` puis `build`. Une Pull Request qui échoue sur l'une de ces étapes est bloquée.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
-## Deploy on Vercel
+## Structure
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Structure actuelle :
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```text
+docs/                 documentation de référence
+src/app/              App Router
+tests/                tests
+.github/workflows/    CI
+```
+
+Structure cible, créée **au fur et à mesure** des besoins réels :
+
+```text
+src/
+├── app/              routes et écrans
+├── components/       composants partagés
+├── modules/          modules métier, un par domaine
+├── lib/              utilitaires transverses
+└── db/               schéma Drizzle et migrations
+```
+
+Règle appliquée : aucun dossier n'est créé avant d'avoir un contenu réel. Pas de squelette vide.
+
+---
+
+## Documentation
+
+Point d'entrée obligatoire : **`docs/00-decisions/decision-register.md`**.
+
+Ce registre indique, pour chaque décision produit ou technique, si elle est **verrouillée**, **consolidée** ou **encore ouverte**. Il fait autorité sur le statut d'une décision.
+
+| Dossier                  | Contenu                                                                               |
+| ------------------------ | ------------------------------------------------------------------------------------- |
+| `docs/00-decisions/`     | Registre des décisions                                                                |
+| `docs/01-product/`       | Vision, PRD, spécification maîtresse, périmètre MVP                                   |
+| `docs/02-ux/`            | Parcours, architecture de l'information, design system, identité visuelle, composants |
+| `docs/03-domain/`        | Rôles et permissions, règles métier, glossaire                                        |
+| `docs/04-technical/`     | API, base de données, standards, gouvernance d'architecture, intégrations             |
+| `docs/05-security/`      | Sécurité, protection des données, accessibilité                                       |
+| `docs/06-quality/`       | Tests, recette, traçabilité                                                           |
+| `docs/07-operations/`    | Déploiement, supervision, performance, reprise, maintenance                           |
+| `docs/08-execution/`     | Plan de développement, backlog, dossier de passation                                  |
+| `docs/architecture/adr/` | Architecture Decision Records                                                         |
+
+### Ordre d'autorité
+
+En cas de contradiction entre deux documents :
+
+```text
+1. Product & Technical Decision Register
+2. Master Product Specification
+3. MVP Scope & Feature Matrix
+4. Business Rules
+5. Security & Access Control
+6. Database Schema & Migration
+7. API & Backend
+8. UX, architecture de l'information, design system, composants
+9. Standards, implémentation, QA, DevOps, exploitation
+```
+
+Un document de rang inférieur ne peut jamais contredire un document de rang supérieur. Toute contradiction constatée se corrige dans le document de rang inférieur.
+
+---
+
+## Règles non négociables
+
+Ces règles sont détaillées dans `docs/`. Elles sont rappelées ici parce qu'aucune contribution ne peut s'en écarter.
+
+1. **Le backend décide.** Le frontend ne détermine jamais une permission, un montant, un statut ou une allocation.
+2. **Autorisation systématique côté serveur**, sur le rôle et le périmètre. Connaître un identifiant ne donne jamais accès à une ressource.
+3. **Isolation stricte entre organisations.**
+4. **Archiver, terminer, révoquer : jamais détruire.** Aucun historique n'est supprimé.
+5. **Montants en entier**, dans la plus petite unité de la devise, avec devise explicite. Jamais de nombre à virgule flottante dans un calcul financier.
+6. **Idempotence financière.** Une opération répétée ne crée jamais deux paiements.
+7. **Fournisseurs externes derrière un adapter.** Aucun module métier n'appelle directement un SDK tiers, authentification comprise.
+8. **Mobile first.** Concevoir pour desktop puis comprimer est interdit.
+
+---
+
+## Périmètre
+
+Le périmètre du MVP est fixé par `docs/01-product/mvp-scope.md`.
+
+Toute capacité qui n'y figure pas est hors périmètre, même utile. Une demande isolée ne modifie pas le périmètre : elle passe par le registre de décisions.
+
+---
+
+## Note sur Next.js
+
+Ce projet utilise Next.js 16. Les conventions de cette version peuvent différer des exemples génériques. Consulter `node_modules/next/dist/docs/` avant d'écrire du code Next.js, comme l'indique `AGENTS.md`.
