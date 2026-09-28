@@ -71,6 +71,24 @@ Le seed crée trois comptes actifs, dont le mot de passe est `simandou-dev-2026`
 
 Les variables requises sont validées au démarrage, avec un message qui les nomme toutes en une fois. Voir `.env.example`.
 
+### Sans Docker
+
+Si Docker ne démarre pas, par exemple parce que la virtualisation est désactivée dans le
+microprogramme de la machine, une base de secours sert le même moteur que les tests sur le
+port 5432 (DEC-038) :
+
+```bash
+npm run db:pglite     # laisser tourner dans son propre terminal
+npm run db:migrate
+npm run db:seed
+npm run dev
+```
+
+Cette base ne sert **qu'une connexion à la fois** : arrêter le serveur de développement avant
+de lancer `db:seed` ou `db:studio`. Les données vivent dans `.pglite/`, ignoré par git.
+
+---
+
 **Les tests n'ont besoin d'aucun serveur.** Ils utilisent PGlite, PostgreSQL compilé en WebAssembly, et appliquent la vraie migration (DEC-035).
 
 ---

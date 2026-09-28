@@ -32,7 +32,11 @@ export function Field({ id, label, errors, hint, required, children }: FieldProp
   const hasError = Boolean(errors && errors.length > 0);
   const hintId = hint ? `${id}-hint` : undefined;
   const errorId = hasError ? `${id}-error` : undefined;
-  const describedBy = [hintId, errorId].filter(Boolean).join(' ') || undefined;
+
+  // L'erreur est annoncée AVANT l'aide, comme elle est affichée avant elle :
+  // entendre deux lignes d'explication avant de savoir ce qui ne va pas fait
+  // perdre le message à qui navigue à l'oreille.
+  const describedBy = [errorId, hintId].filter(Boolean).join(' ') || undefined;
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -43,7 +47,10 @@ export function Field({ id, label, errors, hint, required, children }: FieldProp
             {' *'}
           </span>
         ) : (
-          <span className="ml-1 text-xs font-normal text-muted">(facultatif)</span>
+          // L'espace fait partie du TEXTE et non de la marge : le nom accessible
+          // du champ concatène le contenu, et une marge CSS n'y produit aucune
+          // séparation. Sans elle, le champ s'annonce « Quartier(facultatif) ».
+          <span className="text-xs font-normal text-muted">{' (facultatif)'}</span>
         )}
       </label>
 
@@ -53,15 +60,20 @@ export function Field({ id, label, errors, hint, required, children }: FieldProp
         'aria-invalid': hasError ? true : undefined,
       })}
 
-      {hint ? (
-        <p id={hintId} className="text-xs text-muted">
-          {hint}
-        </p>
-      ) : null}
-
+      {/*
+        L'erreur est placée juste sous le champ, avant l'aide : c'est ce que
+        l'utilisateur doit lire en premier après un refus, et l'intercaler après
+        deux lignes d'aide l'éloigne du champ fautif.
+      */}
       {hasError ? (
         <p id={errorId} className="text-sm text-danger">
           {errors?.join(' ')}
+        </p>
+      ) : null}
+
+      {hint ? (
+        <p id={hintId} className="text-xs text-muted">
+          {hint}
         </p>
       ) : null}
     </div>

@@ -23,16 +23,24 @@ export type AppHeaderProps = {
 export function AppHeader({ roles }: AppHeaderProps) {
   return (
     <header className="sticky top-0 z-10 border-b border-line bg-surface/95 backdrop-blur">
-      <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-4 py-3">
+      {/*
+        Trois éléments sur une seule ligne à 360 px de large, ce qui ne tient
+        qu'à condition de ne rien laisser au hasard : aucun des trois ne se coupe
+        (`whitespace-nowrap`), et l'interlettrage comme la taille du lien de
+        sortie sont réduits sur petit écran. Sans cela, « SIMANDOU IMMO » et
+        « Se déconnecter » passent chacun sur deux lignes et l'en-tête double de
+        hauteur, constaté sur un écran de 390 px.
+      */}
+      <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-2 px-4 py-3 sm:gap-4">
         <Link
           href="/immeubles"
-          className="font-display text-sm font-bold tracking-widest text-brand"
+          className="font-display text-sm font-bold tracking-wide whitespace-nowrap text-brand sm:tracking-widest"
         >
           SIMANDOU IMMO
         </Link>
 
-        <div className="flex items-center gap-3">
-          <span className="text-xs font-medium uppercase tracking-wide text-muted">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <span className="text-xs font-medium whitespace-nowrap uppercase tracking-wide text-muted">
             {describeRoles(roles)}
           </span>
 
@@ -44,7 +52,7 @@ export function AppHeader({ roles }: AppHeaderProps) {
           <form method="post" action="/api/v1/sessions/revoke">
             <button
               type="submit"
-              className="min-h-11 text-sm text-action underline underline-offset-4 hover:text-brand"
+              className="min-h-11 text-xs whitespace-nowrap text-action underline underline-offset-4 hover:text-brand sm:text-sm"
             >
               Se déconnecter
             </button>

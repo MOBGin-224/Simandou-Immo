@@ -124,6 +124,7 @@ Lorsqu'une contradiction est détectée, elle doit être corrigée dans le docum
 | DEC-035 | Base de données des tests : PGlite | VERROUILLÉE | aucun |
 | DEC-036 | Formulaires et mutations de l'interface | DÉDUITE | aucun |
 | DEC-037 | Socle d'interface introduit au Lot 4 | DÉDUITE | aucun |
+| DEC-038 | Base de développement de secours, sans virtualisation | DÉDUITE | aucun |
 
 ---
 
@@ -719,7 +720,7 @@ Cette section regroupe les décisions issues de la consolidation documentaire, a
 
 La **majorité a été explicitement verrouillée par le fondateur** : elles portent le statut VERROUILLÉE et ne sont plus réversibles sans nouvelle décision de sa part.
 
-Six d'entre elles conservent le statut DÉDUITE, **DEC-021, DEC-024, DEC-028, DEC-030, DEC-036, DEC-037**. Elles relèvent de choix d'implémentation sans impact produit, et restent réversibles.
+Sept d'entre elles conservent le statut DÉDUITE, **DEC-021, DEC-024, DEC-028, DEC-030, DEC-036, DEC-037, DEC-038**. Elles relèvent de choix d'implémentation sans impact produit, et restent réversibles.
 
 Chaque fiche indique son impact en cas de changement.
 
@@ -1482,6 +1483,42 @@ Le Lot 23 consolidera ces primitives. Les valeurs de couleur et de typographie �
 
 ---
 
+## DEC-038 : Base de développement de secours, sans virtualisation
+
+**Statut** : DÉDUITE
+
+**Date** : 28 septembre 2026
+
+### Le problème
+
+DEC-007 fixe PostgreSQL via Docker comme base de développement. Docker Desktop 4.92 a été installé le 28 septembre 2026, et son moteur Linux ne démarre pas : la machine de développement a **Intel VT-x désactivé dans son microprogramme** et **aucun WSL installé**. Le journal de Docker le dit sans ambiguïté, « backend is not running ».
+
+Lever ces deux verrous demande un passage par le BIOS et une installation en droits administrateur, donc une action du fondateur, qui n'est pas développeur. Sans base locale, **aucun écran du produit ne peut être affiché ni vérifié** : le Lot 4 a été livré sans qu'un seul de ses six écrans ait jamais été rendu.
+
+### La décision
+
+Un script de secours, `npm run db:pglite`, sert **PGlite sur le port 5432**, par `@electric-sql/pglite-socket`. C'est le moteur déjà retenu pour les tests par DEC-035, PostgreSQL 17 compilé en WebAssembly, mais exposé cette fois sur le réseau local plutôt qu'appelé dans le processus.
+
+Conséquence pratique : `DATABASE_URL` ne change pas, et **aucun code applicatif ne sait que le moteur n'est pas un serveur classique**. `drizzle-kit migrate`, le seed, l'application et `drizzle-kit studio` s'y connectent normalement.
+
+Les données sont persistées dans `.pglite/`, ignoré par git : migration et seed ne sont pas à rejouer à chaque démarrage, et une donnée saisie à l'écran survit à un redémarrage du serveur.
+
+### Ce que cette décision ne change pas
+
+**DEC-007 reste la référence.** Docker demeure la base de développement du projet, et ce script est une porte de sortie pour une machine empêchée, pas un remplacement.
+
+**Les limites de PGlite consignées par DEC-035 s'appliquent telles quelles** : extensions, réglages serveur et comportements de concurrence peuvent différer d'un vrai serveur. Un comportement qui en dépend doit être validé sur le vrai moteur, en local une fois la virtualisation débloquée, ou en staging.
+
+Le serveur n'a ni authentification, ni chiffrement, ni sauvegarde. Il n'écoute que sur `127.0.0.1` et refuse de démarrer si `NODE_ENV` vaut `production`.
+
+### Impact si changé
+
+Aucun sur le code applicatif. Le jour où Docker démarre, `npm run db:start` reprend son rôle et ce script peut rester inutilisé ou être retiré, sans qu'une ligne de code métier bouge.
+
+**Appliqué dans** : `scripts/db-pglite.ts`, `package.json`, `.gitignore`, README.
+
+---
+
 # 7. Décisions ouvertes
 
 Ces décisions nécessitent une validation explicite du fondateur.
@@ -1594,3 +1631,4 @@ Toute fonctionnalité reste gouvernée par le Master Product Specification et le
 | 1.6 | 2026-09-27 | Lot 2 exécuté. Consignation du résultat de la vérification exigée par DEC-032 : `better-auth` 1.7.6 est compatible avec Next 16.3.5 et React 19.2.8, aucune incompatibilité bloquante, donc aucune décision nouvelle. Téléphone et mot de passe sans OTP confirmés supportés nativement. `users.email` reste facultatif. Trois colonnes exigées par la bibliothèque ajoutées à `users` : `phone_verified`, `email_verified`, `image`. Connexion et inscription par email désactivées. Contrôle métier ajouté : un compte non ACTIF ou archivé n'obtient aucune session. |
 | 1.7 | 2026-09-27 | Lot 3 exécuté. Le catalogue des 41 permissions et son association aux rôles sont écrits en code, et un test compare le catalogue à la liste de `database.md` section 11 afin que code et document ne puissent plus diverger. Résolution de la mention « selon droits » de la matrice, devenue sans référent depuis DEC-025 : cinq permissions sont réservées au propriétaire, `property.create`, `property.archive`, les trois `manager.*` en écriture, `manager.read` et `audit.read`. **Ces interprétations sont à confirmer avant le lot Gestionnaires.** Deux conséquences consignées : un gestionnaire n'atteint aucune ressource de niveau organisation, et un locataire n'atteint que ses propres données jusqu'au lot Contrats. Le service distingue `out-of-scope`, à traduire en NOT_FOUND, de `permission-denied`, à traduire en FORBIDDEN. |
 | 1.8 | 2026-09-27 | Lot 4 exécuté, premier lot qui produit des écrans. **Confirmation par le fondateur de la résolution « selon droits » de DEC-025** : les cinq permissions restent réservées au propriétaire, `property.create` et `property.archive` comprises. La question du gestionnaire principal et secondaire reste ouverte, donc DEC-025 continue de bloquer le lot Gestionnaires. La formulation « ou un gestionnaire autorisé » du PRD section 10.3 est consignée comme sans référent depuis l'abandon de la délégation fine, et non comme une contradiction. Enregistrement de **DEC-036**, formulaires et mutations par Server Actions avec validation Zod dans le cas d'usage, React Hook Form non installé, fonctionnement sans JavaScript garanti. Enregistrement de **DEC-037**, socle d'interface introduit maintenant selon l'ordre imposé par la Component Specification section 88 : la liste des six écrans livrés y tient lieu de spécification d'écran, en attendant de combler la lacune consignée par DEC-030. Le périmètre de lecture des collections est dérivé du point de décision unique et non réécrit, et un test confronte ce filtre à `can()` sur les 41 permissions. L'écran de connexion est livré hors périmètre du ticket, faute de quoi MVP-BACKLOG-018 serait invérifiable. Deux défauts corrigés au passage : les fonctions de `@/lib/auth` lisaient l'environnement avant `headers()`, ce qui faisait échouer `next build` sur le pré-rendu de la connexion, et une surface client distincte du module Immeubles évite d'embarquer le pilote PostgreSQL dans le navigateur. |
+| 1.9 | 2026-09-28 | **Les six écrans du Lot 4 ont été affichés et parcourus pour la première fois**, et le schéma appliqué pour la première fois hors du processus de test. Enregistrement de **DEC-038** : Docker Desktop est installé mais son moteur ne démarre pas, la machine ayant Intel VT-x désactivé dans son microprogramme et aucun WSL, donc un script de secours sert PGlite sur le port 5432 par `@electric-sql/pglite-socket`. DEC-007 reste la référence et les limites de DEC-035 s'appliquent telles quelles. Sept défauts corrigés, tous invisibles au typage et aux tests : `npm run db:seed` ne chargeait pas `.env` et n'avait donc jamais pu tourner ; deux connexions simultanées sur un moteur à session unique écrasaient leur instruction préparée, d'où un pool ramené à une connexion hors production ; l'en-tête passait sur deux lignes à 390 pixels ; le libellé d'un champ facultatif s'annonçait « Quartier(facultatif) » sans espace ; le message d'erreur d'un champ s'affichait après son aide plutôt qu'avant ; la fiche d'un immeuble n'avait pas de titre d'onglet ; et la confirmation d'archivage promettait de ne pas supprimer « ses 0 logement ». |

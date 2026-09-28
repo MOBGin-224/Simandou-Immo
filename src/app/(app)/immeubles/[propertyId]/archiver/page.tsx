@@ -55,9 +55,17 @@ export default async function ArchivePropertyPage(
             <li>il quitte la liste des immeubles actifs ;</li>
             <li>tout son historique reste consultable ;</li>
             <li>il ne peut plus être modifié ;</li>
-            <li>
-              ses {pluralize(property.occupancy.apartmentCount, 'logement')} ne sont pas supprimés.
-            </li>
+            {/*
+              Ligne omise quand l'immeuble n'a aucun logement : « ses 0 logement
+              ne sont pas supprimés » rassure sur une chose qui n'existe pas, et
+              se lit comme un défaut du produit.
+            */}
+            {property.occupancy.apartmentCount > 0 ? (
+              <li>
+                ses {pluralize(property.occupancy.apartmentCount, 'logement')} ne sont pas
+                supprimés.
+              </li>
+            ) : null}
           </ul>
           <p>Rien n&apos;est effacé, et cette opération n&apos;a pas de retour automatique.</p>
         </div>

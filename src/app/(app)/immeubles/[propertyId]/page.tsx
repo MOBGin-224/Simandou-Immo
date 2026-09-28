@@ -4,11 +4,10 @@ import { PropertyStatusBadge } from '@/components/ui/badge';
 import { buttonClasses } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { PageHeader } from '@/components/ui/page-header';
-import { requireAccessContextOrSignIn } from '@/lib/auth/guard';
 import { can } from '@/lib/authorization';
 import { formatDate, pluralize } from '@/lib/ui/format';
 
-import { loadPropertyOrNotFound } from '../data';
+import { loadPropertyPage } from '../data';
 
 /**
  * Fiche d'un immeuble (MVP-BACKLOG-018, Information Architecture niveau 2).
@@ -22,10 +21,24 @@ import { loadPropertyOrNotFound } from '../data';
  * cette page aux lots suivants. Ce qui est absent est annoncé plutôt que laissé
  * vide, afin qu'un écran clairsemé se lise comme « à venir » et non comme « cassé ».
  */
-export default async function PropertyDetailPage(props: PageProps<'/immeubles/[propertyId]'>) {
-  const context = await requireAccessContextOrSignIn();
+/**
+ * Titre de l'onglet : le nom de l'immeuble.
+ *
+ * Sans lui, tous les onglets de fiche s'appellent « SIMANDOU IMMO » et
+ * deviennent indistinguables dès qu'on en ouvre deux. La lecture ne coûte rien
+ * de plus : elle est mémorisée pour la durée de la requête et partagée avec la
+ * page (voir `loadPropertyPage`).
+ */
+export async function generateMetadata(props: PageProps<'/immeubles/[propertyId]'>) {
   const { propertyId } = await props.params;
-  const property = await loadPropertyOrNotFound(context, propertyId);
+  const { property } = await loadPropertyPage(propertyId);
+
+  return { title: property.name };
+}
+
+export default async function PropertyDetailPage(props: PageProps<'/immeubles/[propertyId]'>) {
+  const { propertyId } = await props.params;
+  const { context, property } = await loadPropertyPage(propertyId);
 
   const resource = { organizationId: property.organizationId, propertyId: property.id };
   const canUpdate = can(context, 'property.update', resource) && !property.archived;
