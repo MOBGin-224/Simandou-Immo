@@ -166,13 +166,31 @@ export async function generateApartmentsAction(
   formData: FormData,
 ): Promise<ApartmentFormState> {
   const context = await requireAccessContextOrSignIn();
+  const fields = generationFields(formData);
 
   try {
-    await generateApartments(getDb(), context, propertyId, generationFields(formData));
+    await generateApartments(getDb(), context, propertyId, fields);
   } catch (error) {
     return toFormState(error, submittedGenerationValues(formData));
   }
 
   revalidateApartmentViews(propertyId);
-  redirect(`/immeubles/${propertyId}/appartements`);
+
+  /*
+   * Retour à la liste, PRÉFILTRÉE sur le préfixe employé.
+   *
+   * Vu à l'écran : sur un immeuble qui comptait déjà plus de vingt logements,
+   * une série fraîchement créée atterrissait en page 2, et l'utilisateur
+   * revenait sur une liste où son travail était invisible. La recherche lui
+   * montre exactement ce qu'il vient de créer, ce que le parcours 3 promet en
+   * annonçant une structure complète.
+   *
+   * Sans préfixe, la numérotation est purement chiffrée : filtrer dessus
+   * ramènerait n'importe quelle référence contenant ces chiffres, donc la liste
+   * reste entière.
+   */
+  const prefix = typeof fields.prefix === 'string' ? fields.prefix.trim() : '';
+  const base = `/immeubles/${propertyId}/appartements`;
+
+  redirect(prefix === '' ? base : `${base}?recherche=${encodeURIComponent(prefix)}`);
 }

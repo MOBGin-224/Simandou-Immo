@@ -125,6 +125,8 @@ Lorsqu'une contradiction est détectée, elle doit être corrigée dans le docum
 | DEC-036 | Formulaires et mutations de l'interface | DÉDUITE | aucun |
 | DEC-037 | Socle d'interface introduit au Lot 4 | DÉDUITE | aucun |
 | DEC-038 | Base de développement de secours, sans virtualisation | DÉDUITE | aucun |
+| DEC-039 | Archivage d'un appartement | OUVERTE | Commande d'archivage d'un logement |
+| DEC-040 | Méthode de vérification du rendu mobile | DÉDUITE | aucun |
 
 ---
 
@@ -1519,6 +1521,61 @@ Aucun sur le code applicatif. Le jour où Docker démarre, `npm run db:start` re
 
 ---
 
+## DEC-040 : Méthode de vérification du rendu mobile
+
+**Statut** : DÉDUITE
+
+**Date** : 28 septembre 2026
+
+### Le problème
+
+Le Mobile First est un principe verrouillé du projet, et MVP-UI-001 fait du téléphone l'écran de référence. Il n'existait pourtant aucune méthode pour le vérifier.
+
+Le Lot 4 avait été parcouru en redimensionnant la fenêtre du navigateur. Au Lot 5, cette fenêtre a refusé toute réduction de largeur : le rendu mobile est resté non vérifié, et le lot a été intégré avec ce manque assumé. Une méthode qui dépend de la coopération d'une fenêtre n'est pas une méthode.
+
+### La décision
+
+Le rendu mobile se vérifie par **`Emulation.setDeviceMetricsOverride` du protocole CDP**, sur un Chrome lancé en mode `--headless=new` avec un profil jetable.
+
+C'est ce qui change tout : cette commande fixe le viewport que la PAGE perçoit. Les media queries répondent réellement, sans que la taille de la fenêtre entre en jeu. Le pilote tient en un fichier sans aucune dépendance, Node 24 fournissant `WebSocket` et `fetch` nativement, ce qui compte sur une machine où la mémoire manque.
+
+**Deux largeurs de référence** : **360 px**, le plus petit écran courant en Guinée, et **390 px**, le format des iPhone récents.
+
+### Ce qui est vérifié, et comment
+
+Trois mesures faites DANS la page, parce qu'une capture d'écran montre ce qui va mal sans le nommer :
+
+```text
+debordement horizontal   scrollWidth compare a clientWidth, page entiere
+                         puis element par element, hors conteneurs defilants
+cible tactile            hauteur inferieure a 44 px, seuil impose par le projet
+texte coupe              scrollWidth d un element compare a son clientWidth
+```
+
+**Une mesure ne suffit pas pour une cible tactile.** Un lien peut étendre sa zone par un pseudo-élément qui recouvre son conteneur : sa propre boîte ment alors sur ce qui est touchable. La vérification se fait donc aussi par un **clic réel** à des coordonnées réelles, ce qui est de toute façon ce que fait un utilisateur.
+
+Un **parcours interactif** complète l'audit : chaque étape est un vrai clic, et il enchaîne création groupée, création unitaire, modification, effacement d'un champ et navigation. Ses références portent un suffixe tiré de l'horloge, faute de quoi il n'est jouable qu'une fois.
+
+### Ce que cette méthode a trouvé au Lot 5
+
+Six points, dont aucun n'était visible au typage, aux tests, ni au build :
+
+```text
+cibles tactiles    titres de carte a 28 par 22 px, sur les deux listes
+onglets coupes     « En maintenance » debordait de 14 px a 360 px
+bouton non pleine  largeur sur « Creer les logements », contrairement
+  largeur          aux autres actions de formulaire
+en-tete            lien du titre a 20 px de haut, sur tous les ecrans
+decompte trompeur  « 3 logements » pour un immeuble qui en compte seize,
+                   des qu une recherche etait active
+serie invisible    apres une creation groupee, la serie atterrissait en
+                   page 2 d une liste paginee
+```
+
+**Impact si changé** : aucune règle métier. C'est une méthode de vérification, à appliquer sur tout lot qui produit des écrans.
+
+---
+
 # 7. Décisions ouvertes
 
 Ces décisions nécessitent une validation explicite du fondateur.
@@ -1679,3 +1736,4 @@ Toute fonctionnalité reste gouvernée par le Master Product Specification et le
 | 1.8 | 2026-09-27 | Lot 4 exécuté, premier lot qui produit des écrans. **Confirmation par le fondateur de la résolution « selon droits » de DEC-025** : les cinq permissions restent réservées au propriétaire, `property.create` et `property.archive` comprises. La question du gestionnaire principal et secondaire reste ouverte, donc DEC-025 continue de bloquer le lot Gestionnaires. La formulation « ou un gestionnaire autorisé » du PRD section 10.3 est consignée comme sans référent depuis l'abandon de la délégation fine, et non comme une contradiction. Enregistrement de **DEC-036**, formulaires et mutations par Server Actions avec validation Zod dans le cas d'usage, React Hook Form non installé, fonctionnement sans JavaScript garanti. Enregistrement de **DEC-037**, socle d'interface introduit maintenant selon l'ordre imposé par la Component Specification section 88 : la liste des six écrans livrés y tient lieu de spécification d'écran, en attendant de combler la lacune consignée par DEC-030. Le périmètre de lecture des collections est dérivé du point de décision unique et non réécrit, et un test confronte ce filtre à `can()` sur les 41 permissions. L'écran de connexion est livré hors périmètre du ticket, faute de quoi MVP-BACKLOG-018 serait invérifiable. Deux défauts corrigés au passage : les fonctions de `@/lib/auth` lisaient l'environnement avant `headers()`, ce qui faisait échouer `next build` sur le pré-rendu de la connexion, et une surface client distincte du module Immeubles évite d'embarquer le pilote PostgreSQL dans le navigateur. |
 | 1.9 | 2026-09-28 | **Les six écrans du Lot 4 ont été affichés et parcourus pour la première fois**, et le schéma appliqué pour la première fois hors du processus de test. Enregistrement de **DEC-038** : Docker Desktop est installé mais son moteur ne démarre pas, la machine ayant Intel VT-x désactivé dans son microprogramme et aucun WSL, donc un script de secours sert PGlite sur le port 5432 par `@electric-sql/pglite-socket`. DEC-007 reste la référence et les limites de DEC-035 s'appliquent telles quelles. Sept défauts corrigés, tous invisibles au typage et aux tests : `npm run db:seed` ne chargeait pas `.env` et n'avait donc jamais pu tourner ; deux connexions simultanées sur un moteur à session unique écrasaient leur instruction préparée, d'où un pool ramené à une connexion hors production ; l'en-tête passait sur deux lignes à 390 pixels ; le libellé d'un champ facultatif s'annonçait « Quartier(facultatif) » sans espace ; le message d'erreur d'un champ s'affichait après son aide plutôt qu'avant ; la fiche d'un immeuble n'avait pas de titre d'onglet ; et la confirmation d'archivage promettait de ne pas supprimer « ses 0 logement ». |
 | 2.0 | 2026-09-28 | Lot 5 exécuté : les appartements. Le module, l'API des cinq routes de la section 12 et les quatre écrans sont livrés, la fiche d'appartement étant construite comme le point d'entrée que MVP-BACKLOG-023 exige. Enregistrement de **DEC-039**, OUVERTE : la matrice des rôles prévoit « Archiver un appartement » mais la permission `apartment.archive` n'est pas au catalogue écrit au Lot 3, et la résolution « selon droits » du 27 septembre ne l'a pas tranchée ; l'archivage n'est donc pas offert et le lien vers les archives est retiré de l'écran, le modèle et l'API restant prêts. Trois défauts corrigés, tous trouvés hors du typage et des tests : l'échappement des jokers `LIKE` avait perdu ses antislashs à l'écriture du fichier, ce que le lint a relevé et qu'un test qui passait par accident ne voyait pas ; la liste triait d'abord par étage, ce qui dispersait une série créée sans étage entre les logements du rez-de-chaussée, vu à l'écran ; et le décompte annonçait « 13 logements » pour un immeuble qui en compte quinze lorsqu'un filtre était actif. Deux améliorations d'interface : une page « introuvable » propre aux appartements, l'ancienne parlant d'immeuble alors que l'immeuble existait, et la surface préremplie avec la virgule décimale française. La conversion d'un formulaire vers l'entrée du cas d'usage est sortie du fichier de Server Actions vers `src/modules/apartments/form.ts` : un fichier `'use server'` ne pouvant exporter que des fonctions asynchrones, elle n'était testable qu'en pilotant un navigateur. **Le rendu mobile n'a pas pu être vérifié à l'œil** : la fenêtre du navigateur piloté a refusé tout redimensionnement en largeur dans cette session. |
+| 2.1 | 2026-09-28 | **Rendu mobile du Lot 5 vérifié**, ce que la révision 2.0 avait laissé en suspens faute de pouvoir réduire la fenêtre du navigateur. Enregistrement de **DEC-040** : le rendu mobile se vérifie par `Emulation.setDeviceMetricsOverride` du protocole CDP sur un Chrome en mode sans interface, méthode qui fixe le viewport perçu par la page et ne dépend donc d'aucune fenêtre, aux deux largeurs de référence 360 et 390 pixels. Six points corrigés, aucun visible au typage, aux tests ni au build : les titres de carte n'offraient que 28 par 22 pixels au doigt, sur les deux listes, là où le projet impose 44 pixels ; l'onglet « En maintenance » débordait de 14 pixels à 360 pixels, les onglets se replient désormais sur deux rangées plutôt que de défiler en cachant le dernier ; le bouton « Créer les logements » n'était pas pleine largeur, contrairement aux autres actions de formulaire ; le lien du titre dans l'en-tête ne faisait que 20 pixels de haut, sur tous les écrans du produit ; le décompte annonçait « 3 logements » pour un immeuble qui en compte seize dès qu'une recherche était active ; et une série fraîchement créée atterrissait en page 2 d'une liste paginée, la création groupée renvoyant maintenant vers la liste préfiltrée sur le préfixe employé. Les espaces insécables qui lient un montant à sa devise et une surface à son unité sont figées par des tests : le français en emploie deux différentes, celle d'`Intl` pour les milliers et celle du produit devant l'unité, et les confondre ne se verrait que sur un téléphone. Une note erronée est corrigée dans l'en-tête de l'application : la BottomNavigation ne devient pas justifiée au lot Appartements, l'appartement étant un niveau 3 sous l'immeuble et n'ajoutant donc aucune destination de premier niveau. |
