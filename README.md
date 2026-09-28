@@ -12,12 +12,14 @@ SIMANDOU IMMO est un projet **distinct de SIMANDOU SEJOUR**. Les deux ne partage
 
 ## État du projet
 
-|                 |                                                           |
-| --------------- | --------------------------------------------------------- |
-| Phase           | Lot 1 terminé, base technique en place                    |
-| Documentation   | 33 documents consolidés dans `docs/`, plus 12 ADR         |
-| Base de données | Schéma initial et migration `0000_initial_schema`         |
-| Tests           | 59, dont la migration réellement appliquée sur PostgreSQL |
+|                  |                                                                         |
+| ---------------- | ----------------------------------------------------------------------- |
+| Phase            | Lot 4 terminé, premiers écrans du produit                               |
+| Documentation    | 33 documents consolidés dans `docs/`, plus 12 ADR                       |
+| Base de données  | Schéma initial et migration `0000_initial_schema`                       |
+| Authentification | Téléphone et mot de passe, session, déconnexion                         |
+| Immeubles        | Domaine, API `/api/v1/properties`, six écrans, 29 tests de bout en bout |
+| Tests            | 383, dont la migration réellement appliquée sur PostgreSQL              |
 
 La documentation est la **source de vérité** fonctionnelle, produit, UX, technique et opérationnelle. Elle précède le code, et non l'inverse.
 
@@ -65,7 +67,27 @@ npm run dev
 
 L'application démarre sur http://localhost:3000.
 
+Le seed crée trois comptes actifs, dont le mot de passe est `simandou-dev-2026`. Le propriétaire de la première organisation se connecte avec `+224620000001`, son gestionnaire avec `+224620000002`. Ces identifiants sont fictifs et ne servent qu'au développement local.
+
 Les variables requises sont validées au démarrage, avec un message qui les nomme toutes en une fois. Voir `.env.example`.
+
+### Sans Docker
+
+Si Docker ne démarre pas, par exemple parce que la virtualisation est désactivée dans le
+microprogramme de la machine, une base de secours sert le même moteur que les tests sur le
+port 5432 (DEC-038) :
+
+```bash
+npm run db:pglite     # laisser tourner dans son propre terminal
+npm run db:migrate
+npm run db:seed
+npm run dev
+```
+
+Cette base ne sert **qu'une connexion à la fois** : arrêter le serveur de développement avant
+de lancer `db:seed` ou `db:studio`. Les données vivent dans `.pglite/`, ignoré par git.
+
+---
 
 **Les tests n'ont besoin d'aucun serveur.** Ils utilisent PGlite, PostgreSQL compilé en WebAssembly, et appliquent la vraie migration (DEC-035).
 
@@ -101,7 +123,9 @@ Structure actuelle :
 
 ```text
 docs/                 documentation de référence
-src/app/              App Router
+src/app/              App Router : écrans et routes d'API
+src/components/       composants d'interface, primitives et métier
+src/modules/          modules métier, un par domaine
 src/db/               schéma Drizzle, migrations, seed
 src/lib/              utilitaires transverses
 scripts/              scripts d'exploitation

@@ -25,24 +25,45 @@ export {
 
 export { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from './instance';
 
+/*
+ * ORDRE D'APPEL, à ne pas réécrire par souci de concision.
+ *
+ * Chaque fonction ci-dessous lit les en-têtes AVANT de résoudre l'instance. Écrit
+ * en une ligne, `internal.f(getAuth(), await headers())` évalue `getAuth()`
+ * d'abord, donc lit l'environnement avant que `headers()` ait signalé à Next que
+ * le rendu est dynamique. Conséquence observée à la construction du Lot 4 :
+ * `next build` tentait de pré-rendre l'écran de connexion et échouait faute de
+ * `DATABASE_URL`, alors qu'une compilation n'a besoin d'aucune base.
+ *
+ * Deux lignes plutôt qu'une, et la compilation n'exige plus aucun secret.
+ */
+
 /** Session courante, ou `null` si aucune session valable n'est présentée. */
 export async function getSession() {
-  return internal.resolveSession(getAuth(), await headers());
+  const requestHeaders = await headers();
+
+  return internal.resolveSession(getAuth(), requestHeaders);
 }
 
 /** Utilisateur courant, ou `null`. */
 export async function getCurrentUser() {
-  return internal.resolveCurrentUser(getAuth(), await headers());
+  const requestHeaders = await headers();
+
+  return internal.resolveCurrentUser(getAuth(), requestHeaders);
 }
 
 /** Utilisateur courant, ou `UnauthenticatedError`. À préférer dès qu'un accès est protégé. */
 export async function requireAuthenticatedUser() {
-  return internal.requireUser(getAuth(), await headers());
+  const requestHeaders = await headers();
+
+  return internal.requireUser(getAuth(), requestHeaders);
 }
 
 /** Termine la session courante. Sans session, ne fait rien. */
 export async function signOut() {
-  return internal.endSession(getAuth(), await headers());
+  const requestHeaders = await headers();
+
+  return internal.endSession(getAuth(), requestHeaders);
 }
 
 /** Connexion par téléphone et mot de passe. */
@@ -61,17 +82,23 @@ export async function changePassword(input: {
   newPassword: string;
   revokeOtherSessions?: boolean;
 }) {
-  return internal.changePassword(getAuth(), await headers(), input);
+  const requestHeaders = await headers();
+
+  return internal.changePassword(getAuth(), requestHeaders, input);
 }
 
 /** Sessions actives de l'utilisateur courant. */
 export async function listSessions() {
-  return internal.listActiveSessions(getAuth(), await headers());
+  const requestHeaders = await headers();
+
+  return internal.listActiveSessions(getAuth(), requestHeaders);
 }
 
 /** Révoque une session précise de l'utilisateur courant. */
 export async function revokeSession(token: string) {
-  return internal.revokeSession(getAuth(), await headers(), token);
+  const requestHeaders = await headers();
+
+  return internal.revokeSession(getAuth(), requestHeaders, token);
 }
 
 /**
@@ -83,4 +110,23 @@ export async function revokeSession(token: string) {
  */
 export async function definePassword(input: { userId: string; password: string }) {
   return internal.definePassword(getAuth(), input);
+}
+
+export type { SignInSessionResult } from './session';
+
+/**
+ * Connexion pour un formulaire HTML : renvoie les cookies à poser.
+ *
+ * À préférer à `signIn` dans un gestionnaire de route, qui doit transmettre le
+ * cookie de session au navigateur.
+ */
+export async function signInSession(input: { phone: string; password: string }) {
+  return internal.signInWithPhoneSession(getAuth(), input);
+}
+
+/** Déconnexion pour un formulaire HTML : renvoie les cookies d'effacement. */
+export async function signOutSession() {
+  const requestHeaders = await headers();
+
+  return internal.endSessionWithCookies(getAuth(), requestHeaders);
 }

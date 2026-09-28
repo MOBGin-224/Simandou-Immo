@@ -135,7 +135,8 @@ const OWNER_PERMISSIONS: readonly Permission[] = [
 /**
  * Gestionnaire : les opérations quotidiennes, sur son périmètre d'immeubles.
  *
- * Quatre exclusions, chacune fondée sur un document :
+ * Trois familles d'exclusions, cinq permissions, chacune fondée sur un
+ * document :
  *
  *   1. `property.create` et `property.archive`. Créer ou archiver un immeuble
  *      est un acte patrimonial : la liste des capacités du gestionnaire dans
@@ -149,10 +150,15 @@ const OWNER_PERMISSIONS: readonly Permission[] = [
  *      document ne l'ouvre au gestionnaire. En l'absence de règle explicite, le
  *      moindre privilège décide.
  *
- * Ces quatre exclusions sont des interprétations de la matrice, pas des
- * citations : la mention « selon droits » qu'elle portait visait la délégation
- * fine abandonnée par DEC-025. Elles sont à confirmer par le fondateur, et se
- * modifient en ajoutant une ligne ici.
+ * Ces exclusions étaient des interprétations de la matrice, pas des citations :
+ * la mention « selon droits » qu'elle portait visait la délégation fine
+ * abandonnée par DEC-025. Elles sont CONFIRMÉES depuis le 27 septembre 2026, et
+ * `property.create` comme `property.archive` sont donc réservées au
+ * propriétaire. Le PRD section 10.3 parle d'un « gestionnaire autorisé » : cette
+ * formulation désignait la délégation abandonnée, et ne rouvre rien.
+ *
+ * Une exclusion se lève en ajoutant une ligne ici, ce qui fait échouer le test
+ * qui la fige : le changement est donc toujours visible en revue.
  */
 const MANAGER_PERMISSIONS: readonly Permission[] = [
   'property.read',

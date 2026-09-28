@@ -42,3 +42,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Claude Code, configuration locale
+.claude/settings.local.json
+
+# Base locale PGlite, servie par scripts/db-pglite.ts
+.pglite/

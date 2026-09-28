@@ -34,7 +34,13 @@ function createClient() {
   return postgres(DATABASE_URL, {
     // En serverless, chaque instance sert peu de requêtes simultanées : un pool
     // large gaspillerait des connexions côté Supabase.
-    max: NODE_ENV === 'production' ? 5 : 2,
+    //
+    // UNE seule connexion hors production. Un développeur est seul sur sa base,
+    // donc la deuxième connexion n'apporte aucun débit ; et elle est nocive
+    // lorsque la base locale est le moteur de secours sans Docker (DEC-038),
+    // qui n'a qu'une session PostgreSQL : deux connexions y écrasent mutuellement
+    // leur « prepared statement » anonyme. Voir `scripts/db-pglite.ts`.
+    max: NODE_ENV === 'production' ? 5 : 1,
     idle_timeout: 20,
     connect_timeout: 10,
   });

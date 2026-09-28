@@ -1,0 +1,53 @@
+import Link from 'next/link';
+
+import { Card } from '@/components/ui/card';
+import { PropertyStatusBadge } from '@/components/ui/badge';
+import { pluralize } from '@/lib/ui/format';
+import type { PropertyView } from '@/modules/properties';
+
+/**
+ * Carte d'immeuble (Component Specification section 23).
+ *
+ * Contenu imposé : nom, localisation, logements, occupation, alertes. L'indicateur
+ * financier attendra le lot Loyers : il n'existe aucun montant à ce lot, et un
+ * emplacement vide vaut mieux qu'un zéro qui serait lu comme une information.
+ *
+ * Le lien porte le NOM et non la carte entière : un `<div>` cliquable ne serait ni
+ * atteignable au clavier, ni ouvrable dans un nouvel onglet. La zone de clic reste
+ * confortable grâce à la taille du titre.
+ */
+export function PropertyCard({ property }: { property: PropertyView }) {
+  const { occupancy } = property;
+
+  return (
+    <Card as="li" interactive className="flex flex-col gap-2">
+      <div className="flex items-start justify-between gap-3">
+        <h2 className="font-display text-base font-semibold text-brand">
+          <Link href={`/immeubles/${property.id}`} className="hover:underline">
+            {property.name}
+          </Link>
+        </h2>
+        {property.archived ? <PropertyStatusBadge archived /> : null}
+      </div>
+
+      <p className="text-sm text-muted">{property.location ?? 'Localisation non renseignée'}</p>
+
+      <p className="text-sm text-ink">
+        {occupancy.apartmentCount === 0 ? (
+          'Aucun logement enregistré'
+        ) : (
+          <>
+            {pluralize(occupancy.apartmentCount, 'logement')}
+            <span className="text-muted">
+              {' · '}
+              {occupancy.occupiedCount} occupé{occupancy.occupiedCount > 1 ? 's' : ''}
+              {occupancy.maintenanceCount > 0
+                ? `, ${occupancy.maintenanceCount} en maintenance`
+                : ''}
+            </span>
+          </>
+        )}
+      </p>
+    </Card>
+  );
+}
