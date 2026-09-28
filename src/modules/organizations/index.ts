@@ -1,4 +1,4 @@
-import { asc, inArray } from 'drizzle-orm';
+import { asc, eq, inArray } from 'drizzle-orm';
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
 
 import * as schema from '@/db/schema';
@@ -46,4 +46,29 @@ export async function listAllowedOrganizations(
     .from(organizations)
     .where(inArray(organizations.id, allowed))
     .orderBy(asc(organizations.name));
+}
+
+/**
+ * Devise par défaut d'une organisation (DEC-014).
+ *
+ * Elle ne sert qu'à PRÉREMPLIR un montant dont la devise n'a pas été précisée.
+ * Elle ne déduit jamais la devise d'un montant existant : chaque montant porte
+ * la sienne, et c'est elle qui fait foi.
+ *
+ * L'appelant a déjà établi que l'organisation lui est accessible : cette lecture
+ * ne décide rien. Le repli sur GNF couvre le cas où la ligne aurait disparu
+ * entre-temps, qui ne doit pas transformer une saisie de loyer en erreur
+ * interne.
+ */
+export async function organizationDefaultCurrency(
+  db: OrganizationsDatabase,
+  organizationId: string,
+): Promise<string> {
+  const [row] = await db
+    .select({ currency: organizations.defaultCurrency })
+    .from(organizations)
+    .where(eq(organizations.id, organizationId))
+    .limit(1);
+
+  return row?.currency ?? 'GNF';
 }

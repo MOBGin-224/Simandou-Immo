@@ -1576,6 +1576,52 @@ Tant que cette décision est ouverte, le MVP fonctionne avec le **paiement manue
 
 ---
 
+## DEC-039 : Archivage d'un appartement
+
+**Statut** : OUVERTE
+
+**Date** : 28 septembre 2026
+
+**Bloque** : uniquement la commande « Archiver un appartement ». Aucun lot.
+
+### Ce qui a été découvert
+
+Le Lot 5 a rencontré une lacune que les Lots 1 et 3 avaient laissée passer sans qu'elle soit visible.
+
+La matrice des rôles, section 12 de `roles-permissions.md`, porte une ligne « Archiver un appartement », notée `A` pour le propriétaire et « Selon droits » pour le gestionnaire. La table `apartments` porte bien une colonne `archived_at` depuis le Lot 1, DEC-020 l'ayant prévue à côté du statut d'occupation.
+
+Or **la permission `apartment.archive` n'existe pas au catalogue** écrit en code au Lot 3. Le catalogue ne contient que `apartment.create`, `apartment.read` et `apartment.update`, qui correspondent aux trois lignes suivantes de la même matrice.
+
+Et **la résolution « selon droits » du 27 septembre 2026 ne la mentionne pas** : elle a tranché sept permissions, dont `property.archive`, mais celle-ci n'y figure pas. La mention reste donc sans référent sur cette seule ligne.
+
+### Pourquoi la décision n'est pas prise ici
+
+Trancher reviendrait à choisir pour le fondateur qui peut retirer un logement de l'exploitation, ce qui est une décision de produit et non un détail d'implémentation. DEC-025 montre que ces arbitrages lui appartiennent : les cinq précédents lui ont été soumis et confirmés explicitement.
+
+### Ce que le Lot 5 a fait en attendant
+
+L'archivage d'un appartement **n'est pas offert**. Le backlog du lot, MVP-BACKLOG-020 à 023, demande la liste, la création, le détail et la modification, et rien de plus : l'ajouter dépasserait le périmètre sans justification documentée.
+
+Le modèle et l'API restent prêts :
+
+```text
+apartments.archived_at     existe depuis le Lot 1, inchangee
+includeArchived            parametre de liste honore par l API et par l URL
+lien « Afficher les archives »   RETIRE de l ecran
+```
+
+Le lien a été retiré parce qu'il ne pouvait rien révéler : sans commande d'archivage, la liste des archivés est toujours vide, et une commande sans effet possible est un ornement. Il reviendra avec la décision, sans rien à recâbler.
+
+### Résolution attendue
+
+Par cohérence avec `property.archive`, réservée au propriétaire le 27 septembre 2026 au motif qu'archiver est un acte patrimonial, la résolution la plus probable est **propriétaire seul**. Elle n'est pas appliquée tant qu'elle n'est pas confirmée.
+
+Trois lignes suffiront à l'appliquer : `apartment.archive` dans le catalogue de `src/lib/authorization/permissions.ts`, la même dans `OWNER_PERMISSIONS`, et le test qui fige les exclusions du gestionnaire s'en trouvera mis à jour, donc visible en revue.
+
+**Impact si changé** : une permission, une route, un écran de confirmation, et le retour du lien de liste. Additif, sans refonte.
+
+---
+
 # 8. Règles d'utilisation du registre
 
 ## REG-001 : Consulter avant d'implémenter
@@ -1632,3 +1678,4 @@ Toute fonctionnalité reste gouvernée par le Master Product Specification et le
 | 1.7 | 2026-09-27 | Lot 3 exécuté. Le catalogue des 41 permissions et son association aux rôles sont écrits en code, et un test compare le catalogue à la liste de `database.md` section 11 afin que code et document ne puissent plus diverger. Résolution de la mention « selon droits » de la matrice, devenue sans référent depuis DEC-025 : cinq permissions sont réservées au propriétaire, `property.create`, `property.archive`, les trois `manager.*` en écriture, `manager.read` et `audit.read`. **Ces interprétations sont à confirmer avant le lot Gestionnaires.** Deux conséquences consignées : un gestionnaire n'atteint aucune ressource de niveau organisation, et un locataire n'atteint que ses propres données jusqu'au lot Contrats. Le service distingue `out-of-scope`, à traduire en NOT_FOUND, de `permission-denied`, à traduire en FORBIDDEN. |
 | 1.8 | 2026-09-27 | Lot 4 exécuté, premier lot qui produit des écrans. **Confirmation par le fondateur de la résolution « selon droits » de DEC-025** : les cinq permissions restent réservées au propriétaire, `property.create` et `property.archive` comprises. La question du gestionnaire principal et secondaire reste ouverte, donc DEC-025 continue de bloquer le lot Gestionnaires. La formulation « ou un gestionnaire autorisé » du PRD section 10.3 est consignée comme sans référent depuis l'abandon de la délégation fine, et non comme une contradiction. Enregistrement de **DEC-036**, formulaires et mutations par Server Actions avec validation Zod dans le cas d'usage, React Hook Form non installé, fonctionnement sans JavaScript garanti. Enregistrement de **DEC-037**, socle d'interface introduit maintenant selon l'ordre imposé par la Component Specification section 88 : la liste des six écrans livrés y tient lieu de spécification d'écran, en attendant de combler la lacune consignée par DEC-030. Le périmètre de lecture des collections est dérivé du point de décision unique et non réécrit, et un test confronte ce filtre à `can()` sur les 41 permissions. L'écran de connexion est livré hors périmètre du ticket, faute de quoi MVP-BACKLOG-018 serait invérifiable. Deux défauts corrigés au passage : les fonctions de `@/lib/auth` lisaient l'environnement avant `headers()`, ce qui faisait échouer `next build` sur le pré-rendu de la connexion, et une surface client distincte du module Immeubles évite d'embarquer le pilote PostgreSQL dans le navigateur. |
 | 1.9 | 2026-09-28 | **Les six écrans du Lot 4 ont été affichés et parcourus pour la première fois**, et le schéma appliqué pour la première fois hors du processus de test. Enregistrement de **DEC-038** : Docker Desktop est installé mais son moteur ne démarre pas, la machine ayant Intel VT-x désactivé dans son microprogramme et aucun WSL, donc un script de secours sert PGlite sur le port 5432 par `@electric-sql/pglite-socket`. DEC-007 reste la référence et les limites de DEC-035 s'appliquent telles quelles. Sept défauts corrigés, tous invisibles au typage et aux tests : `npm run db:seed` ne chargeait pas `.env` et n'avait donc jamais pu tourner ; deux connexions simultanées sur un moteur à session unique écrasaient leur instruction préparée, d'où un pool ramené à une connexion hors production ; l'en-tête passait sur deux lignes à 390 pixels ; le libellé d'un champ facultatif s'annonçait « Quartier(facultatif) » sans espace ; le message d'erreur d'un champ s'affichait après son aide plutôt qu'avant ; la fiche d'un immeuble n'avait pas de titre d'onglet ; et la confirmation d'archivage promettait de ne pas supprimer « ses 0 logement ». |
+| 2.0 | 2026-09-28 | Lot 5 exécuté : les appartements. Le module, l'API des cinq routes de la section 12 et les quatre écrans sont livrés, la fiche d'appartement étant construite comme le point d'entrée que MVP-BACKLOG-023 exige. Enregistrement de **DEC-039**, OUVERTE : la matrice des rôles prévoit « Archiver un appartement » mais la permission `apartment.archive` n'est pas au catalogue écrit au Lot 3, et la résolution « selon droits » du 27 septembre ne l'a pas tranchée ; l'archivage n'est donc pas offert et le lien vers les archives est retiré de l'écran, le modèle et l'API restant prêts. Trois défauts corrigés, tous trouvés hors du typage et des tests : l'échappement des jokers `LIKE` avait perdu ses antislashs à l'écriture du fichier, ce que le lint a relevé et qu'un test qui passait par accident ne voyait pas ; la liste triait d'abord par étage, ce qui dispersait une série créée sans étage entre les logements du rez-de-chaussée, vu à l'écran ; et le décompte annonçait « 13 logements » pour un immeuble qui en compte quinze lorsqu'un filtre était actif. Deux améliorations d'interface : une page « introuvable » propre aux appartements, l'ancienne parlant d'immeuble alors que l'immeuble existait, et la surface préremplie avec la virgule décimale française. La conversion d'un formulaire vers l'entrée du cas d'usage est sortie du fichier de Server Actions vers `src/modules/apartments/form.ts` : un fichier `'use server'` ne pouvant exporter que des fonctions asynchrones, elle n'était testable qu'en pilotant un navigateur. **Le rendu mobile n'a pas pu être vérifié à l'œil** : la fenêtre du navigateur piloté a refusé tout redimensionnement en largeur dans cette session. |

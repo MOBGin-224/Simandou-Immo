@@ -17,9 +17,9 @@ import { loadPropertyPage } from '../data';
  * produirait un refus, donc une impasse. Le masquage n'est pas la sécurité, que le
  * cas d'usage assure de son côté ; c'est une question d'honnêteté de l'interface.
  *
- * Les appartements, les charges, la maintenance et l'activité viendront garnir
- * cette page aux lots suivants. Ce qui est absent est annoncé plutôt que laissé
- * vide, afin qu'un écran clairsemé se lise comme « à venir » et non comme « cassé ».
+ * Les charges, la maintenance et l'activité viendront garnir cette page aux lots
+ * suivants. Ce qui est absent est annoncé plutôt que laissé vide, afin qu'un
+ * écran clairsemé se lise comme « à venir » et non comme « cassé ».
  */
 /**
  * Titre de l'onglet : le nom de l'immeuble.
@@ -109,13 +109,24 @@ export default async function PropertyDetailPage(props: PageProps<'/immeubles/[p
       </Card>
 
       <Card>
-        <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-muted">
-          Appartements
-        </h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-muted">
+            Appartements
+          </h2>
+
+          <Link
+            href={`/immeubles/${property.id}/appartements`}
+            className="min-h-11 text-sm text-action underline underline-offset-4 hover:text-brand"
+          >
+            {property.occupancy.apartmentCount === 0
+              ? 'Ajouter des logements'
+              : 'Voir les logements'}
+          </Link>
+        </div>
 
         {property.occupancy.apartmentCount === 0 ? (
           <p className="mt-3 text-sm text-muted">
-            Aucun logement enregistré. La gestion des appartements arrive au lot suivant.
+            Aucun logement enregistré. La structure de l&apos;immeuble reste à construire.
           </p>
         ) : (
           <p className="mt-3 text-sm text-ink">
