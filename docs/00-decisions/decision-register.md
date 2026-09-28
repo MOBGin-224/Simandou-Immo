@@ -1195,6 +1195,41 @@ Le service d'autorisation conserve la signature `can(user, permission, resource)
 
 À confirmer avant le lot **Gestionnaires**, car c'est à ce moment que l'écran d'invitation et l'attribution de périmètre sont construits.
 
+### Résolution de la mention « selon droits », 27 septembre 2026, À CONFIRMER
+
+La matrice globale des rôles porte la mention « selon droits » sur sept lignes du gestionnaire. Cette mention visait la délégation fine que DEC-025 abandonne : elle n'a donc plus de référent, et le Lot 3 devait la résoudre pour écrire le catalogue en code.
+
+**Ce qui n'est pas une interprétation** : tous les gestionnaires d'une organisation disposent du même ensemble de capacités, et « selon droits » ne peut donc plus signifier qu'une chose, la borne du périmètre d'immeubles.
+
+**Ce qui est une interprétation**, et que le fondateur doit valider avant le lot **Gestionnaires** :
+
+| Permission | Décision retenue | Sur quoi elle s'appuie |
+|---|---|---|
+| `property.create` | Propriétaire seul | La liste des capacités du gestionnaire, section 10 de la matrice, ne contient pas la création d'un immeuble ; celle du propriétaire, section 6, la contient |
+| `property.archive` | Propriétaire seul | Même raisonnement : archiver un immeuble est un acte patrimonial, absent de la liste du gestionnaire |
+| `manager.invite`, `manager.update`, `manager.revoke` | Propriétaire seul | La matrice refuse au gestionnaire chacune des quatre lignes concernant les gestionnaires |
+| `manager.read` | Propriétaire seul | Aucune ligne de la matrice n'ouvre la consultation d'un gestionnaire au gestionnaire. En l'absence de règle, le moindre privilège décide |
+| `audit.read` | Propriétaire seul | Le journal d'audit est une donnée de sécurité, et aucun document ne l'ouvre au gestionnaire |
+
+Chacune se modifie en ajoutant une ligne dans `src/lib/authorization/permissions.ts`, et un test fige aujourd'hui chaque exclusion afin qu'un changement soit visible en revue.
+
+### Deux conséquences du modèle à deux dimensions
+
+1. **Un gestionnaire n'atteint aucune ressource de niveau organisation.** ADR-007 borne son autorité à un périmètre d'immeubles sans condition, donc une ressource sans immeuble en sort. Aucune permission qu'il porte au MVP ne s'applique à ce niveau. Le jour où un rapport global apparaîtra, au lot Dashboards, il faudra décider s'il le voit restreint à son périmètre plutôt que d'ouvrir cette porte.
+
+2. **Le locataire n'atteint que ses propres données.** Son rattachement à un immeuble passera par son bail, au lot Contrats. D'ici là, il n'accède à aucune ressource d'immeuble, ce qui est exactement le refus exigé par MVP-BACKLOG-015.
+
+### Motif de refus et code HTTP
+
+Le service distingue deux refus, et la distinction n'est pas cosmétique.
+
+```text
+out-of-scope        hors organisation, hors perimetre, ou donnee d'autrui   ->  NOT_FOUND
+permission-denied   ressource atteignable, role sans la permission          ->  FORBIDDEN
+```
+
+Répondre « interdit » sur une ressource hors périmètre confirmerait son existence : une ressource hors périmètre doit se comporter comme une ressource inexistante (ADR-007).
+
 ---
 
 ## DEC-026 : Canal de diffusion des invitations au MVP
@@ -1456,3 +1491,4 @@ Toute fonctionnalité reste gouvernée par le Master Product Specification et le
 | 1.4 | 2026-09-27 | Suppression des 198 tirets cadratins répartis dans 28 documents, selon une règle par rôle syntaxique : deux-points quand le second membre définit le premier, virgule pour une incise, parenthèses pour une référence, mot explicite dans une cellule de tableau vide. La convention est inscrite dans les standards d'ingénierie sous MVP-ENG-093-bis, avec une commande de contrôle vérifiée. Aucune règle métier modifiée. |
 | 1.5 | 2026-09-27 | Lot 1 exécuté. Enregistrement de DEC-035 : les tests automatisés utilisent PGlite, PostgreSQL en WebAssembly, et appliquent la vraie migration ; DEC-007 reste inchangée, Docker demeure la base de développement. Ajout de `tsx` pour l'exécution des scripts TypeScript. Correction d'un double séparateur en fin de section 5. |
 | 1.6 | 2026-09-27 | Lot 2 exécuté. Consignation du résultat de la vérification exigée par DEC-032 : `better-auth` 1.7.6 est compatible avec Next 16.3.5 et React 19.2.8, aucune incompatibilité bloquante, donc aucune décision nouvelle. Téléphone et mot de passe sans OTP confirmés supportés nativement. `users.email` reste facultatif. Trois colonnes exigées par la bibliothèque ajoutées à `users` : `phone_verified`, `email_verified`, `image`. Connexion et inscription par email désactivées. Contrôle métier ajouté : un compte non ACTIF ou archivé n'obtient aucune session. |
+| 1.7 | 2026-09-27 | Lot 3 exécuté. Le catalogue des 41 permissions et son association aux rôles sont écrits en code, et un test compare le catalogue à la liste de `database.md` section 11 afin que code et document ne puissent plus diverger. Résolution de la mention « selon droits » de la matrice, devenue sans référent depuis DEC-025 : cinq permissions sont réservées au propriétaire, `property.create`, `property.archive`, les trois `manager.*` en écriture, `manager.read` et `audit.read`. **Ces interprétations sont à confirmer avant le lot Gestionnaires.** Deux conséquences consignées : un gestionnaire n'atteint aucune ressource de niveau organisation, et un locataire n'atteint que ses propres données jusqu'au lot Contrats. Le service distingue `out-of-scope`, à traduire en NOT_FOUND, de `permission-denied`, à traduire en FORBIDDEN. |
