@@ -11,10 +11,12 @@ import { describeRoles } from '@/lib/ui/labels';
  * c'est lui qui commande le périmètre visible. Bénéfice secondaire réel : une
  * capture d'écran qui circule ne divulgue pas l'identité d'un utilisateur.
  *
- * La navigation principale par onglets (BottomNavigation, section 58) n'existe pas
- * encore : le produit n'a qu'une destination à ce lot, et une barre d'onglets à
- * une entrée serait un ornement. Elle arrivera avec le lot Appartements, quand il
- * y aura réellement plusieurs destinations.
+ * La navigation principale par onglets (BottomNavigation, section 58) n'existe
+ * toujours pas après le lot Appartements, et ce n'est pas un oubli. La section 58
+ * la compose d'Accueil, Immeubles, Loyers, Maintenance et Profil : l'appartement
+ * est un niveau 3 sous l'immeuble, donc il n'ajoute aucune destination de premier
+ * niveau. Une barre d'onglets à une entrée resterait un ornement. Elle prendra
+ * son sens aux lots Loyers et Maintenance.
  */
 export type AppHeaderProps = {
   roles: readonly Role[];
@@ -34,7 +36,7 @@ export function AppHeader({ roles }: AppHeaderProps) {
       <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-2 px-4 py-3 sm:gap-4">
         <Link
           href="/immeubles"
-          className="font-display text-sm font-bold tracking-wide whitespace-nowrap text-brand sm:tracking-widest"
+          className="inline-flex min-h-11 items-center font-display text-sm font-bold tracking-wide whitespace-nowrap text-brand sm:tracking-widest"
         >
           SIMANDOU IMMO
         </Link>

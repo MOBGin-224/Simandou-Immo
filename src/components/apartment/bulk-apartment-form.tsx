@@ -126,7 +126,8 @@ export function BulkApartmentForm({ action }: BulkApartmentFormProps) {
         </div>
       ) : null}
 
-      <div className="flex sm:justify-end">
+      {/* Sur mobile, les actions sont empilées et pleine largeur (section 9). */}
+      <div className="flex flex-col sm:flex-row sm:justify-end">
         <SubmitButton>Créer les logements</SubmitButton>
       </div>
     </form>

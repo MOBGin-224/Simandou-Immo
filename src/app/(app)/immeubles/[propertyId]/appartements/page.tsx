@@ -98,9 +98,13 @@ export default async function ApartmentsPage(
   /**
    * Description qui dit ce que la liste montre RÉELLEMENT.
    *
-   * Sans le qualificatif, « 13 logements · Immeuble Camayenne » se lit comme le
-   * total de l'immeuble alors que c'est le décompte du filtre : vu à l'écran, en
-   * filtrant sur les vacants d'un immeuble qui en compte quinze.
+   * Sans qualificatif, « 3 logements · Immeuble Camayenne » se lit comme le
+   * total de l'immeuble alors que c'est le décompte de ce qui est affiché. Vu
+   * deux fois à l'écran sur un immeuble qui en compte seize : d'abord en
+   * filtrant sur les vacants, puis en cherchant « A0 ».
+   *
+   * La recherche l'emporte sur le filtre quand les deux sont actifs : c'est le
+   * geste le plus récent, et « trouvés » dit déjà que la liste est restreinte.
    */
   const FILTER_NOUNS: Record<string, string> = {
     VACANT: 'vacant',
@@ -111,8 +115,13 @@ export default async function ApartmentsPage(
   const describeCount = () => {
     if (collection.meta.total === 0) return property.name;
 
-    const noun = FILTER_NOUNS[activeStatus];
     const counted = pluralize(collection.meta.total, 'logement');
+
+    if (search) {
+      return `${pluralize(collection.meta.total, 'logement trouvé', 'logements trouvés')} · ${property.name}`;
+    }
+
+    const noun = FILTER_NOUNS[activeStatus];
 
     if (noun === undefined) return `${counted} · ${property.name}`;
 
@@ -138,14 +147,16 @@ export default async function ApartmentsPage(
 
       <div className="flex flex-col gap-3">
         {/*
-          Les onglets défilent horizontalement à 360 px : quatre libellés ne
-          tiennent pas sur une ligne, et les replier sur deux rangées ferait
-          sauter le contenu à chaque changement de filtre.
+          Les quatre onglets se replient sur deux rangées à 360 px, où ils
+          demandent 390 px pour une ligne : « En maintenance » y débordait de 14
+          pixels, mesuré. Le repli est préféré au défilement horizontal, qui
+          cachait le dernier onglet sans l'annoncer.
+
+          Il ne fait pas sauter le contenu : à largeur donnée, le nombre de
+          rangées ne change pas d'un filtre à l'autre, les libellés étant les
+          mêmes. C'était l'objection retenue à tort en écrivant cet écran.
         */}
-        <nav
-          aria-label="Filtrer par statut"
-          className="-mx-4 flex gap-1 overflow-x-auto px-4 sm:mx-0 sm:px-0"
-        >
+        <nav aria-label="Filtrer par statut" className="flex flex-wrap gap-1">
           {STATUS_TABS.map((tab) => (
             <Link
               key={tab.value}

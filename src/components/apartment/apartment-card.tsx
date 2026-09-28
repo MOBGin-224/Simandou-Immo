@@ -1,7 +1,7 @@
 import Link from 'next/link';
 
 import { ApartmentStatusBadge, ArchivedBadge } from '@/components/ui/badge';
-import { Card } from '@/components/ui/card';
+import { Card, linkOverlayClasses } from '@/components/ui/card';
 import { formatArea, formatMoney } from '@/lib/ui/format';
 import { describeFloor, type ApartmentView } from '@/modules/apartments/client';
 
@@ -14,8 +14,10 @@ import { describeFloor, type ApartmentView } from '@/modules/apartments/client';
  * Contrats et Loyers, quand ces données existeront : un emplacement vide vaut
  * mieux qu'un zéro qui serait lu comme une information.
  *
- * Le lien porte la RÉFÉRENCE et non la carte entière : un `<div>` cliquable ne
- * serait ni atteignable au clavier, ni ouvrable dans un nouvel onglet.
+ * Le lien porte la RÉFÉRENCE, et sa zone tactile est étendue à toute la carte
+ * par `linkOverlayClasses` : un `<div>` cliquable ne serait ni atteignable au
+ * clavier, ni ouvrable dans un nouvel onglet, alors qu'un titre de 28 par 22
+ * pixels ne se vise pas au doigt. Mesuré à 360 pixels.
  */
 export function ApartmentCard({
   apartment,
@@ -39,7 +41,7 @@ export function ApartmentCard({
         <h2 className="font-display text-base font-semibold text-brand">
           <Link
             href={`/immeubles/${propertyId}/appartements/${apartment.id}`}
-            className="hover:underline"
+            className={linkOverlayClasses}
           >
             {apartment.number}
           </Link>

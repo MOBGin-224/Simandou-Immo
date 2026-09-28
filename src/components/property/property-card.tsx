@@ -1,6 +1,6 @@
 import Link from 'next/link';
 
-import { Card } from '@/components/ui/card';
+import { Card, linkOverlayClasses } from '@/components/ui/card';
 import { PropertyStatusBadge } from '@/components/ui/badge';
 import { pluralize } from '@/lib/ui/format';
 import type { PropertyView } from '@/modules/properties';
@@ -12,9 +12,12 @@ import type { PropertyView } from '@/modules/properties';
  * financier attendra le lot Loyers : il n'existe aucun montant à ce lot, et un
  * emplacement vide vaut mieux qu'un zéro qui serait lu comme une information.
  *
- * Le lien porte le NOM et non la carte entière : un `<div>` cliquable ne serait ni
- * atteignable au clavier, ni ouvrable dans un nouvel onglet. La zone de clic reste
- * confortable grâce à la taille du titre.
+ * Le lien porte le NOM, et sa zone tactile est étendue à toute la carte par
+ * `linkOverlayClasses` : un `<div>` cliquable ne serait ni atteignable au
+ * clavier, ni ouvrable dans un nouvel onglet, alors que la taille du titre ne
+ * suffit pas au doigt. Corrigé en même temps que la carte d'appartement, qui
+ * portait le même défaut, afin que deux listes soeurs ne se comportent pas
+ * différemment.
  */
 export function PropertyCard({ property }: { property: PropertyView }) {
   const { occupancy } = property;
@@ -23,7 +26,7 @@ export function PropertyCard({ property }: { property: PropertyView }) {
     <Card as="li" interactive className="flex flex-col gap-2">
       <div className="flex items-start justify-between gap-3">
         <h2 className="font-display text-base font-semibold text-brand">
-          <Link href={`/immeubles/${property.id}`} className="hover:underline">
+          <Link href={`/immeubles/${property.id}`} className={linkOverlayClasses}>
             {property.name}
           </Link>
         </h2>
