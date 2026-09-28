@@ -633,6 +633,37 @@ Le mécanisme de récupération de compte reste dépendant d'un canal de communi
 
 La version exacte et la compatibilité avec Next.js 16 et React 19 doivent être vérifiées au moment de l'installation, au lot Authentification. Si une incompatibilité bloquante apparaît, elle constitue une nouvelle décision à porter au registre, pas un contournement silencieux.
 
+### Résultat de la vérification, 27 septembre 2026
+
+**Version installée** : `better-auth` 1.7.6. **Aucune incompatibilité bloquante**, donc aucune décision nouvelle à porter au registre.
+
+| Dépendance | Version du projet | Exigence de Better Auth 1.7.6 |
+|---|---|---|
+| `next` | 16.3.5 | `^14.0.0 \|\| ^15.0.0 \|\| ^16.0.0` |
+| `react` | 19.2.8 | `^18.0.0 \|\| ^19.0.0` |
+| `react-dom` | 19.2.8 | `^18.0.0 \|\| ^19.0.0` |
+| `drizzle-orm` | 0.45.3 | `^0.45.2 \|\| >=1.0.0-rc.1 <2.0.0` |
+| `drizzle-kit` | 0.31.11 | `>=0.31.4 \|\| >=1.0.0-beta.1` |
+
+#### Ce que la vérification a confirmé
+
+1. **Téléphone et mot de passe sans OTP sont supportés nativement.** Le greffon téléphone expose `POST /sign-in/phone-number`, qui vérifie le mot de passe du compte `credential` sans envoyer aucun code, à condition de laisser `requireVerification` à `false`. Son message d'échec est identique pour un numéro inconnu et pour un mot de passe faux, ce qui satisfait l'exigence de ne jamais révéler l'existence d'un compte.
+2. **`users.email` reste nullable.** La bibliothèque déclare l'email obligatoire, mais son contrôle de schéma n'exige que l'existence de la colonne. La nullabilité n'est contrôlée que dans l'autre sens, pour les colonnes que Better Auth n'écrit pas. L'email facultatif de DEC-032 tient donc sans aménagement.
+3. **Trois colonnes ont été ajoutées à `users`**, exigées par la bibliothèque et sans usage métier au MVP : `phone_verified`, `email_verified` et `image`. Leur absence empêche le démarrage.
+4. **Trois correspondances de champs sont déclarées** : `name` vers `full_name`, `phoneNumber` vers `phone`, `phoneNumberVerified` vers `phone_verified`. Aucune colonne existante n'a été renommée.
+
+#### Points d'attention issus de la lecture du code source
+
+1. **L'adaptateur Drizzle adresse les colonnes par leur nom de propriété TypeScript**, jamais par leur nom physique. Renommer une propriété des tables d'authentification casse la connexion sans que le typage ni la migration ne le signalent. Un test de conformité garde ce point.
+2. **Le greffon exige une fonction d'envoi d'OTP**, même inutilisée. Elle échoue explicitement : les points d'entrée `/phone-number/send-otp`, `/phone-number/verify` et `/phone-number/request-password-reset` restent donc inutilisables, ce qui est le comportement voulu par DEC-008 et DEC-026.
+3. **La connexion et l'inscription par email sont désactivées.** Laisser `/sign-up/email` actif aurait ouvert une inscription libre, alors que l'entrée se fait exclusivement par invitation (ADR-008).
+4. **Un changement de mot de passe révoque toutes les sessions**, celle de l'appelant comprise, et en crée une nouvelle. Le service interne renvoie le jeton de remplacement : l'ignorer déconnecterait l'utilisateur juste après son changement de mot de passe.
+5. **Les identifiants sont générés en UUID** par `advanced.database.generateId`, sans quoi Better Auth produit des chaînes courtes qu'une colonne `uuid` refuse.
+
+#### Contrôle métier ajouté
+
+Better Auth ignore `users.status`. Un hook de création de session refuse donc toute session pour un compte qui n'est pas `ACTIVE` ou qui est archivé : sans lui, suspendre un compte n'empêcherait pas de s'y connecter, et le statut ne serait qu'une étiquette.
+
 ---
 
 ## DEC-035 : Base de données des tests automatisés
@@ -1424,3 +1455,4 @@ Toute fonctionnalité reste gouvernée par le Master Product Specification et le
 | 1.3 | 2026-09-26 | Lot 0 exécuté. Les 33 documents sont réorganisés dans `docs/` selon la structure du Master §48, avec un dossier `08-execution/` ajouté pour les documents d'exécution. Les douze ADR (ADR-001 à ADR-012) sont rédigées dans `docs/architecture/adr/`, dont ADR-006 pour Better Auth. La table d'ADR dupliquée de la gouvernance d'architecture est remplacée par un renvoi vers l'index unique du dossier ADR, et ses sections 14 à 19 sont fusionnées en une section de correspondance. |
 | 1.4 | 2026-09-27 | Suppression des 198 tirets cadratins répartis dans 28 documents, selon une règle par rôle syntaxique : deux-points quand le second membre définit le premier, virgule pour une incise, parenthèses pour une référence, mot explicite dans une cellule de tableau vide. La convention est inscrite dans les standards d'ingénierie sous MVP-ENG-093-bis, avec une commande de contrôle vérifiée. Aucune règle métier modifiée. |
 | 1.5 | 2026-09-27 | Lot 1 exécuté. Enregistrement de DEC-035 : les tests automatisés utilisent PGlite, PostgreSQL en WebAssembly, et appliquent la vraie migration ; DEC-007 reste inchangée, Docker demeure la base de développement. Ajout de `tsx` pour l'exécution des scripts TypeScript. Correction d'un double séparateur en fin de section 5. |
+| 1.6 | 2026-09-27 | Lot 2 exécuté. Consignation du résultat de la vérification exigée par DEC-032 : `better-auth` 1.7.6 est compatible avec Next 16.3.5 et React 19.2.8, aucune incompatibilité bloquante, donc aucune décision nouvelle. Téléphone et mot de passe sans OTP confirmés supportés nativement. `users.email` reste facultatif. Trois colonnes exigées par la bibliothèque ajoutées à `users` : `phone_verified`, `email_verified`, `image`. Connexion et inscription par email désactivées. Contrôle métier ajouté : un compte non ACTIF ou archivé n'obtient aucune session. |

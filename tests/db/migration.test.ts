@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import journal from '../../src/db/migrations/meta/_journal.json';
 import { createTestDatabase, type TestDatabase } from '../helpers/database';
 
 /**
@@ -131,12 +132,14 @@ describe('Migration initiale', () => {
     ]);
   });
 
-  it('est rejouable sans erreur', async () => {
-    // La table de suivi des migrations doit empêcher une seconde application.
+  it('applique chaque migration une seule fois', async () => {
+    // La table de suivi doit contenir exactement une ligne par migration du
+    // journal. Figer le nombre à la main rendrait ce test faux au lot suivant,
+    // alors que ce qu'il vérifie est l'absence de double application.
     const rows = await harness.db.execute<{ count: string }>(sql`
       select count(*)::text as count from drizzle.__drizzle_migrations
     `);
 
-    expect(Number(rows.rows[0]?.count)).toBe(1);
+    expect(Number(rows.rows[0]?.count)).toBe(journal.entries.length);
   });
 });

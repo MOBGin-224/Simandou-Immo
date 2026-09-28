@@ -11,6 +11,8 @@ describe('Validation des variables d environnement', () => {
   const valid = {
     DATABASE_URL: 'postgresql://simandou:secret@localhost:5432/simandou_immo',
     APP_URL: 'http://localhost:3000',
+    BETTER_AUTH_SECRET: 'secret-de-signature-des-sessions-assez-long',
+    BETTER_AUTH_URL: 'http://localhost:3000',
   };
 
   it('accepte une configuration valide', () => {
@@ -63,6 +65,27 @@ describe('Validation des variables d environnement', () => {
 
     expect(message).toContain('DATABASE_URL');
     expect(message).toContain('APP_URL');
+    expect(message).toContain('BETTER_AUTH_SECRET');
     expect(message).toContain('.env.example');
+  });
+
+  // --- Authentification (DEC-032, ADR-006) -----------------------------------
+
+  it('refuse un BETTER_AUTH_SECRET absent', () => {
+    expect(() => parseEnv({ ...valid, BETTER_AUTH_SECRET: undefined })).toThrow(
+      /BETTER_AUTH_SECRET/,
+    );
+  });
+
+  it('refuse un BETTER_AUTH_SECRET trop court', () => {
+    // Un secret court rend attaquable la signature de toutes les sessions :
+    // c'est un refus au démarrage, pas un avertissement.
+    expect(() => parseEnv({ ...valid, BETTER_AUTH_SECRET: 'trop-court' })).toThrow(
+      /BETTER_AUTH_SECRET/,
+    );
+  });
+
+  it("refuse un BETTER_AUTH_URL qui n'est pas une URL absolue", () => {
+    expect(() => parseEnv({ ...valid, BETTER_AUTH_URL: '/api/auth' })).toThrow(/BETTER_AUTH_URL/);
   });
 });
