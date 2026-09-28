@@ -12,12 +12,12 @@ SIMANDOU IMMO est un projet **distinct de SIMANDOU SEJOUR**. Les deux ne partage
 
 ## État du projet
 
-|                 |                                             |
-| --------------- | ------------------------------------------- |
-| Phase           | Lot 0 terminé, développement du MVP à venir |
-| Documentation   | 33 documents consolidés dans `docs/`        |
-| Code métier     | Aucun à ce stade                            |
-| Base de données | Aucune migration à ce stade                 |
+|                 |                                                           |
+| --------------- | --------------------------------------------------------- |
+| Phase           | Lot 1 terminé, base technique en place                    |
+| Documentation   | 33 documents consolidés dans `docs/`, plus 12 ADR         |
+| Base de données | Schéma initial et migration `0000_initial_schema`         |
+| Tests           | 59, dont la migration réellement appliquée sur PostgreSQL |
 
 La documentation est la **source de vérité** fonctionnelle, produit, UX, technique et opérationnelle. Elle précède le code, et non l'inverse.
 
@@ -48,7 +48,7 @@ PostgreSQL est la source de vérité. Supabase n'est utilisé que comme **héber
 
 - Node.js 24 ou supérieur
 - npm 11 ou supérieur
-- Docker, à partir du Lot 1, pour le PostgreSQL local
+- Docker, pour le PostgreSQL local
 
 ---
 
@@ -56,28 +56,40 @@ PostgreSQL est la source de vérité. Supabase n'est utilisé que comme **héber
 
 ```bash
 npm install
+cp .env.example .env
+npm run db:start      # PostgreSQL local dans Docker
+npm run db:migrate    # applique les migrations
+npm run db:seed       # données de développement, deux organisations
 npm run dev
 ```
 
 L'application démarre sur http://localhost:3000.
 
-Aucune variable d'environnement n'est requise à ce stade. Elles apparaîtront au Lot 1 avec la base de données.
+Les variables requises sont validées au démarrage, avec un message qui les nomme toutes en une fois. Voir `.env.example`.
+
+**Les tests n'ont besoin d'aucun serveur.** Ils utilisent PGlite, PostgreSQL compilé en WebAssembly, et appliquent la vraie migration (DEC-035).
 
 ---
 
 ## Commandes
 
-| Commande               | Rôle                                  |
-| ---------------------- | ------------------------------------- |
-| `npm run dev`          | Serveur de développement              |
-| `npm run build`        | Build de production                   |
-| `npm run start`        | Serveur de production                 |
-| `npm run lint`         | ESLint                                |
-| `npm run typecheck`    | Vérification des types, sans émission |
-| `npm run test`         | Tests, une passe                      |
-| `npm run test:watch`   | Tests en observation continue         |
-| `npm run format`       | Formatage Prettier                    |
-| `npm run format:check` | Vérification du formatage             |
+| Commande               | Rôle                                    |
+| ---------------------- | --------------------------------------- |
+| `npm run dev`          | Serveur de développement                |
+| `npm run build`        | Build de production                     |
+| `npm run start`        | Serveur de production                   |
+| `npm run lint`         | ESLint                                  |
+| `npm run typecheck`    | Vérification des types, sans émission   |
+| `npm run test`         | Tests, une passe                        |
+| `npm run test:watch`   | Tests en observation continue           |
+| `npm run format`       | Formatage Prettier                      |
+| `npm run format:check` | Vérification du formatage               |
+| `npm run db:start`     | Démarre le PostgreSQL local dans Docker |
+| `npm run db:stop`      | Arrête le PostgreSQL local              |
+| `npm run db:generate`  | Génère une migration depuis le schéma   |
+| `npm run db:migrate`   | Applique les migrations                 |
+| `npm run db:seed`      | Charge les données de développement     |
+| `npm run db:studio`    | Explorateur de base Drizzle             |
 
 La CI exécute `lint`, `typecheck`, `format:check`, `test` puis `build`. Une Pull Request qui échoue sur l'une de ces étapes est bloquée.
 
@@ -90,6 +102,9 @@ Structure actuelle :
 ```text
 docs/                 documentation de référence
 src/app/              App Router
+src/db/               schéma Drizzle, migrations, seed
+src/lib/              utilitaires transverses
+scripts/              scripts d'exploitation
 tests/                tests
 .github/workflows/    CI
 ```

@@ -1,0 +1,70 @@
+import { z } from 'zod';
+
+/**
+ * Validation des variables d'environnement.
+ *
+ * Principe : échouer au démarrage avec un message lisible, plutôt que de
+ * laisser une variable manquante produire une erreur obscure au premier accès
+ * à la base.
+ *
+ * Règle de périmètre : ne valider que les variables réellement lues par le
+ * code. Exiger un secret dont aucun module ne se sert forcerait à inventer une
+ * valeur, ce qui affaiblit la validation au lieu de la renforcer. Les variables
+ * des lots suivants sont listées dans `.env.example` et rejoindront ce schéma
+ * avec leur usage.
+ */
+const envSchema = z.object({
+  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+
+  DATABASE_URL: z
+    .string()
+    .min(1, 'DATABASE_URL est requise')
+    .refine((value) => {
+      try {
+        const protocol = new URL(value).protocol;
+        return protocol === 'postgres:' || protocol === 'postgresql:';
+      } catch {
+        return false;
+      }
+    }, 'DATABASE_URL doit être une URL PostgreSQL, par exemple postgresql://user:pass@localhost:5432/base'),
+
+  APP_URL: z.url('APP_URL doit être une URL absolue, par exemple http://localhost:3000'),
+});
+
+export type Env = z.infer<typeof envSchema>;
+
+/**
+ * Valide un jeu de variables et renvoie l'objet typé.
+ *
+ * Exposée séparément de `env` afin d'être testable sans dépendre du
+ * `process.env` de la machine qui exécute les tests.
+ */
+export function parseEnv(source: Record<string, string | undefined>): Env {
+  const result = envSchema.safeParse(source);
+
+  if (!result.success) {
+    const details = result.error.issues
+      .map((issue) => `  ${issue.path.join('.') || '(racine)'} : ${issue.message}`)
+      .join('\n');
+
+    throw new Error(
+      `Configuration d'environnement invalide.\n${details}\n\n` +
+        'Copier .env.example en .env et renseigner les valeurs manquantes.',
+    );
+  }
+
+  return result.data;
+}
+
+let cached: Env | undefined;
+
+/**
+ * Variables validées du processus courant.
+ *
+ * Lazy : la validation n'a lieu qu'au premier appel. Cela permet aux tests qui
+ * n'ont pas besoin de base de données de ne jamais la déclencher.
+ */
+export function getEnv(): Env {
+  cached ??= parseEnv(process.env);
+  return cached;
+}
