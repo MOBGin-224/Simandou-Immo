@@ -55,6 +55,10 @@ const BY_ERROR_NAME: Record<string, { status: number; code: ApiErrorCode }> = {
   PropertyValidationError: { status: 422, code: 'VALIDATION_ERROR' },
   PropertyNameAlreadyUsedError: { status: 409, code: 'CONFLICT' },
   ArchivedPropertyError: { status: 409, code: 'CONFLICT' },
+  ApartmentValidationError: { status: 422, code: 'VALIDATION_ERROR' },
+  ApartmentNumberAlreadyUsedError: { status: 409, code: 'CONFLICT' },
+  ApartmentBulkConflictError: { status: 409, code: 'CONFLICT' },
+  ArchivedApartmentError: { status: 409, code: 'CONFLICT' },
 };
 
 /** Référence technique corrélable entre la réponse et les journaux. */

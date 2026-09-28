@@ -30,3 +30,50 @@ export function formatDate(isoDate: string): string {
 export function pluralize(count: number, singular: string, plural = `${singular}s`): string {
   return `${count} ${count > 1 ? plural : singular}`;
 }
+
+/**
+ * Exposant de sous-unité par devise (DEC-014).
+ *
+ * La table est portée par le CODE et non par la base, tant qu'une seule devise
+ * existe. Le franc guinéen n'a pas de sous-unité : 2 500 000 s'écrit tel quel,
+ * sans décimale. Une devise inconnue est traitée comme ayant deux décimales,
+ * convention majoritaire, plutôt que de lever une erreur d'affichage.
+ */
+const MINOR_UNIT_EXPONENTS: Record<string, number> = {
+  GNF: 0,
+  XOF: 0,
+  EUR: 2,
+  USD: 2,
+};
+
+/**
+ * Montant lisible, à partir du couple entier et devise (DEC-014).
+ *
+ * Le formatage d'affichage est une responsabilité exclusive du frontend : le
+ * serveur transmet toujours `{ amount, currency }`, jamais une chaîne déjà mise
+ * en forme, qui serait inutilisable par un autre client.
+ *
+ * L'espace insécable groupe les milliers : « 2 500 000 GNF » ne doit pas se
+ * couper en fin de ligne au milieu d'un nombre.
+ */
+export function formatMoney(amount: number, currency: string): string {
+  const exponent = MINOR_UNIT_EXPONENTS[currency] ?? 2;
+  const value = amount / 10 ** exponent;
+
+  const formatted = new Intl.NumberFormat('fr-FR', {
+    minimumFractionDigits: exponent,
+    maximumFractionDigits: exponent,
+  }).format(value);
+
+  return `${formatted} ${currency}`;
+}
+
+/**
+ * Surface lisible, en mètres carrés.
+ *
+ * Les décimales ne sont affichées que lorsqu'elles portent une information :
+ * « 78,5 m² » se lit mieux que « 78,50 m² », et « 95 m² » mieux que « 95,00 m² ».
+ */
+export function formatArea(area: number): string {
+  return `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 }).format(area)} m²`;
+}

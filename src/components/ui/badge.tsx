@@ -52,3 +52,36 @@ export function Badge({ tone = 'neutral', children, className }: BadgeProps) {
 export function PropertyStatusBadge({ archived }: { archived: boolean }) {
   return archived ? <Badge tone="warning">Archivé</Badge> : <Badge tone="neutral">Actif</Badge>;
 }
+
+/**
+ * Statut d'occupation d'un appartement (DEC-019).
+ *
+ * Trois valeurs seulement : Vacant, Occupé, En maintenance. `ARCHIVED` n'en fait
+ * pas partie, l'archivage étant porté par `archived_at` (DEC-020) : un logement
+ * archivé garde donc son dernier statut d'occupation, et l'archive s'affiche par
+ * un badge distinct, à côté.
+ *
+ * Le choix des tons suit MVP-UI-011. « Occupé » est en vert parce que c'est
+ * l'objectif d'un bailleur, un logement loué étant un logement qui produit.
+ * « Vacant » est neutre et non rouge : un logement vide n'est pas une anomalie,
+ * c'est une situation à traiter. « En maintenance » est en orange, seul état qui
+ * appelle réellement une action.
+ */
+export type ApartmentStatusValue = 'VACANT' | 'OCCUPIED' | 'MAINTENANCE';
+
+const APARTMENT_STATUS_BADGES: Record<ApartmentStatusValue, { tone: BadgeTone; label: string }> = {
+  VACANT: { tone: 'neutral', label: 'Vacant' },
+  OCCUPIED: { tone: 'success', label: 'Occupé' },
+  MAINTENANCE: { tone: 'warning', label: 'En maintenance' },
+};
+
+export function ApartmentStatusBadge({ status }: { status: ApartmentStatusValue }) {
+  const badge = APARTMENT_STATUS_BADGES[status];
+
+  return <Badge tone={badge.tone}>{badge.label}</Badge>;
+}
+
+/** Badge d'archive, commun à toutes les entités archivables (DEC-020). */
+export function ArchivedBadge() {
+  return <Badge tone="warning">Archivé</Badge>;
+}

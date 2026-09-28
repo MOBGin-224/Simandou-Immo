@@ -8,6 +8,12 @@ import {
 import { newErrorId, toApiError } from '../../src/lib/http/errors';
 import { MalformedRequestBodyError } from '../../src/lib/http/responses';
 import {
+  ApartmentBulkConflictError,
+  ApartmentNumberAlreadyUsedError,
+  ApartmentValidationError,
+  ArchivedApartmentError,
+} from '../../src/modules/apartments/errors';
+import {
   ArchivedPropertyError,
   PropertyNameAlreadyUsedError,
   PropertyValidationError,
@@ -36,6 +42,14 @@ describe('Traduction des erreurs en réponses HTTP', () => {
     },
     { error: new PropertyNameAlreadyUsedError('Immeuble A'), status: 409, code: 'CONFLICT' },
     { error: new ArchivedPropertyError('already-archived'), status: 409, code: 'CONFLICT' },
+    {
+      error: new ApartmentValidationError({ number: ['obligatoire'] }),
+      status: 422,
+      code: 'VALIDATION_ERROR',
+    },
+    { error: new ApartmentNumberAlreadyUsedError('A01'), status: 409, code: 'CONFLICT' },
+    { error: new ApartmentBulkConflictError(['A01', 'A02']), status: 409, code: 'CONFLICT' },
+    { error: new ArchivedApartmentError('property-archived'), status: 409, code: 'CONFLICT' },
   ];
 
   for (const { error, status, code } of cases) {
