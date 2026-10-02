@@ -119,3 +119,42 @@ export class InvitationLoginRequiredError extends Error {
     this.name = 'InvitationLoginRequiredError';
   }
 }
+
+/**
+ * Opération refusée parce que l'accès n'est pas dans l'état qu'elle suppose (DEC-044).
+ *
+ * Le refus est EXPLICITE plutôt qu'idempotent : afficher un succès sur une
+ * suspension sans effet tromperait le propriétaire sur l'état réel de l'accès.
+ * Le motif est dit, car il oriente la correction.
+ *
+ * Un accès RÉVOQUÉ ne se réactive jamais, ne se suspend plus et ne change plus de
+ * périmètre : pour lui rendre l'accès, on réinvite la personne (DEC-043).
+ */
+export type ManagerAction = 'suspend' | 'reactivate' | 'revoke' | 'update-scope';
+export type ManagerAccessStatus = 'ACTIVE' | 'SUSPENDED' | 'REVOKED';
+
+export class ManagerStateError extends Error {
+  constructor(
+    readonly action: ManagerAction,
+    readonly status: ManagerAccessStatus,
+  ) {
+    super(ManagerStateError.messageFor(action, status));
+    this.name = 'ManagerStateError';
+  }
+
+  private static messageFor(action: ManagerAction, status: ManagerAccessStatus): string {
+    if (status === 'REVOKED') {
+      return action === 'reactivate'
+        ? 'Un accès révoqué ne se réactive pas : invitez de nouveau la personne.'
+        : action === 'revoke'
+          ? 'Cet accès est déjà révoqué.'
+          : action === 'update-scope'
+            ? "Le périmètre d'un accès révoqué ne se modifie pas : invitez de nouveau la personne."
+            : 'Cet accès a été révoqué : il ne peut plus être suspendu.';
+    }
+
+    if (status === 'SUSPENDED') return 'Cet accès est déjà suspendu.';
+
+    return 'Cet accès est déjà actif.';
+  }
+}

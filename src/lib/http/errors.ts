@@ -64,6 +64,7 @@ const BY_ERROR_NAME: Record<string, { status: number; code: ApiErrorCode }> = {
   ManagerInvitationConflictError: { status: 409, code: 'CONFLICT' },
   InvitationTargetUnavailableError: { status: 409, code: 'CONFLICT' },
   InvitationNotOpenError: { status: 409, code: 'CONFLICT' },
+  ManagerStateError: { status: 409, code: 'CONFLICT' },
 
   // Lien inutilisable : 404, jamais 410 ni 403. Inconnu, expiré, révoqué et consommé
   // doivent rester indiscernables (ADR-008), et seul 404 ne distingue rien.

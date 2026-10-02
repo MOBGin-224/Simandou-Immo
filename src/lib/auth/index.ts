@@ -142,3 +142,9 @@ export async function signOutSession() {
 
   return internal.endSessionWithCookies(getAuth(), requestHeaders);
 }
+
+/**
+ * Met fin à toutes les sessions d'une personne, dans la transaction de l'appelant
+ * (BR-019). À n'employer que pour une personne sans AUCUN accès actif ailleurs.
+ */
+export { endAllSessionsOf } from './sessions';

@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 
-import { RevokeInvitationForm } from '@/components/manager/revoke-invitation-form';
+import { ConfirmManagerActionForm } from '@/components/manager/confirm-manager-action-form';
 import { Card } from '@/components/ui/card';
 import { PageHeader } from '@/components/ui/page-header';
 import { getDb } from '@/db/client';
@@ -69,9 +69,11 @@ export default async function RevokeInvitationPage(
           </ul>
         </div>
 
-        <RevokeInvitationForm
+        <ConfirmManagerActionForm
           action={revokeInvitationAction.bind(null, invitation.id)}
           cancelHref={fiche}
+          submitLabel="Révoquer l'invitation"
+          pendingLabel="Révocation..."
         />
       </Card>
     </div>

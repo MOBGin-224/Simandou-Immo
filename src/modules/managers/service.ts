@@ -1,7 +1,12 @@
 import { z } from 'zod';
 
 import type { User, UserAccess } from '@/db/schema';
-import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH, writeCredential } from '@/lib/auth';
+import {
+  MAX_PASSWORD_LENGTH,
+  MIN_PASSWORD_LENGTH,
+  endAllSessionsOf,
+  writeCredential,
+} from '@/lib/auth';
 import {
   ResourceOutOfScopeError,
   organizationsWhereAllowed,
@@ -26,6 +31,7 @@ import {
   type InvitationPreview,
   type IssuedInvitation,
   type ManagerInvitationView,
+  type ManagerDetailView,
   type ManagerListItem,
   type ManagerPropertyRef,
 } from './domain';
@@ -35,16 +41,20 @@ import {
   InvitationNotOpenError,
   InvitationTargetUnavailableError,
   ManagerInvitationConflictError,
+  ManagerStateError,
   ManagerValidationError,
   type InvitationNotOpenReason,
 } from './errors';
 import {
   OPEN_INVITATION_CONSTRAINT,
   activateUser,
+  countActiveAccesses,
   claimInvitation,
   findInvitationById,
   findInvitationByTokenHash,
+  findLatestAcceptedInvitation,
   findManagerAccess,
+  findManagerAccessById,
   findOrganizationName,
   findPropertiesByIds,
   findStoredOpenInvitation,
@@ -65,13 +75,16 @@ import {
   listPendingInvitationRows,
   markInvitationExpired,
   reactivateRevokedAccess,
+  revokeAllScopes,
   revokeInvitationRow,
+  revokeScopes,
   rotateInvitationToken,
+  transitionAccess,
   updatePendingUser,
   type InvitationPropertyRow,
   type ManagersDatabase,
 } from './repository';
-import { acceptInvitationSchema, inviteManagerSchema } from './schemas';
+import { acceptInvitationSchema, inviteManagerSchema, updateManagerScopeSchema } from './schemas';
 
 /**
  * Cas d'usage du module Gestionnaires (MVP-BACKLOG-024 à 026, API section 13).
@@ -808,4 +821,240 @@ export async function listManagers(
   const managers = [...invitationItems, ...accessItems].sort(compareManagerItems);
 
   return { managers, meta: { total: managers.length } };
+}
+
+// --- Vie d'un accès : fiche, périmètre, suspension, réactivation, révocation ---------------
+
+/**
+ * Accès de gestionnaire accessible à l'appelant, ou refus indiscernable d'une absence.
+ *
+ * Un identifiant inconnu, mal formé, d'une autre organisation, ou qui désigne un
+ * accès de propriétaire ou de locataire, lève la MÊME erreur (ADR-007).
+ */
+async function loadManageableAccess(
+  db: ManagersDatabase,
+  context: AccessContext,
+  accessId: string,
+  permission: 'manager.read' | 'manager.update' | 'manager.revoke',
+) {
+  // Un identifiant qui n'est pas un UUID ne peut désigner aucun accès. Sans ce
+  // contrôle PostgreSQL refuserait la conversion et produirait une erreur interne,
+  // là où la réponse correcte est « inexistant ».
+  if (!z.uuid().safeParse(accessId).success) throw new ResourceOutOfScopeError();
+
+  const access = await findManagerAccessById(db, accessId);
+
+  if (!access) throw new ResourceOutOfScopeError();
+
+  requirePermission(context, permission, { organizationId: access.organizationId });
+
+  return access;
+}
+
+/** Fiche d'un accès : identité, statut, périmètre actuel, dates d'invitation et d'activation. */
+async function toDetailView(db: ManagersDatabase, accessId: string): Promise<ManagerDetailView> {
+  const access = await findManagerAccessById(db, accessId);
+
+  if (!access) throw new ResourceOutOfScopeError();
+
+  const scopes = await listActiveScopes(db, [access.accessId]);
+  const accepted = await findLatestAcceptedInvitation(db, access.organizationId, access.userId);
+
+  return {
+    id: access.accessId,
+    organizationId: access.organizationId,
+    organizationName: access.organizationName,
+    fullName: access.fullName,
+    phone: access.phone,
+    email: access.email,
+    status: access.status,
+    properties: scopes.map(refOf),
+    invitedAt: accepted?.issuedAt ?? null,
+    activatedAt: accepted?.acceptedAt ?? null,
+    statusChangedAt: access.updatedAt,
+    revokedAt: access.revokedAt,
+  };
+}
+
+/**
+ * Pourquoi une transition d'accès a été refusée : l'état RÉEL, relu après coup.
+ *
+ * La transition est conditionnelle en base. Quand elle ne touche aucune ligne, c'est
+ * que l'accès n'était plus dans l'état attendu ; on relit son état pour dire le vrai
+ * motif plutôt qu'un refus générique.
+ */
+async function stateErrorOf(
+  db: ManagersDatabase,
+  action: 'suspend' | 'reactivate' | 'revoke' | 'update-scope',
+  accessId: string,
+): Promise<Error> {
+  const current = await findManagerAccessById(db, accessId);
+
+  return current ? new ManagerStateError(action, current.status) : new ResourceOutOfScopeError();
+}
+
+/** Consulte la fiche d'un gestionnaire (MVP-BACKLOG-026, PRD 10.2). */
+export async function getManager(
+  db: ManagersDatabase,
+  context: AccessContext,
+  accessId: string,
+): Promise<ManagerDetailView> {
+  const access = await loadManageableAccess(db, context, accessId, 'manager.read');
+
+  return toDetailView(db, access.accessId);
+}
+
+/**
+ * Modifie la liste des immeubles d'un gestionnaire (MVP-FEAT-021, DEC-042).
+ *
+ * La liste fournie REMPLACE la précédente. Les immeubles retirés sont révoqués, la
+ * ligne restant avec son `revoked_at` ; les immeubles ajoutés sont attribués, la
+ * ligne d'un immeuble déjà attribué autrefois étant RÉACTIVÉE plutôt que dupliquée.
+ *
+ * Seuls les immeubles AJOUTÉS doivent être actifs et de l'organisation. Un immeuble
+ * déjà dans le périmètre peut y rester même s'il a été archivé depuis : le retirer
+ * serait une décision du propriétaire, pas une conséquence de l'archivage.
+ *
+ * L'effet est immédiat : le contexte d'accès est relu en base à chaque requête. Le
+ * périmètre d'un accès SUSPENDU se modifie aussi, et l'accès reste suspendu.
+ *
+ * Refusé pour un accès révoqué : on le réinvite, avec un périmètre neuf (DEC-043).
+ */
+export async function updateManagerScope(
+  db: ManagersDatabase,
+  context: AccessContext,
+  accessId: string,
+  input: unknown,
+  options: ManagerServiceOptions = {},
+): Promise<ManagerDetailView> {
+  const data = parseOrThrow(updateManagerScopeSchema, input);
+  const access = await loadManageableAccess(db, context, accessId, 'manager.update');
+  const now = nowOf(options);
+
+  await db.transaction(async (tx) => {
+    // Relu DANS la transaction : l'accès a pu être révoqué depuis la lecture.
+    const fresh = await findManagerAccessById(tx, access.accessId);
+
+    if (!fresh || fresh.status === 'REVOKED') {
+      throw new ManagerStateError('update-scope', 'REVOKED');
+    }
+
+    const currentIds = new Set(
+      (await listActiveScopes(tx, [access.accessId])).map((row) => row.id),
+    );
+    const wanted = new Set(data.propertyIds);
+
+    const additions = data.propertyIds.filter((id) => !currentIds.has(id));
+    const removals = [...currentIds].filter((id) => !wanted.has(id));
+
+    if (additions.length > 0) await loadAssignableProperties(tx, access.organizationId, additions);
+
+    await revokeScopes(tx, access.accessId, removals, now);
+    await grantProperties(tx, access.accessId, additions);
+  });
+
+  return toDetailView(db, access.accessId);
+}
+
+/**
+ * Suspend un gestionnaire (DEC-044).
+ *
+ * Bloque l'accès à la requête suivante, en CONSERVANT le périmètre : la
+ * réactivation restitue exactement l'accès d'avant. Ne touche ni le compte, ni les
+ * sessions, ni les accès de la personne dans d'autres organisations.
+ */
+export async function suspendManager(
+  db: ManagersDatabase,
+  context: AccessContext,
+  accessId: string,
+  options: ManagerServiceOptions = {},
+): Promise<ManagerDetailView> {
+  const access = await loadManageableAccess(db, context, accessId, 'manager.update');
+  const moved = await transitionAccess(
+    db,
+    access.accessId,
+    ['ACTIVE'],
+    'SUSPENDED',
+    nowOf(options),
+  );
+
+  if (!moved) throw await stateErrorOf(db, 'suspend', access.accessId);
+
+  return toDetailView(db, access.accessId);
+}
+
+/**
+ * Réactive un gestionnaire suspendu (DEC-044).
+ *
+ * Seul un accès SUSPENDU se réactive. Un accès révoqué ne se réactive jamais : c'est
+ * la réinvitation qui le fait revenir (DEC-043), avec un périmètre neuf.
+ */
+export async function reactivateManager(
+  db: ManagersDatabase,
+  context: AccessContext,
+  accessId: string,
+  options: ManagerServiceOptions = {},
+): Promise<ManagerDetailView> {
+  const access = await loadManageableAccess(db, context, accessId, 'manager.update');
+  const moved = await transitionAccess(
+    db,
+    access.accessId,
+    ['SUSPENDED'],
+    'ACTIVE',
+    nowOf(options),
+  );
+
+  if (!moved) throw await stateErrorOf(db, 'reactivate', access.accessId);
+
+  return toDetailView(db, access.accessId);
+}
+
+/**
+ * Révoque l'accès d'un gestionnaire (MVP-FEAT-022, BR-019, DEC-013).
+ *
+ * Une seule transaction :
+ *
+ *   1. l'accès passe à `REVOKED`, `revoked_at` posé ;
+ *   2. TOUT son périmètre est révoqué avec lui, les lignes restant ;
+ *   3. ses sessions sont coupées, mais SEULEMENT s'il n'a plus aucun accès actif
+ *      ailleurs : les sessions ne sont pas propres à une organisation, et couper
+ *      celles d'une personne qui travaille encore pour un autre propriétaire la
+ *      déconnecterait à tort.
+ *
+ * La révocation est déjà effective à la requête suivante sans l'étape 3 : le contexte
+ * d'accès est relu en base à chaque requête. Couper les sessions évite seulement
+ * qu'un navigateur reste connecté à un produit qui ne lui montre plus rien.
+ *
+ * L'HISTORIQUE EST CONSERVÉ. Rien n'est supprimé : ni la personne, ni sa ligne
+ * d'accès, ni son périmètre passé. Les actions qu'elle a faites restent attribuées à
+ * son identité (PRD 12.1). Possible depuis un accès actif comme suspendu.
+ */
+export async function revokeManager(
+  db: ManagersDatabase,
+  context: AccessContext,
+  accessId: string,
+  options: ManagerServiceOptions = {},
+): Promise<ManagerDetailView> {
+  const access = await loadManageableAccess(db, context, accessId, 'manager.revoke');
+  const now = nowOf(options);
+
+  await db.transaction(async (tx) => {
+    const moved = await transitionAccess(
+      tx,
+      access.accessId,
+      ['ACTIVE', 'SUSPENDED'],
+      'REVOKED',
+      now,
+    );
+
+    if (!moved) throw await stateErrorOf(tx, 'revoke', access.accessId);
+
+    await revokeAllScopes(tx, access.accessId, now);
+
+    if ((await countActiveAccesses(tx, access.userId)) === 0) {
+      await endAllSessionsOf(tx, access.userId);
+    }
+  });
+
+  return toDetailView(db, access.accessId);
 }

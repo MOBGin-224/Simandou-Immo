@@ -20,6 +20,7 @@ import {
   InvitationNotOpenError,
   InvitationTargetUnavailableError,
   ManagerInvitationConflictError,
+  ManagerStateError,
   ManagerValidationError,
 } from '../../src/modules/managers/errors';
 import {
@@ -72,6 +73,7 @@ describe('Traduction des erreurs en réponses HTTP', () => {
     },
     { error: new InvitationTargetUnavailableError(), status: 409, code: 'CONFLICT' },
     { error: new InvitationNotOpenError('accepted'), status: 409, code: 'CONFLICT' },
+    { error: new ManagerStateError('suspend', 'SUSPENDED'), status: 409, code: 'CONFLICT' },
     { error: new InvitationInvalidError(), status: 404, code: 'NOT_FOUND' },
     { error: new InvitationLoginRequiredError(), status: 401, code: 'UNAUTHORIZED' },
     { error: new WeakPasswordError(), status: 422, code: 'VALIDATION_ERROR' },

@@ -12,9 +12,9 @@ import type { ManagerListItem } from '@/modules/managers';
  * Sur mobile, la carte remplace le tableau : une ligne à cinq colonnes est
  * illisible sur un téléphone, qui est l'écran de référence (MVP-UI-001).
  *
- * Une INVITATION est cliquable, vers sa fiche, où l'on renvoie ou révoque le lien.
- * Un ACCÈS ne l'est pas encore : sa fiche, avec le périmètre, la suspension et la
- * révocation, arrive à la tranche suivante du Lot 6.
+ * Les deux natures mènent à leur fiche, qui n'est pas la même : une INVITATION, où
+ * l'on renvoie ou révoque le lien ; un ACCÈS, où l'on gère le périmètre, la
+ * suspension et la révocation.
  *
  * Le lien porte sur le NOM et sa zone est étendue à toute la carte (voir
  * `linkOverlayClasses`) : un titre de 22 pixels de haut est trop petit pour un
@@ -25,27 +25,25 @@ export type ManagerCardProps = {
 };
 
 export function ManagerCard({ item }: ManagerCardProps) {
-  const isInvitation = item.kind === 'INVITATION';
+  const href =
+    item.kind === 'INVITATION'
+      ? `/gestionnaires/invitations/${item.id}`
+      : `/gestionnaires/${item.id}`;
+
   const propertyNames = item.properties.map((property) =>
     property.archived ? `${property.name} (archivé)` : property.name,
   );
 
   return (
-    <Card as="li" interactive={isInvitation} className="flex flex-col gap-2">
+    <Card as="li" interactive className="flex flex-col gap-2">
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 flex-col">
-          {isInvitation ? (
-            <Link
-              href={`/gestionnaires/invitations/${item.id}`}
-              className={`${linkOverlayClasses} break-words font-display text-base font-semibold text-brand`}
-            >
-              {item.fullName}
-            </Link>
-          ) : (
-            <span className="break-words font-display text-base font-semibold text-brand">
-              {item.fullName}
-            </span>
-          )}
+          <Link
+            href={href}
+            className={`${linkOverlayClasses} break-words font-display text-base font-semibold text-brand`}
+          >
+            {item.fullName}
+          </Link>
 
           {item.phone ? <span className="text-sm text-muted">{item.phone}</span> : null}
         </div>
@@ -62,9 +60,13 @@ export function ManagerCard({ item }: ManagerCardProps) {
           ? item.status === 'INVITATION_EXPIRED'
             ? `Lien expiré le ${formatDate(item.expiresAt.toISOString())}`
             : `Invité le ${item.invitedAt ? formatDate(item.invitedAt.toISOString()) : '-'}, lien valable jusqu'au ${formatDate(item.expiresAt.toISOString())}`
-          : item.activatedAt
-            ? `Actif depuis le ${formatDate(item.activatedAt.toISOString())}`
-            : null}
+          : item.status === 'REVOKED'
+            ? 'Accès révoqué'
+            : item.status === 'SUSPENDED'
+              ? 'Accès suspendu'
+              : item.activatedAt
+                ? `Actif depuis le ${formatDate(item.activatedAt.toISOString())}`
+                : null}
       </p>
     </Card>
   );

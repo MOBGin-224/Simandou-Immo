@@ -5,27 +5,38 @@ import { useActionState } from 'react';
 
 import type { ManagerFormState } from '@/app/(app)/gestionnaires/actions';
 import { Alert } from '@/components/ui/alert';
-import { buttonClasses } from '@/components/ui/button';
+import { buttonClasses, type ButtonVariant } from '@/components/ui/button';
 import { SubmitButton } from '@/components/ui/submit-button';
 
 /**
- * Confirmation de révocation d'une invitation (Component Specification section 45).
+ * Confirmation d'une action sur un gestionnaire ou une invitation (Component
+ * Specification section 45).
  *
- * Jumeau de celui de l'archivage d'un appartement, et volontairement distinct : les
- * deux formulaires portent des états de retour différents, et les fondre en un seul
- * demanderait un type commun dont aucun des deux modules n'a besoin.
+ * Sert la révocation d'une invitation, la suspension et la révocation d'un accès :
+ * trois confirmations de même forme, qui ne diffèrent que par leur libellé et leur
+ * ton. Une action DESTRUCTIVE, ou qui prive quelqu'un de son accès, est présentée en
+ * rouge ; la réactivation, qui restitue un accès, ne l'est pas.
  *
  * Aucune boîte de dialogue native : `confirm()` bloque la page, n'est pas stylable,
  * et sur mobile son libellé est celui du navigateur.
  */
-export type RevokeInvitationFormProps = {
+export type ConfirmManagerActionFormProps = {
   action: (state: ManagerFormState, formData: FormData) => Promise<ManagerFormState>;
   cancelHref: string;
+  submitLabel: string;
+  pendingLabel: string;
+  variant?: ButtonVariant;
 };
 
 const INITIAL_STATE: ManagerFormState = {};
 
-export function RevokeInvitationForm({ action, cancelHref }: RevokeInvitationFormProps) {
+export function ConfirmManagerActionForm({
+  action,
+  cancelHref,
+  submitLabel,
+  pendingLabel,
+  variant = 'destructive',
+}: ConfirmManagerActionFormProps) {
   const [state, formAction] = useActionState(action, INITIAL_STATE);
 
   return (
@@ -37,8 +48,8 @@ export function RevokeInvitationForm({ action, cancelHref }: RevokeInvitationFor
         <Link href={cancelHref} className={buttonClasses('secondary', 'md')}>
           Annuler
         </Link>
-        <SubmitButton variant="destructive" pendingLabel="Révocation...">
-          Révoquer l&apos;invitation
+        <SubmitButton variant={variant} pendingLabel={pendingLabel}>
+          {submitLabel}
         </SubmitButton>
       </div>
     </form>

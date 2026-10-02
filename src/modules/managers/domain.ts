@@ -125,3 +125,30 @@ export function compareManagerItems(a: ManagerListItem, b: ManagerListItem): num
 
   return a.fullName.localeCompare(b.fullName, 'fr', { sensitivity: 'base' });
 }
+
+/**
+ * Fiche d'un gestionnaire, telle que le propriétaire la consulte (PRD 10.2).
+ *
+ * Porte les informations minimales du PRD : nom, téléphone, email éventuel, statut,
+ * immeubles accessibles, dates d'invitation et d'activation. Les immeubles sont ceux
+ * ACTUELLEMENT accessibles : les lignes révoquées n'y figurent pas, un accès révoqué
+ * n'en a donc plus aucune.
+ */
+export type ManagerDetailView = {
+  /** `user_access.id`. */
+  id: string;
+  organizationId: string;
+  organizationName: string;
+  fullName: string;
+  phone: string | null;
+  email: string | null;
+  status: 'ACTIVE' | 'SUSPENDED' | 'REVOKED';
+  properties: ManagerPropertyRef[];
+  /** Émission de la dernière invitation acceptée. */
+  invitedAt: Date | null;
+  /** Acceptation de cette invitation. */
+  activatedAt: Date | null;
+  /** Dernier changement de statut : suspension, réactivation ou révocation. */
+  statusChangedAt: Date;
+  revokedAt: Date | null;
+};
