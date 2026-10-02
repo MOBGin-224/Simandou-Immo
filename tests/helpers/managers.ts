@@ -197,3 +197,75 @@ export async function activeScopeOf(harness: Harness, accessId: string): Promise
     .map((row) => row.propertyId)
     .sort();
 }
+
+/** Ouvre une session de test pour un utilisateur, sans passer par la connexion. */
+export async function addSession(harness: Harness, userId: string): Promise<void> {
+  await harness.db.insert(harness.schema.sessions).values({
+    userId,
+    token: `session-de-test-${userId}-${Math.random().toString(36).slice(2)}`,
+    expiresAt: new Date(NOW.getTime() + 7 * DAY_MS),
+  });
+}
+
+/** Nombre de sessions d'un utilisateur, relu en base. */
+export async function countSessions(harness: Harness, userId: string): Promise<number> {
+  const rows = await harness.db
+    .select({ id: harness.schema.sessions.id })
+    .from(harness.schema.sessions)
+    .where(eq(harness.schema.sessions.userId, userId));
+
+  return rows.length;
+}
+
+/** Lignes de périmètre d'un accès, révoquées comprises, relues en base. */
+export async function scopeRowsOf(harness: Harness, accessId: string) {
+  return harness.db
+    .select()
+    .from(harness.schema.managerPropertyAccess)
+    .where(eq(harness.schema.managerPropertyAccess.userAccessId, accessId));
+}
+
+/**
+ * Base dont une opération précise échoue, À L'INTÉRIEUR d'une transaction.
+ *
+ * Sert à éprouver l'ATOMICITÉ : on provoque une panne entre deux écritures et on
+ * vérifie que la première a été annulée. Une validation qui échoue AVANT toute
+ * écriture ne prouve rien de tel : elle laisse la base intacte avec ou sans
+ * transaction.
+ *
+ * Seules les opérations de la transaction sont piégées. Les lectures, et les écritures
+ * hors transaction, passent normalement.
+ */
+export function failingInTransaction(
+  db: Harness['db'],
+  operation: 'insert' | 'update' | 'delete',
+): Harness['db'] {
+  const bound = (target: object, property: string | symbol, receiver: unknown) => {
+    const value = Reflect.get(target, property, receiver);
+
+    return typeof value === 'function' ? value.bind(target) : value;
+  };
+
+  return new Proxy(db, {
+    get(target, property, receiver) {
+      if (property !== 'transaction') return bound(target, property, receiver);
+
+      return (callback: (tx: unknown) => Promise<unknown>) =>
+        target.transaction((tx) =>
+          callback(
+            new Proxy(tx, {
+              get(inner, innerProperty, innerReceiver) {
+                if (innerProperty === operation) {
+                  return () => {
+                    throw new Error('panne simulée');
+                  };
+                }
+
+                return bound(inner, innerProperty, innerReceiver);
+              },
+            }),
+          ),
+        );
+    },
+  }) as Harness['db'];
+}

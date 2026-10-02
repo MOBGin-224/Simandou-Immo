@@ -14,6 +14,7 @@ export type {
   InvitationPreview,
   InvitationPreviewMode,
   IssuedInvitation,
+  ManagerDetailView,
   ManagerInvitationView,
   ManagerListItem,
   ManagerPropertyRef,
@@ -23,6 +24,8 @@ export { compareManagerItems } from './domain';
 export type {
   FieldErrors,
   InvitationNotOpenReason,
+  ManagerAccessStatus,
+  ManagerAction,
   ManagerInvitationConflictReason,
 } from './errors';
 export {
@@ -31,6 +34,7 @@ export {
   InvitationNotOpenError,
   InvitationTargetUnavailableError,
   ManagerInvitationConflictError,
+  ManagerStateError,
   ManagerValidationError,
 } from './errors';
 
@@ -47,8 +51,8 @@ export {
   MANAGER_PROPERTIES_MAX,
 } from './constants';
 
-export type { AcceptInvitationInput, InviteManagerInput } from './schemas';
-export { acceptInvitationSchema, inviteManagerSchema } from './schemas';
+export type { AcceptInvitationInput, InviteManagerInput, UpdateManagerScopeInput } from './schemas';
+export { acceptInvitationSchema, inviteManagerSchema, updateManagerScopeSchema } from './schemas';
 
 export type { ManagersDatabase } from './repository';
 
@@ -59,10 +63,15 @@ export type {
 } from './service';
 export {
   acceptManagerInvitation,
+  getManager,
   getManagerInvitation,
   inviteManager,
   listManagers,
   previewInvitation,
+  reactivateManager,
   resendManagerInvitation,
+  revokeManager,
   revokeManagerInvitation,
+  suspendManager,
+  updateManagerScope,
 } from './service';

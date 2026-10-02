@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, inArray, isNull } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gt, inArray, isNull } from 'drizzle-orm';
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
 
 import * as schema from '@/db/schema';
@@ -683,4 +683,170 @@ export async function listAcceptedInvitationRows(
         ]
       : [],
   );
+}
+
+// --- Vie d'un accès : fiche, périmètre, suspension, révocation (DEC-044) ---------------
+
+export type ManagerAccessDetailRow = {
+  accessId: string;
+  organizationId: string;
+  organizationName: string;
+  userId: string;
+  fullName: string;
+  phone: string | null;
+  email: string | null;
+  status: UserAccess['status'];
+  updatedAt: Date;
+  revokedAt: Date | null;
+};
+
+/**
+ * Accès de GESTIONNAIRE par identifiant, SANS aucun contrôle d'accès.
+ *
+ * Le rôle est dans la requête : l'identifiant d'un accès de propriétaire, ou de
+ * locataire, ne désigne pas un gestionnaire et doit se comporter comme inconnu.
+ */
+export async function findManagerAccessById(
+  db: ManagersDatabase,
+  accessId: string,
+): Promise<ManagerAccessDetailRow | undefined> {
+  const [row] = await db
+    .select({
+      accessId: userAccess.id,
+      organizationId: userAccess.organizationId,
+      organizationName: organizations.name,
+      userId: users.id,
+      fullName: users.fullName,
+      phone: users.phone,
+      email: users.email,
+      status: userAccess.status,
+      updatedAt: userAccess.updatedAt,
+      revokedAt: userAccess.revokedAt,
+    })
+    .from(userAccess)
+    .innerJoin(users, eq(users.id, userAccess.userId))
+    .innerJoin(organizations, eq(organizations.id, userAccess.organizationId))
+    .where(and(eq(userAccess.id, accessId), eq(userAccess.role, 'MANAGER')))
+    .limit(1);
+
+  return row;
+}
+
+/**
+ * Fait passer un accès d'un statut à un autre, SI et seulement si il est encore dans
+ * l'un des statuts de départ.
+ *
+ * La condition est dans la requête et non dans une lecture préalable : deux
+ * opérations simultanées sur le même accès, une suspension et une révocation par
+ * exemple, se retrouvent face à la même ligne, et la seconde relit la condition.
+ * `undefined` signifie que l'accès n'était plus dans l'état attendu.
+ *
+ * `revoked_at` suit le statut : posé à la révocation, effacé sinon. Le loader du
+ * contexte d'accès exige les deux conditions, `ACTIVE` ET non révoqué.
+ */
+export async function transitionAccess(
+  db: ManagersDatabase,
+  accessId: string,
+  from: readonly UserAccess['status'][],
+  to: UserAccess['status'],
+  now: Date,
+): Promise<UserAccess | undefined> {
+  const [row] = await db
+    .update(userAccess)
+    .set({ status: to, revokedAt: to === 'REVOKED' ? now : null, updatedAt: now })
+    .where(
+      and(
+        eq(userAccess.id, accessId),
+        eq(userAccess.role, 'MANAGER'),
+        inArray(userAccess.status, [...from]),
+      ),
+    )
+    .returning();
+
+  return row;
+}
+
+/**
+ * Révoque des immeubles du périmètre : la ligne reste, `revoked_at` est posé.
+ *
+ * Jamais de suppression : l'historique de ce qu'un gestionnaire a pu voir se conserve
+ * (DEC-013). Seules les lignes encore actives sont touchées, pour ne pas écraser la
+ * date d'une révocation plus ancienne.
+ */
+export async function revokeScopes(
+  db: ManagersDatabase,
+  accessId: string,
+  propertyIds: readonly string[],
+  now: Date,
+): Promise<void> {
+  if (propertyIds.length === 0) return;
+
+  await db
+    .update(managerPropertyAccess)
+    .set({ revokedAt: now })
+    .where(
+      and(
+        eq(managerPropertyAccess.userAccessId, accessId),
+        inArray(managerPropertyAccess.propertyId, [...propertyIds]),
+        isNull(managerPropertyAccess.revokedAt),
+      ),
+    );
+}
+
+/** Révoque TOUT le périmètre encore actif d'un accès, avec lui (BR-019). */
+export async function revokeAllScopes(
+  db: ManagersDatabase,
+  accessId: string,
+  now: Date,
+): Promise<void> {
+  await db
+    .update(managerPropertyAccess)
+    .set({ revokedAt: now })
+    .where(
+      and(
+        eq(managerPropertyAccess.userAccessId, accessId),
+        isNull(managerPropertyAccess.revokedAt),
+      ),
+    );
+}
+
+/** Nombre d'accès ACTIFS d'une personne, toutes organisations et tous rôles confondus. */
+export async function countActiveAccesses(db: ManagersDatabase, userId: string): Promise<number> {
+  const [row] = await db
+    .select({ total: count() })
+    .from(userAccess)
+    .where(
+      and(
+        eq(userAccess.userId, userId),
+        eq(userAccess.status, 'ACTIVE'),
+        isNull(userAccess.revokedAt),
+      ),
+    );
+
+  return row?.total ?? 0;
+}
+
+/** Dernière invitation de gestionnaire acceptée par une personne, pour dater son accès. */
+export async function findLatestAcceptedInvitation(
+  db: ManagersDatabase,
+  organizationId: string,
+  userId: string,
+): Promise<{ issuedAt: Date; acceptedAt: Date } | undefined> {
+  const [row] = await db
+    .select({ issuedAt: invitations.issuedAt, acceptedAt: invitations.acceptedAt })
+    .from(invitations)
+    .where(
+      and(
+        eq(invitations.organizationId, organizationId),
+        eq(invitations.targetUserId, userId),
+        eq(invitations.role, 'MANAGER'),
+        eq(invitations.status, 'ACCEPTED'),
+      ),
+    )
+    .orderBy(desc(invitations.acceptedAt))
+    .limit(1);
+
+  return row && row.acceptedAt !== null
+    ? { issuedAt: row.issuedAt, acceptedAt: row.acceptedAt }
+    : undefined;
 }

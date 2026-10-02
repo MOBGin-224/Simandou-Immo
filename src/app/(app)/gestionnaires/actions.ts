@@ -10,10 +10,15 @@ import {
   InvitationNotOpenError,
   InvitationTargetUnavailableError,
   ManagerInvitationConflictError,
+  ManagerStateError,
   ManagerValidationError,
   inviteManager,
+  reactivateManager,
   resendManagerInvitation,
+  revokeManager,
   revokeManagerInvitation,
+  suspendManager,
+  updateManagerScope,
   type IssuedInvitation,
 } from '@/modules/managers';
 import { inviteFields, submittedInviteValues, submittedPropertyIds } from '@/modules/managers/form';
@@ -99,7 +104,7 @@ function toFormState(
     return { fieldErrors: { phone: [error.message] }, values, selectedPropertyIds };
   }
 
-  if (error instanceof InvitationNotOpenError) {
+  if (error instanceof InvitationNotOpenError || error instanceof ManagerStateError) {
     return { message: error.message, values, selectedPropertyIds };
   }
 
@@ -114,7 +119,7 @@ function toFormState(
   }
 
   if (error instanceof ResourceOutOfScopeError) {
-    return { message: 'Cette invitation est introuvable.', values, selectedPropertyIds };
+    return { message: 'Cet élément est introuvable.', values, selectedPropertyIds };
   }
 
   throw error;
@@ -189,4 +194,95 @@ export async function revokeInvitationAction(
 
   revalidatePath('/gestionnaires');
   redirect('/gestionnaires');
+}
+
+/** Rafraîchit les écrans que la vie d'un accès change : la liste et la fiche. */
+function revalidateManagerViews(accessId: string): void {
+  revalidatePath('/gestionnaires');
+  revalidatePath(`/gestionnaires/${accessId}`);
+}
+
+/**
+ * Modifie le périmètre d'un gestionnaire, puis revient à sa fiche (MVP-FEAT-021).
+ *
+ * La redirection est hors du `try` : `redirect` interrompt l'exécution par une
+ * exception interne à Next, et la capturer transformerait un succès en message
+ * d'erreur.
+ */
+export async function updateManagerScopeAction(
+  accessId: string,
+  _previousState: ManagerFormState,
+  formData: FormData,
+): Promise<ManagerFormState> {
+  const context = await requireAccessContextOrSignIn();
+  const selected = submittedPropertyIds(formData);
+
+  try {
+    await updateManagerScope(getDb(), context, accessId, { propertyIds: selected });
+  } catch (error) {
+    return toFormState(error, {}, selected);
+  }
+
+  revalidateManagerViews(accessId);
+  redirect(`/gestionnaires/${accessId}`);
+}
+
+/** Suspend un gestionnaire (DEC-044), puis revient à sa fiche. */
+export async function suspendManagerAction(
+  accessId: string,
+  _previousState: ManagerFormState,
+  _formData: FormData,
+): Promise<ManagerFormState> {
+  const context = await requireAccessContextOrSignIn();
+
+  try {
+    await suspendManager(getDb(), context, accessId);
+  } catch (error) {
+    return toFormState(error, {}, []);
+  }
+
+  revalidateManagerViews(accessId);
+  redirect(`/gestionnaires/${accessId}`);
+}
+
+/** Réactive un gestionnaire suspendu (DEC-044), puis revient à sa fiche. */
+export async function reactivateManagerAction(
+  accessId: string,
+  _previousState: ManagerFormState,
+  _formData: FormData,
+): Promise<ManagerFormState> {
+  const context = await requireAccessContextOrSignIn();
+
+  try {
+    await reactivateManager(getDb(), context, accessId);
+  } catch (error) {
+    return toFormState(error, {}, []);
+  }
+
+  revalidateManagerViews(accessId);
+  redirect(`/gestionnaires/${accessId}`);
+}
+
+/**
+ * Révoque l'accès d'un gestionnaire (BR-019), puis revient à sa fiche.
+ *
+ * La fiche reste accessible après la révocation : l'historique d'un gestionnaire
+ * révoqué demeure consultable, et rediriger vers la liste donnerait l'impression
+ * d'une suppression, qui n'a pas eu lieu.
+ */
+export async function revokeManagerAction(
+  accessId: string,
+  _previousState: ManagerFormState,
+  _formData: FormData,
+): Promise<ManagerFormState> {
+  const context = await requireAccessContextOrSignIn();
+
+  try {
+    await revokeManager(getDb(), context, accessId);
+  } catch (error) {
+    return toFormState(error, {}, []);
+  }
+
+  revalidateManagerViews(accessId);
+  redirect(`/gestionnaires/${accessId}`);
 }

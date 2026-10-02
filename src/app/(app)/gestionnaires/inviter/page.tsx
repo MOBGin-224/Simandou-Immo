@@ -1,10 +1,8 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
-import {
-  InviteManagerForm,
-  type InvitablePropertyGroup,
-} from '@/components/manager/invite-manager-form';
+import { InviteManagerForm } from '@/components/manager/invite-manager-form';
+import type { ChecklistGroup } from '@/components/manager/property-checklist';
 import { buttonClasses } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeader } from '@/components/ui/page-header';
@@ -34,7 +32,7 @@ export default async function InviteManagerPage() {
 
   if (organizations.length === 0) notFound();
 
-  const groups: InvitablePropertyGroup[] = [];
+  const groups: ChecklistGroup[] = [];
 
   for (const organization of organizations) {
     // 100 est la borne de pagination du serveur, et celle d'une invitation (DEC-041).

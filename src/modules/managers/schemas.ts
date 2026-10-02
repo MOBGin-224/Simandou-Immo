@@ -118,3 +118,15 @@ export const acceptInvitationSchema = z.object({
 });
 
 export type AcceptInvitationInput = z.output<typeof acceptInvitationSchema>;
+
+/**
+ * Modification du périmètre d'un gestionnaire (API section 13, MVP-FEAT-021).
+ *
+ * La liste fournie REMPLACE la précédente : les immeubles retirés sont révoqués, les
+ * nouveaux attribués. Mêmes règles que pour l'invitation, au moins un immeuble et
+ * sans doublon (DEC-042), et aucun champ de permission : les droits découlent du
+ * rôle (DEC-025).
+ */
+export const updateManagerScopeSchema = inviteManagerSchema.pick({ propertyIds: true });
+
+export type UpdateManagerScopeInput = z.output<typeof updateManagerScopeSchema>;
