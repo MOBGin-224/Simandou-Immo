@@ -31,6 +31,7 @@ export const PERMISSIONS = [
   'apartment.create',
   'apartment.read',
   'apartment.update',
+  'apartment.archive',
 
   'manager.invite',
   'manager.read',
@@ -96,6 +97,7 @@ const OWNER_PERMISSIONS: readonly Permission[] = [
   'apartment.create',
   'apartment.read',
   'apartment.update',
+  'apartment.archive',
   'manager.invite',
   'manager.read',
   'manager.update',
@@ -138,10 +140,12 @@ const OWNER_PERMISSIONS: readonly Permission[] = [
  * Trois familles d'exclusions, cinq permissions, chacune fondée sur un
  * document :
  *
- *   1. `property.create` et `property.archive`. Créer ou archiver un immeuble
- *      est un acte patrimonial : la liste des capacités du gestionnaire dans
- *      `roles-permissions.md` section 10 ne les contient pas, celle du
- *      propriétaire en section 6 les contient.
+ *   1. `property.create`, `property.archive` et `apartment.archive`. Créer ou
+ *      retirer un bien de l'exploitation est un acte patrimonial : la liste des
+ *      capacités du gestionnaire dans `roles-permissions.md` section 10 n'en
+ *      contient aucun, celle du propriétaire en section 6 les contient. La
+ *      troisième a été ajoutée le 28 septembre 2026 par DEC-039, le Lot 5 ayant
+ *      découvert qu'elle manquait au catalogue.
  *   2. Toutes les permissions `manager.*`, `manager.read` comprise. La matrice
  *      globale refuse au gestionnaire chaque ligne concernant les
  *      gestionnaires, et la section 7 lui interdit de modifier l'autorité du
@@ -153,8 +157,8 @@ const OWNER_PERMISSIONS: readonly Permission[] = [
  * Ces exclusions étaient des interprétations de la matrice, pas des citations :
  * la mention « selon droits » qu'elle portait visait la délégation fine
  * abandonnée par DEC-025. Elles sont CONFIRMÉES depuis le 27 septembre 2026, et
- * `property.create` comme `property.archive` sont donc réservées au
- * propriétaire. Le PRD section 10.3 parle d'un « gestionnaire autorisé » : cette
+ * `property.create`, `property.archive` et `apartment.archive` sont donc
+ * réservées au propriétaire. Le PRD section 10.3 parle d'un « gestionnaire autorisé » : cette
  * formulation désignait la délégation abandonnée, et ne rouvre rien.
  *
  * Une exclusion se lève en ajoutant une ligne ici, ce qui fait échouer le test

@@ -52,17 +52,12 @@ export default async function ApartmentsPage(
   const activeStatus = first(searchParams.statut) ?? 'ALL';
   const search = first(searchParams.recherche) ?? '';
   /**
-   * L'URL accepte `archives=1` et la liste l'honore, mais AUCUN lien ne l'offre.
+   * L'URL accepte `archives=1`, et un lien l'offre depuis que l'archivage d'un
+   * appartement existe (DEC-039, 28 septembre 2026).
    *
-   * Ce n'est pas un oubli. L'archivage d'un appartement n'existe pas à ce lot :
-   * la matrice des rôles prévoit bien « Archiver un appartement », mais la
-   * permission correspondante n'est pas au catalogue et DEC-025 ne l'a pas
-   * tranchée. Un lien « Afficher les archivés » ne pourrait donc rien révéler,
-   * et une commande sans effet possible est un ornement.
-   *
-   * Le paramètre reste en place parce que le modèle le prévoit depuis le Lot 1
-   * (DEC-020) et que l'API l'expose : le lien reviendra avec l'archivage, sans
-   * rien à recâbler.
+   * Ce lien avait été retiré au Lot 5 : sans commande d'archivage, il ne pouvait
+   * rien révéler, et une commande sans effet possible est un ornement. Il revient
+   * sans rien qui ait eu besoin d'être recâblé, le paramètre étant resté en place.
    */
   const includeArchived = first(searchParams.archives) === '1';
 
@@ -174,7 +169,7 @@ export default async function ApartmentsPage(
           ))}
         </nav>
 
-        <div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           {/* Formulaire GET : la recherche vit dans l'URL, donc sans JavaScript. */}
           <form method="get" action={base} className="flex gap-2">
             {activeStatus !== 'ALL' ? (
@@ -196,6 +191,13 @@ export default async function ApartmentsPage(
               Rechercher
             </button>
           </form>
+
+          <Link
+            href={hrefWith({ archives: includeArchived ? '' : '1', page: '' })}
+            className="min-h-11 self-start text-sm text-action underline underline-offset-4 hover:text-brand sm:self-auto"
+          >
+            {includeArchived ? 'Masquer les archivés' : 'Afficher les archivés'}
+          </Link>
         </div>
       </div>
 

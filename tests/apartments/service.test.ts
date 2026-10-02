@@ -9,6 +9,7 @@ import {
   ResourceOutOfScopeError,
 } from '../../src/lib/authorization/service';
 import {
+  AlreadyArchivedApartmentError,
   ApartmentBulkConflictError,
   ApartmentNumberAlreadyUsedError,
   ApartmentValidationError,
@@ -16,6 +17,7 @@ import {
 } from '../../src/modules/apartments/errors';
 import {
   createApartment,
+  archiveApartment,
   createApartmentsBulk,
   generateApartments,
   getApartment,
@@ -476,6 +478,110 @@ describe('Cas d usage du module Appartements', () => {
       });
 
       expect(collection.apartments.map((apartment) => apartment.number)).toEqual(['A02', 'A01']);
+    });
+  });
+
+  /**
+   * DEC-039, confirmée par le fondateur le 28 septembre 2026 : l'archivage d'un
+   * appartement est réservé au PROPRIÉTAIRE, retirer un logement de
+   * l'exploitation étant un acte patrimonial.
+   */
+  describe('Archivage', () => {
+    it('archive un logement sans toucher à son statut d occupation', async () => {
+      const created = await createForOwner('K01', { status: 'OCCUPIED' });
+
+      const archived = await archiveApartment(harness.db, owner, created.id);
+
+      expect(archived.archived).toBe(true);
+      expect(archived.archivedAt).not.toBeNull();
+      // Le statut reste la derniere information vraie sur le logement (DEC-019).
+      expect(archived.status).toBe('OCCUPIED');
+    });
+
+    it('refuse un second archivage plutôt que d annoncer un succès sans effet', async () => {
+      const created = await createForOwner('K02');
+
+      await archiveApartment(harness.db, owner, created.id);
+
+      const failure = await archiveApartment(harness.db, owner, created.id).catch(
+        (error: unknown) => error,
+      );
+
+      expect(failure).toBeInstanceOf(AlreadyArchivedApartmentError);
+    });
+
+    /** Le refus porte sur la permission, la ressource étant bien dans son périmètre. */
+    it('refuse l archivage au gestionnaire, même sur son périmètre', async () => {
+      const created = await createForOwner('K03');
+
+      const failure = await archiveApartment(harness.db, manager, created.id).catch(
+        (error: unknown) => error,
+      );
+
+      expect(failure).toBeInstanceOf(PermissionDeniedError);
+    });
+
+    it('laisse le gestionnaire modifier ce qu il ne peut pas archiver', async () => {
+      const created = await createForOwner('K04');
+
+      const updated = await updateApartment(harness.db, manager, created.id, {
+        status: 'MAINTENANCE',
+      });
+
+      expect(updated.status).toBe('MAINTENANCE');
+    });
+
+    it('refuse toute modification d un logement archivé', async () => {
+      const created = await createForOwner('K05');
+
+      await archiveApartment(harness.db, owner, created.id);
+
+      const failure = await updateApartment(harness.db, owner, created.id, {
+        type: 'T2',
+      }).catch((error: unknown) => error);
+
+      expect(failure).toBeInstanceOf(ArchivedApartmentError);
+    });
+
+    /**
+     * La référence reste prise : libérer « A04 » rendrait deux lignes homonymes
+     * indistinguables dans un historique de bail.
+     */
+    it('garde la référence d un logement archivé réservée', async () => {
+      const created = await createForOwner('K06');
+
+      await archiveApartment(harness.db, owner, created.id);
+
+      const failure = await createForOwner('K06').catch((error: unknown) => error);
+
+      expect(failure).toBeInstanceOf(ApartmentNumberAlreadyUsedError);
+    });
+
+    it('exclut un logement archivé de la liste, et le montre sur demande', async () => {
+      const created = await createForOwner('K07');
+
+      await archiveApartment(harness.db, owner, created.id);
+
+      const actifs = await listApartments(harness.db, owner, SEED_IDS.propertyA, {
+        search: 'K07',
+      });
+      const avecArchives = await listApartments(harness.db, owner, SEED_IDS.propertyA, {
+        search: 'K07',
+        includeArchived: true,
+      });
+
+      expect(actifs.apartments).toHaveLength(0);
+      expect(avecArchives.apartments).toHaveLength(1);
+    });
+
+    it('rend un logement d une autre organisation indiscernable d un inexistant', async () => {
+      const created = await createForOwner('K08');
+
+      const failure = await archiveApartment(harness.db, otherOwner, created.id).catch(
+        (error: unknown) => error,
+      );
+
+      expect(failure).toBeInstanceOf(ResourceOutOfScopeError);
     });
   });
 });

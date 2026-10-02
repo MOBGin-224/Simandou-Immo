@@ -74,12 +74,13 @@ describe('Association des rôles', () => {
   /**
    * Ces exclusions résolvaient la mention « selon droits » de la matrice, qui ne
    * parle pas en `resource.action`. Elles sont confirmées depuis le 27 septembre
-   * 2026 (DEC-025). Les figer ici rend tout changement visible en revue plutôt
+   * 2026 (DEC-025), et `apartment.archive` depuis le 28 (DEC-039). Les figer ici rend tout changement visible en revue plutôt
    * que silencieux.
    */
   const MANAGER_MUST_NOT_HAVE: Permission[] = [
     'property.create',
     'property.archive',
+    'apartment.archive',
     'manager.invite',
     'manager.read',
     'manager.update',

@@ -386,6 +386,7 @@ property.archive
 apartment.create
 apartment.read
 apartment.update
+apartment.archive
 
 manager.invite
 manager.read
