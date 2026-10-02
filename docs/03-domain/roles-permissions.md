@@ -777,6 +777,8 @@ Selon les droits du propriétaire.
 
 Le système doit permettre cette distinction.
 
+> **DEC-042** : le périmètre d'un gestionnaire reste une **liste explicite** d'immeubles. « Tous les immeubles » est une action « Tout sélectionner » qui coche ceux qui existent à cet instant. Les immeubles créés plus tard ne sont **jamais** ajoutés automatiquement : le propriétaire doit les attribuer, par moindre privilège.
+
 ---
 
 # 28. Gestionnaire principal et gestionnaire secondaire

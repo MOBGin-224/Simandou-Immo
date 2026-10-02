@@ -237,6 +237,25 @@ export async function definePassword(
   });
 }
 
+/**
+ * Hache un mot de passe selon la politique du produit, sans rien écrire.
+ *
+ * Première moitié de l'activation d'un compte dans une transaction (DEC-041) : le
+ * hachage est lent par construction, il se calcule donc AVANT d'ouvrir la
+ * transaction, pour ne pas tenir de verrous pendant qu'il s'exécute. La seconde
+ * moitié est `writeCredential`, qui écrit ce hachage dans la transaction de
+ * l'appelant.
+ *
+ * Applique la même politique que `definePassword`, longueur minimale comprise.
+ */
+export async function hashPassword(auth: AuthInstance, password: string): Promise<string> {
+  if (password.length < MIN_PASSWORD_LENGTH) throw new WeakPasswordError();
+
+  const context = await auth.$context;
+
+  return context.password.hash(password);
+}
+
 /** Levée lorsque le couple téléphone et mot de passe ne correspond à rien. */
 export class InvalidCredentialsError extends Error {
   constructor() {

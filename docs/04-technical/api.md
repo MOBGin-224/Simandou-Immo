@@ -446,11 +446,32 @@ POST /api/v1/manager-invitations
 >
 > La délégation fine est classée `FUT-FEAT-017`.
 
+Règles de validation (DEC-041, DEC-042) :
+
+- `propertyIds` : **au moins un** immeuble, tous de l'organisation de l'appelant, aucun archivé. Un immeuble inexistant et un immeuble d'une autre organisation reçoivent le même refus.
+- `phone` : format international, par exemple `+224620000000`. Les espaces, points et tirets sont retirés avant contrôle.
+- Un numéro déjà connu **ne crée pas de second compte** (BR-009).
+- Refus `409` si la personne est déjà propriétaire ou gestionnaire actif ou suspendu de l'organisation, ou si une invitation encore valable existe déjà pour elle.
+- Un gestionnaire **révoqué** peut être réinvité (DEC-043).
+
 ### Sortie
 
 L'invitation créée, accompagnée du **lien de partage** que l'inviteur devra copier et transmettre lui-même (DEC-026).
 
+```json
+{
+  "data": {
+    "invitation": { "id": "…", "status": "PENDING", "expiresAt": "…" },
+    "link": "https://…/invitation/<jeton>"
+  }
+}
+```
+
+**Le lien n'est renvoyé qu'une seule fois.** Le jeton n'est stocké que haché : il ne peut pas être réaffiché, et un lien perdu se renvoie.
+
 Aucun envoi automatique par SMS, WhatsApp ou email n'a lieu au MVP.
+
+Durée de validité : 7 jours par défaut, réglable par `INVITATION_TTL_DAYS` (DEC-045).
 
 ---
 
@@ -460,11 +481,62 @@ Aucun envoi automatique par SMS, WhatsApp ou email n'a lieu au MVP.
 POST /api/v1/manager-invitations/:id/resend
 ```
 
-L'ancienne invitation devient invalide si une nouvelle invitation est générée.
+Régénère le jeton dans la **même invitation** : l'ancien lien devient invalide aussitôt, et la durée de validité repart de zéro. Même sortie que l'invitation, avec le nouveau lien.
+
+Refusé (`409`) si l'invitation est déjà acceptée ou révoquée. Une invitation expirée se renvoie.
 
 ---
 
-## Révoquer
+## Révoquer une invitation
+
+```text
+POST /api/v1/manager-invitations/:id/revoke
+```
+
+Annule une invitation qui n'a pas été acceptée. Le lien devient inutilisable. Refusé (`409`) si l'invitation est déjà acceptée ou déjà révoquée.
+
+---
+
+## Lister
+
+```text
+GET /api/v1/managers
+```
+
+Réunit les gestionnaires et les invitations en attente. Chaque élément porte un type :
+
+```text
+kind    ACCESS        un gestionnaire (identifiant : user_access.id)
+        INVITATION    une invitation en attente ou expirée (identifiant : invitation.id)
+status  ACTIVE, SUSPENDED, REVOKED, INVITED, INVITATION_EXPIRED
+```
+
+Les invitations acceptées ne s'y répètent pas : leur gestionnaire les remplace. Les invitations révoquées n'y figurent pas.
+
+---
+
+## Consulter
+
+```text
+GET /api/v1/managers/:id
+```
+
+`:id` est un `user_access.id`. Un identifiant inconnu et un identifiant d'une autre organisation reçoivent la même réponse, `404`.
+
+---
+
+## Suspendre, réactiver (DEC-044)
+
+```text
+POST /api/v1/managers/:id/suspend
+POST /api/v1/managers/:id/reactivate
+```
+
+Permission `manager.update`. Suspendre bloque l'accès aussitôt en **conservant le périmètre** : réactiver restitue exactement l'accès. Seul un accès `SUSPENDED` se réactive, et un accès `REVOKED` ne se réactive jamais (réinvitation, DEC-043).
+
+---
+
+## Révoquer un accès
 
 ```text
 POST /api/v1/managers/:id/revoke
@@ -472,16 +544,26 @@ POST /api/v1/managers/:id/revoke
 
 Effet :
 
-- accès bloqué ;
-- historique conservé.
+- accès bloqué **immédiatement** : le contexte d'accès est relu en base à chaque requête ;
+- périmètre révoqué avec lui ;
+- historique conservé : les actions passées restent attribuées à la personne ;
+- ses sessions ne sont supprimées que si elle n'a plus aucun accès actif ailleurs.
+
+Possible depuis `ACTIVE` et `SUSPENDED`.
 
 ---
 
-## Modifier les permissions
+## Modifier le périmètre
 
 ```text
 PATCH /api/v1/managers/:id/access
 ```
+
+```json
+{ "propertyIds": ["property_1", "property_2"] }
+```
+
+Ne modifie **que la liste des immeubles** : les permissions découlent du rôle (DEC-025). La liste fournie remplace la précédente : les immeubles retirés sont révoqués, les nouveaux attribués. Au moins un immeuble (DEC-042). Permission `manager.update`.
 
 Le backend doit vérifier que l'appelant possède lui-même les droits nécessaires.
 
@@ -489,9 +571,30 @@ Le backend doit vérifier que l'appelant possède lui-même les droits nécessai
 
 # 14. Route : activation d'une invitation
 
+## Consulter l'invitation
+
+```text
+GET /api/v1/invitations/:token
+```
+
+Route publique, utilisée par la page d'activation. Renvoie ce que le parcours 5 affiche : l'organisation, le nom de l'inviteur, les immeubles concernés, le rôle, et si l'invité doit définir un mot de passe ou se connecter.
+
+**Toute invitation inutilisable reçoit la même réponse `404`** : inconnue, expirée, révoquée, déjà acceptée (ADR-008).
+
+## Accepter
+
 ```text
 POST /api/v1/invitations/:token/accept
 ```
+
+```json
+{ "password": "…" }
+```
+
+- Invité **sans compte actif** : le mot de passe est obligatoire (10 caractères au minimum). Le compte est activé et une session est ouverte.
+- Invité **avec un compte déjà actif** : aucun mot de passe n'est lu ni modifié. L'appelant doit être connecté avec ce compte, sinon `401`. **Un lien d'invitation ne change jamais le mot de passe d'un compte actif.**
+
+La page d'activation envoie un formulaire HTML : la route répond alors par une redirection, cookies de session compris. Un appel JSON reçoit l'enveloppe habituelle.
 
 ### Processus
 
@@ -503,6 +606,10 @@ POST /api/v1/invitations/:token/accept
 6. Attribuer le rôle.
 7. Attribuer le périmètre.
 8. Invalider l'invitation.
+
+**Ces étapes forment une seule transaction** (DEC-041). Le lien est d'abord réclamé par une mise à jour conditionnelle (invitation ouverte ET non expirée) : si deux acceptations arrivent ensemble, une seule réussit, et l'autre ne laisse aucun mot de passe.
+
+**Un gestionnaire réinvité réutilise sa ligne d'accès** (DEC-043). Seul le périmètre de la nouvelle invitation est attribué : un immeuble absent de la liste reste révoqué. Un immeuble archivé entre-temps n'est pas attribué, et si plus aucun immeuble n'est attribuable l'invitation est refusée.
 
 ---
 

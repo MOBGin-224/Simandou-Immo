@@ -87,6 +87,18 @@ export async function changePassword(input: {
   return internal.changePassword(getAuth(), requestHeaders, input);
 }
 
+/**
+ * Hache un mot de passe, sans rien écrire (DEC-041).
+ *
+ * Avec `writeCredential`, c'est la voie d'une activation de compte ATOMIQUE : on
+ * hache avant d'ouvrir la transaction, puis on écrit le hachage dans celle-ci.
+ */
+export async function hashPassword(password: string) {
+  return internal.hashPassword(getAuth(), password);
+}
+
+export { writeCredential } from './credential';
+
 /** Sessions actives de l'utilisateur courant. */
 export async function listSessions() {
   const requestHeaders = await headers();

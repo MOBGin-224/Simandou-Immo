@@ -188,6 +188,8 @@ Une invitation possède une date d'expiration.
 
 Après expiration, elle ne peut plus être utilisée.
 
+La durée par défaut est de **7 jours**, réglable par `INVITATION_TTL_DAYS` (DEC-045). L'expiration est contrôlée à chaque lecture et dans la requête même qui consomme l'invitation.
+
 ---
 
 ## SEC-INV-004 : Usage limité

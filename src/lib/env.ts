@@ -49,6 +49,24 @@ const envSchema = z.object({
   BETTER_AUTH_URL: z.url(
     'BETTER_AUTH_URL doit être une URL absolue, par exemple http://localhost:3000',
   ),
+
+  /**
+   * Durée de validité d'un lien d'invitation, en jours (DEC-045, BR-012).
+   *
+   * Facultative : 7 jours sans valeur. Les bornes évitent deux erreurs de
+   * configuration réelles. Un zéro, ou une valeur négative, rendrait toute
+   * invitation expirée avant même d'être copiée. Un très grand nombre ferait d'un
+   * lien oublié un accès durable, ce qui contredit l'intérêt d'une expiration.
+   *
+   * Lue à l'émission d'une invitation puis figée dans sa ligne : modifier la
+   * variable n'altère pas les invitations déjà émises.
+   */
+  INVITATION_TTL_DAYS: z.coerce
+    .number('INVITATION_TTL_DAYS doit être un nombre de jours, par exemple 7')
+    .int('INVITATION_TTL_DAYS doit être un nombre entier de jours')
+    .min(1, 'INVITATION_TTL_DAYS doit valoir au moins 1 jour')
+    .max(30, 'INVITATION_TTL_DAYS ne peut pas dépasser 30 jours')
+    .default(7),
 });
 
 export type Env = z.infer<typeof envSchema>;

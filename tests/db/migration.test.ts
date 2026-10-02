@@ -35,6 +35,8 @@ describe('Migration initiale', () => {
     expect(tables).toEqual(
       expect.arrayContaining([
         'apartments',
+        'invitation_properties',
+        'invitations',
         'manager_property_access',
         'organizations',
         'properties',

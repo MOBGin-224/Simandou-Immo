@@ -326,6 +326,8 @@ Un même utilisateur peut détenir plusieurs rôles dans la même organisation.
 
 Cela permet notamment à un propriétaire d'agir également comme gestionnaire sans créer de second compte (DEC-003).
 
+**L'unicité couvre aussi une ligne révoquée.** Un gestionnaire réinvité réutilise donc sa ligne : elle repasse à `ACTIVE` et son `revoked_at` est effacé (DEC-043). Aucun second compte, ni seconde ligne. Le rattachement n'est créé qu'à l'**acceptation** d'une invitation, `user_access_status` n'ayant pas d'état « en attente » (DEC-041).
+
 ---
 
 # 10. Périmètre d'accès des gestionnaires
@@ -362,6 +364,10 @@ UNIQUE (user_access_id, property_id)
 ```
 
 ### Règle
+
+Le périmètre est une **liste explicite** d'immeubles (DEC-042). Les immeubles créés plus tard ne s'y ajoutent jamais d'eux-mêmes. Un gestionnaire actif a toujours au moins un immeuble.
+
+**L'unicité couvre aussi les lignes révoquées.** Attribuer de nouveau un immeuble retiré auparavant réactive donc sa ligne en effaçant `revoked_at`, au lieu d'en insérer une seconde.
 
 Un gestionnaire peut avoir accès à plusieurs immeubles.
 
@@ -1461,7 +1467,7 @@ La suppression d'une liaison ne supprime jamais le document sous-jacent : la ges
 
 ## Table : `invitations`
 
-Une table commune peut gérer les invitations de gestionnaires et de locataires.
+Une table commune gère les invitations de gestionnaires et de locataires.
 
 ### Colonnes
 
@@ -1469,17 +1475,54 @@ Une table commune peut gérer les invitations de gestionnaires et de locataires.
 id
 organization_id
 invited_by
-target_user_id nullable
-role
-property_id nullable
-apartment_id nullable
-contact
-token_hash
+target_user_id nullable      toujours renseigné : l'invité existe avant d'accepter (DEC-041)
+role                         MANAGER ou TENANT, jamais OWNER
+property_id nullable         réservé au locataire (Lot 7), nul pour un gestionnaire
+apartment_id nullable        réservé au locataire (Lot 7)
+contact                      le téléphone, ou l'email, auquel l'invitation est destinée
+token_hash                   SHA-256 du jeton, en hexadécimal, unique
 status
 expires_at
+issued_at                    émission du lien en vigueur, renouvelée à chaque renvoi
 accepted_at
+revoked_at
 created_at
+updated_at
 ```
+
+Le jeton n'est **jamais** stocké en clair (SEC-INV-002) : il ne se réaffiche donc pas, et un lien perdu se renvoie. Renvoyer régénère le jeton dans la **même ligne** : même identifiant, ancien lien invalidé aussitôt, `issued_at` et `expires_at` renouvelés.
+
+### Contraintes
+
+```text
+UNIQUE (token_hash)
+UNIQUE PARTIEL (organization_id, target_user_id, role) WHERE status IN ('PENDING', 'SENT')
+CHECK role <> 'OWNER'
+CHECK expires_at > issued_at
+CHECK (status = 'ACCEPTED') = (accepted_at IS NOT NULL)
+CHECK (status = 'REVOKED') = (revoked_at IS NOT NULL)
+```
+
+L'index partiel garantit **une seule invitation ouverte** par personne, organisation et rôle.
+
+## Table : `invitation_properties`
+
+Immeubles du périmètre qu'une invitation de gestionnaire attribuera à l'acceptation (DEC-041). Un gestionnaire peut être invité sur plusieurs immeubles à la fois, ce que le seul `property_id` de `invitations` ne permet pas.
+
+| Colonne | Type | Contraintes |
+|---|---|---|
+| id | UUID | PK |
+| invitation_id | UUID | FK invitations, NOT NULL |
+| property_id | UUID | FK properties, NOT NULL |
+| created_at | timestamptz | NOT NULL |
+
+```text
+UNIQUE (invitation_id, property_id)
+```
+
+Au moins un immeuble, tous de l'organisation de l'invitation, aucun archivé. Ces règles sont portées par le cas d'usage : une contrainte de base ne peut pas comparer deux tables.
+
+**Le périmètre est recopié à l'acceptation** dans `manager_property_access`. Les lignes d'`invitation_properties` ne sont jamais modifiées ensuite : elles documentent ce qui a été accordé.
 
 ---
 
@@ -1494,6 +1537,18 @@ revoked
 ```
 
 Une invitation acceptée ne doit pas être réutilisable.
+
+Deux statuts ne se comportent pas comme leur nom l'annonce (DEC-041) :
+
+```text
+sent       jamais atteint au MVP : aucun envoi automatique n'existe (DEC-026).
+           Il sera posé par l'adapter d'envoi, sans modifier le modèle.
+expired    DÉRIVÉ à la lecture : une invitation ouverte dont expires_at est passé.
+           Aucune tâche planifiée ne l'écrit. La valeur n'est stockée que lorsqu'une
+           opération clôture elle-même une invitation périmée.
+```
+
+**Une invitation est ouverte** tant que son statut est `pending` ou `sent` ET que `expires_at` est dans le futur.
 
 ---
 

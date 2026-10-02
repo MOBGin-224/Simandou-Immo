@@ -244,6 +244,8 @@ Lorsqu'un propriétaire révoque le gestionnaire :
 - ses opérations précédentes restent dans l'historique ;
 - les données qu'il a créées restent dans le système.
 
+Un gestionnaire révoqué peut être **réinvité** (DEC-043) : sa ligne d'accès est réactivée, sans second compte, et rien de ce qu'il a fait avant n'est modifié rétroactivement. Un gestionnaire peut aussi être **suspendu** puis réactivé (DEC-044) : la suspension bloque l'accès en conservant son périmètre.
+
 ---
 
 # 8. Règles relatives aux locataires

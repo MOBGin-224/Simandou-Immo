@@ -371,6 +371,8 @@ Le propriétaire peut inviter un gestionnaire.
 
 Le propriétaire peut attribuer un ou plusieurs immeubles au gestionnaire.
 
+Le périmètre est une **liste explicite** : « tous les immeubles » est une sélection de ceux qui existent, et les immeubles créés plus tard ne sont jamais ajoutés automatiquement (DEC-042).
+
 ---
 
 ## MVP-FEAT-021 : Modification du périmètre

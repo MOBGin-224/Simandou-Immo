@@ -71,7 +71,13 @@ export const auditScript = (width: number): string => `(() => {
     const hit = (x, y) => {
       if (x < 0 || y < 0 || x >= innerWidth || y >= innerHeight) return false;
       const t = document.elementFromPoint(x, y);
-      return !!t && (t === el || el.contains(t));
+      if (!t) return false;
+      if (t === el || el.contains(t)) return true;
+      // Un contrôle de formulaire s'atteint aussi par son LIBELLÉ : toucher le texte
+      // d'une case à cocher la coche. Sa vraie zone tactile est donc celle du libellé,
+      // pas celle des 20 pixels de la case.
+      const labels = el.labels ? Array.from(el.labels) : [];
+      return labels.some((label) => label === t || label.contains(t));
     };
     let a = 0;
     let b = 0;

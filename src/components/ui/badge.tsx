@@ -85,3 +85,55 @@ export function ApartmentStatusBadge({ status }: { status: ApartmentStatusValue 
 export function ArchivedBadge() {
   return <Badge tone="warning">Archivé</Badge>;
 }
+
+/**
+ * Statut d'un élément de la liste des gestionnaires (DEC-041, PRD 10.2).
+ *
+ * Les trois premiers viennent de `user_access.status`. Les deux premiers de la
+ * liste décrivent une INVITATION qui n'a pas encore d'accès : la personne n'est pas
+ * encore gestionnaire.
+ *
+ * Les tons suivent MVP-UI-011. « Actif » est en vert : c'est un accès qui
+ * fonctionne. « Suspendu » et « Invitation expirée » sont en orange : ce sont les
+ * seuls états qui appellent une action du propriétaire. « Révoqué » est en rouge,
+ * un état terminal. Chaque badge porte un texte, jamais la couleur seule.
+ */
+export type ManagerStatusValue =
+  'INVITED' | 'INVITATION_EXPIRED' | 'ACTIVE' | 'SUSPENDED' | 'REVOKED';
+
+const MANAGER_STATUS_BADGES: Record<ManagerStatusValue, { tone: BadgeTone; label: string }> = {
+  INVITED: { tone: 'info', label: 'Invitation en attente' },
+  INVITATION_EXPIRED: { tone: 'warning', label: 'Invitation expirée' },
+  ACTIVE: { tone: 'success', label: 'Actif' },
+  SUSPENDED: { tone: 'warning', label: 'Suspendu' },
+  REVOKED: { tone: 'danger', label: 'Révoqué' },
+};
+
+export function ManagerStatusBadge({ status }: { status: ManagerStatusValue }) {
+  const badge = MANAGER_STATUS_BADGES[status];
+
+  return <Badge tone={badge.tone}>{badge.label}</Badge>;
+}
+
+/**
+ * Statut RÉEL d'une invitation, `EXPIRED` dérivé compris (DEC-041).
+ *
+ * `SENT` se lit comme `PENDING` : aucun envoi automatique n'existe au MVP, la
+ * valeur n'est jamais atteinte.
+ */
+export type InvitationStatusValue = 'PENDING' | 'SENT' | 'ACCEPTED' | 'EXPIRED' | 'REVOKED';
+
+const INVITATION_STATUS_BADGES: Record<InvitationStatusValue, { tone: BadgeTone; label: string }> =
+  {
+    PENDING: { tone: 'info', label: 'Invitation en attente' },
+    SENT: { tone: 'info', label: 'Invitation en attente' },
+    EXPIRED: { tone: 'warning', label: 'Invitation expirée' },
+    ACCEPTED: { tone: 'success', label: 'Invitation acceptée' },
+    REVOKED: { tone: 'neutral', label: 'Invitation révoquée' },
+  };
+
+export function InvitationStatusBadge({ status }: { status: InvitationStatusValue }) {
+  const badge = INVITATION_STATUS_BADGES[status];
+
+  return <Badge tone={badge.tone}>{badge.label}</Badge>;
+}

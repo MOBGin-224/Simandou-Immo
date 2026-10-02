@@ -60,6 +60,19 @@ const BY_ERROR_NAME: Record<string, { status: number; code: ApiErrorCode }> = {
   ApartmentBulkConflictError: { status: 409, code: 'CONFLICT' },
   ArchivedApartmentError: { status: 409, code: 'CONFLICT' },
   AlreadyArchivedApartmentError: { status: 409, code: 'CONFLICT' },
+  ManagerValidationError: { status: 422, code: 'VALIDATION_ERROR' },
+  ManagerInvitationConflictError: { status: 409, code: 'CONFLICT' },
+  InvitationTargetUnavailableError: { status: 409, code: 'CONFLICT' },
+  InvitationNotOpenError: { status: 409, code: 'CONFLICT' },
+
+  // Lien inutilisable : 404, jamais 410 ni 403. Inconnu, expiré, révoqué et consommé
+  // doivent rester indiscernables (ADR-008), et seul 404 ne distingue rien.
+  InvitationInvalidError: { status: 404, code: 'NOT_FOUND' },
+
+  // Invitation destinée à un compte actif, présentée sans session de ce compte.
+  InvitationLoginRequiredError: { status: 401, code: 'UNAUTHORIZED' },
+
+  WeakPasswordError: { status: 422, code: 'VALIDATION_ERROR' },
 };
 
 /** Référence technique corrélable entre la réponse et les journaux. */

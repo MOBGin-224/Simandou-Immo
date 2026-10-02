@@ -43,6 +43,7 @@ export default async function PropertiesPage(props: PageProps<'/immeubles'>) {
   });
 
   const canCreate = organizationsWhereAllowed(context, 'property.create').length > 0;
+  const canManageManagers = organizationsWhereAllowed(context, 'manager.read').length > 0;
   const activeFilter = (first(searchParams.filtre) ?? 'ACTIVE') as PropertyListFilter;
   const search = first(searchParams.recherche) ?? '';
 
@@ -73,10 +74,25 @@ export default async function PropertiesPage(props: PageProps<'/immeubles'>) {
             : `${pluralize(collection.meta.total, 'immeuble')} dans votre périmètre.`
         }
         actions={
-          canCreate ? (
-            <Link href="/immeubles/nouveau" className={buttonClasses('primary', 'md')}>
-              Ajouter un immeuble
-            </Link>
+          canCreate || canManageManagers ? (
+            <>
+              {/*
+                Point d'entrée de la gestion des gestionnaires, réservé au
+                propriétaire (DEC-025). La barre d'onglets n'existe pas encore : elle
+                prendra son sens aux lots Loyers et Maintenance, et d'ici là un lien
+                depuis l'écran du patrimoine suffit.
+              */}
+              {canManageManagers ? (
+                <Link href="/gestionnaires" className={buttonClasses('secondary', 'md')}>
+                  Gestionnaires
+                </Link>
+              ) : null}
+              {canCreate ? (
+                <Link href="/immeubles/nouveau" className={buttonClasses('primary', 'md')}>
+                  Ajouter un immeuble
+                </Link>
+              ) : null}
+            </>
           ) : undefined
         }
       />

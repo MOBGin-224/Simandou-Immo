@@ -88,4 +88,42 @@ describe('Validation des variables d environnement', () => {
   it("refuse un BETTER_AUTH_URL qui n'est pas une URL absolue", () => {
     expect(() => parseEnv({ ...valid, BETTER_AUTH_URL: '/api/auth' })).toThrow(/BETTER_AUTH_URL/);
   });
+
+  // --- Invitations (DEC-045) -------------------------------------------------
+
+  describe('INVITATION_TTL_DAYS', () => {
+    it('vaut 7 jours quand elle est absente', () => {
+      expect(parseEnv(valid).INVITATION_TTL_DAYS).toBe(7);
+    });
+
+    it('accepte une durée valide, lue depuis une chaîne comme le fait process.env', () => {
+      expect(parseEnv({ ...valid, INVITATION_TTL_DAYS: '14' }).INVITATION_TTL_DAYS).toBe(14);
+    });
+
+    it('accepte les deux bornes, 1 et 30 jours', () => {
+      expect(parseEnv({ ...valid, INVITATION_TTL_DAYS: '1' }).INVITATION_TTL_DAYS).toBe(1);
+      expect(parseEnv({ ...valid, INVITATION_TTL_DAYS: '30' }).INVITATION_TTL_DAYS).toBe(30);
+    });
+
+    /**
+     * Un zéro, ou une valeur négative, rendrait toute invitation expirée avant
+     * d'être copiée. Un grand nombre ferait d'un lien oublié un accès durable.
+     */
+    it('refuse zéro, un négatif, et plus de 30 jours', () => {
+      for (const bad of ['0', '-3', '31', '365']) {
+        expect(() => parseEnv({ ...valid, INVITATION_TTL_DAYS: bad })).toThrow(
+          /INVITATION_TTL_DAYS/,
+        );
+      }
+    });
+
+    it("refuse une durée qui n'est pas un entier, ou pas un nombre", () => {
+      expect(() => parseEnv({ ...valid, INVITATION_TTL_DAYS: '7.5' })).toThrow(
+        /INVITATION_TTL_DAYS/,
+      );
+      expect(() => parseEnv({ ...valid, INVITATION_TTL_DAYS: 'une semaine' })).toThrow(
+        /INVITATION_TTL_DAYS/,
+      );
+    });
+  });
 });

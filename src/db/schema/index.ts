@@ -10,6 +10,9 @@
  *
  * Périmètre du Lot 2 : tables d'authentification de Better Auth
  * (MVP-BACKLOG-008).
+ *
+ * Périmètre du Lot 6 : invitations et immeubles qu'elles attribuent
+ * (MVP-BACKLOG-025).
  */
 export * from './enums';
 export * from './organizations';
@@ -17,3 +20,4 @@ export * from './users';
 export * from './properties';
 export * from './access';
 export * from './auth';
+export * from './invitations';
