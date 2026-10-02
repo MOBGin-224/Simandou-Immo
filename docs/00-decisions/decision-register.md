@@ -40,7 +40,7 @@ Elle reste **réversible** : le fondateur peut la modifier à tout moment, et l'
 
 Une décision DÉDUITE ne doit jamais être présentée comme définitive.
 
-À ce jour, seules **DEC-021, DEC-024, DEC-028 et DEC-030** portent ce statut. Toutes relèvent de choix d'implémentation sans impact sur le produit.
+À ce jour, seules **DEC-021, DEC-024, DEC-028, DEC-030, DEC-036, DEC-037, DEC-038, DEC-040 et DEC-041** portent ce statut. Toutes relèvent de choix d'implémentation sans impact sur le produit.
 
 ---
 
@@ -127,6 +127,11 @@ Lorsqu'une contradiction est détectée, elle doit être corrigée dans le docum
 | DEC-038 | Base de développement de secours, sans virtualisation | DÉDUITE | aucun |
 | DEC-039 | Archivage d'un appartement | VERROUILLÉE | aucun |
 | DEC-040 | Méthode de vérification du rendu mobile | DÉDUITE | aucun |
+| DEC-041 | Modélisation des gestionnaires et des invitations | DÉDUITE | aucun |
+| DEC-042 | Périmètre d'un gestionnaire : liste explicite | VERROUILLÉE | aucun |
+| DEC-043 | Réinvitation d'un gestionnaire révoqué | VERROUILLÉE | aucun |
+| DEC-044 | Suspension et réactivation d'un gestionnaire | VERROUILLÉE | aucun |
+| DEC-045 | Durée de validité d'une invitation | VERROUILLÉE | aucun |
 
 ---
 
@@ -1637,10 +1642,148 @@ L'outil est en **lecture seule** : il ne fait que naviguer, hormis la connexion.
 5. **`npm run start` ne convient pas à PGlite.** Le client de base ouvre une connexion hors production et cinq en production, et PGlite n'en accepte qu'une : Chrome, qui envoie des requêtes en parallèle, provoque des `read ECONNRESET`, alors que des requêtes `curl` en série passent. Vérifier sous `npm run dev`.
 6. **Un cache `.next/dev` périmé peut faire répondre 404 sur toutes les routes**, sans aucune erreur dans les journaux. Arrêter `next dev`, déplacer `.next/dev`, relancer.
 7. **Git Bash déforme les arguments qui commencent par `/`** en chemins Windows. L'outil accepte les chemins sans `/` initial et refuse clairement un chemin déformé.
+8. **Un contrôle de formulaire s'atteint par son libellé.** Toucher le texte d'une case à cocher la coche : sa vraie zone tactile est celle du libellé, pas celle des 20 pixels de la case. L'outil compte le libellé comme zone atteignable (Lot 6, sélection des immeubles).
+9. **Après une migration, redémarrer la base locale.** Appliquer `npm run db:migrate` contre le serveur PGlite en marche laisse sa connexion unique dans un état qui fait échouer l'application en `read ECONNRESET`. Arrêter puis relancer `npm run db:pglite`, sans rejouer la migration.
 
 Un test témoin, une page à défauts connus et à deux éléments légitimes, a servi à contrôler que l'outil voit ce qu'il doit voir et n'invente rien. Il a coûté deux corrections : la règle de débordement du point 1, et un montage de test erroné, un voisin recouvrant un lien, que la mesure avait pourtant correctement jugé.
 
 **Impact si changé** : aucune règle métier. C'est une méthode de vérification, à appliquer sur tout lot qui produit des écrans.
+
+---
+
+## DEC-041 : Modélisation des gestionnaires et des invitations
+
+**Statut** : DÉDUITE
+
+**Date** : 2 octobre 2026
+
+### Les écarts rencontrés
+
+Le Lot 6 a rencontré six écarts entre documents, ou lacunes, que la hiérarchie documentaire et le schéma existant permettent de résoudre sans le fondateur.
+
+1. **Plusieurs immeubles par invitation.** L'API section 13 reçoit `propertyIds[]`, alors que la table `invitations` de `database.md` ne porte qu'un `property_id`. Le MVP Scope (MVP-FEAT-020, niveau 3) et le parcours 4 exigent plusieurs immeubles, et prévalent sur le schéma (niveau 6).
+2. **Routes absentes de l'API** : liste, détail, aperçu d'une invitation côté invité, suspension, réactivation, révocation d'une invitation. La sécurité (SEC-INV-005) et le PRD (10.2) exigent ces capacités.
+3. **Aucun état « en attente » dans `user_access`** : `user_access_status` ne porte que `ACTIVE`, `SUSPENDED` et `REVOKED`.
+4. **Le téléphone est unique** (`users.phone`) : inviter un numéro déjà connu ne peut pas créer un second compte (BR-009).
+5. **Le jeton est stocké haché** (SEC-INV-002) : il ne peut donc pas être réaffiché.
+6. **`SENT` et `EXPIRED`** : aucun envoi automatique n'existe (DEC-026) et aucune tâche planifiée non plus (ADR-012, Lot Rappels).
+
+### La décision
+
+```text
+invitations            la table de database.md, plus issued_at, revoked_at, updated_at
+invitation_properties  les immeubles du périmètre porté par l'invitation
+```
+
+1. **Périmètre porté par l'invitation.** Table `invitation_properties`. Le `property_id` de `invitations` reste nul pour un gestionnaire : il est réservé au locataire (Lot 7). Au moins un immeuble, tous de l'organisation de l'inviteur, aucun archivé. Un immeuble inexistant et un immeuble d'une autre organisation reçoivent le même refus, indiscernables.
+2. **Identifiants.** La ressource gestionnaire a pour identifiant `user_access.id`. Une invitation en attente a le sien, `invitation.id`, sous `/manager-invitations`. La liste montre les deux, distingués par un type.
+3. **Routes ajoutées** : `GET /managers`, `GET /managers/:id`, `GET /invitations/:token`, `POST /manager-invitations/:id/revoke`, `POST /managers/:id/suspend`, `POST /managers/:id/reactivate`. `PATCH /managers/:id/access` garde son nom et ne modifie que le périmètre (DEC-025).
+4. **L'invité existe avant d'accepter.** À l'invitation, un `users` en `PENDING_ACTIVATION` porte nom, téléphone et email : c'est le profil préliminaire de BR-008, pour lequel `users.status` a une valeur par défaut. Il n'obtient ni accès ni session, le crochet de création de session refusant tout compte non actif. Le rattachement `user_access` n'est créé qu'à l'acceptation.
+5. **Un numéro, un compte** (BR-009). Si le téléphone existe déjà :
+
+   ```text
+   PENDING_ACTIVATION   réutilisé, nom et email mis à jour : nul n'a pu s'y authentifier
+   ACTIVE               réutilisé tel quel, le nom saisi est ignoré
+   SUSPENDED, archivé   invitation refusée, sans dire pourquoi
+   ```
+
+   **Un lien d'invitation ne définit jamais le mot de passe d'un compte actif.** Pour un compte actif, l'acceptation exige une session de ce compte et ne touche à aucun mot de passe. Sans cette règle, quiconque détient un lien pourrait réinitialiser le mot de passe de la personne invitée.
+6. **Jeton.** 32 octets aléatoires, base64url, stocké haché en SHA-256, jamais en clair. Le lien n'est donc affiché **qu'une fois**, à la création ou au renvoi. Renvoyer régénère le jeton dans la même ligne : même identifiant, ancien lien invalidé aussitôt, durée repartie de zéro. Un lien perdu se renvoie.
+7. **Statuts.** `SENT` n'est jamais atteint au MVP, aucun envoi automatique n'existant : il sera posé par l'adapter d'envoi, sans modifier le modèle. `EXPIRED` est dérivé à la lecture de `expires_at`, jamais d'une tâche planifiée.
+8. **Une invitation ouverte par personne, organisation et rôle**, garantie par un index unique partiel. Une invitation ouverte mais expirée est clôturée avant d'en créer une nouvelle. Une invitation encore valable est refusée avec renvoi vers « Renvoyer ».
+9. **Activation atomique.** Une seule transaction : réclamation conditionnelle du lien (`UPDATE ... WHERE` ouvert ET non expiré), mot de passe, statut du compte, accès, périmètre. Si deux acceptations arrivent ensemble, une seule réussit, et l'autre ne laisse aucun mot de passe. Le mot de passe est écrit dans cette transaction par le module d'authentification, seul autorisé à toucher `accounts`.
+10. **Un lien invalide n'a qu'une réponse.** Inconnu, expiré, révoqué, consommé, d'un autre rôle, compte indisponible, tous les immeubles archivés depuis : même message (ADR-008). Le seul cas distinct est « connexion requise » pour un compte déjà actif, qu'il faut bien guider.
+11. **Permissions, aucune nouvelle** : `manager.read` pour lister et consulter, `manager.invite` pour créer, renvoyer et révoquer une invitation, `manager.update` pour le périmètre, la suspension et la réactivation, `manager.revoke` pour révoquer un accès. Propriétaire seul : un gestionnaire ou un locataire obtient « inexistant ».
+12. **Après l'activation**, une session est ouverte (parcours 5, étape 6). La connexion et la déconnexion acceptent un paramètre `suivant`, limité par une LISTE FERMÉE aux liens d'invitation, pour qu'un compte existant, ou connecté avec un autre compte, revienne à son invitation. Toute autre valeur est ignorée : un paramètre de redirection libre est un classique de l'hameçonnage.
+
+**Hors périmètre, assumé** : envoi automatique, journal d'audit (Lot 20), correction d'un numéro mal saisi (révoquer puis réinviter), et limitation de débit de la page publique d'activation, reportée aux Lots 25 et 28 faute d'infrastructure partagée. En attendant, le jeton est impossible à deviner et tous les échecs répondent de la même façon.
+
+**Impact si changé** : aucune règle métier. Le modèle d'invitation reste celui de `database.md`, complété de deux colonnes de suivi et d'une table de liaison.
+
+---
+
+## DEC-042 : Périmètre d'un gestionnaire, liste explicite
+
+**Statut** : VERROUILLÉE
+
+**Date** : 2 octobre 2026. **Confirmée par le fondateur le 2 octobre 2026.**
+
+La matrice des rôles (section 27) mentionne « tous les immeubles, selon les droits du propriétaire », alors qu'ADR-007 et MVP-FEAT-020 parlent d'une liste d'immeubles.
+
+**Le périmètre d'un gestionnaire est toujours une liste explicite d'immeubles.**
+
+« Tous les immeubles » se réalise par une action « Tout sélectionner », qui coche tous les immeubles existants et non archivés à cet instant. Les immeubles créés plus tard ne sont **jamais** ajoutés automatiquement au périmètre : le propriétaire doit les attribuer.
+
+Motif : le moindre privilège. Un accès n'est pas accordé sur un bien qui n'existait pas quand il a été décidé.
+
+Au moins un immeuble, à tout moment. Aucune colonne ni aucun drapeau « tous ».
+
+**Impact si changé** : un drapeau sur `user_access` et une condition dans `loadAccessContext`.
+
+---
+
+## DEC-043 : Réinvitation d'un gestionnaire révoqué
+
+**Statut** : VERROUILLÉE
+
+**Date** : 2 octobre 2026. **Confirmée par le fondateur le 2 octobre 2026.**
+
+**Un gestionnaire révoqué peut être réinvité.** L'unicité `(user_id, organization_id, role)` impose de réutiliser sa ligne `user_access` : elle repasse à `ACTIVE` et son `revoked_at` est effacé à l'acceptation. Aucun second compte n'est jamais créé.
+
+```text
+périmètre     celui de la NOUVELLE invitation, qui remplace l'ancien
+              un immeuble absent de la nouvelle liste reste révoqué
+              un immeuble présent voit sa ligne réactivée (l'unicité couvre les lignes révoquées)
+historique    les actions passées restent attribuées à l'utilisateur, jamais retouchées
+refus         un gestionnaire ACTIVE ou SUSPENDED ne se réinvite pas : modifier son périmètre
+```
+
+**Une réinvitation ne modifie rien rétroactivement.** Les actions d'un gestionnaire sont attribuées à un utilisateur, pas à une période d'accès : réactiver sa ligne ne change l'auteur d'aucune d'entre elles.
+
+**Limite assumée** : faute de journal d'audit avant le Lot 20, la date de la révocation précédente est écrasée par la réactivation. Chaque invitation acceptée conserve la trace du début de la période qu'elle a ouverte, et le journal du Lot 20 consignera les suivantes.
+
+**Impact si changé** : interdire la réinvitation laisserait une personne révoquée sans aucun moyen de revenir.
+
+---
+
+## DEC-044 : Suspension et réactivation d'un gestionnaire
+
+**Statut** : VERROUILLÉE
+
+**Date** : 2 octobre 2026. **Confirmée par le fondateur le 2 octobre 2026.**
+
+MVP-FEAT-021, le PRD (10.2) et la matrice (section 12) prévoient de suspendre puis réactiver un accès. Le backlog et l'API ne les listaient pas : ils sont ajoutés au Lot 6.
+
+```text
+permission    manager.update, propriétaire seul
+suspendre     user_access.status = SUSPENDED, effet à la requête suivante
+              le périmètre est CONSERVÉ : la réactivation restitue exactement l'accès
+réactiver     SUSPENDED vers ACTIVE, seulement depuis SUSPENDED
+révoquer      possible depuis ACTIVE et depuis SUSPENDED
+REVOKED       ne se réactive jamais : c'est la réinvitation (DEC-043)
+```
+
+La suspension ne touche ni le compte utilisateur, ni ses sessions, ni ses accès dans d'autres organisations : elle ne concerne que le rattachement à CETTE organisation.
+
+**Impact si changé** : aucune règle métier. Le statut `SUSPENDED` existe déjà dans l'énumération depuis le Lot 1.
+
+---
+
+## DEC-045 : Durée de validité d'une invitation
+
+**Statut** : VERROUILLÉE
+
+**Date** : 2 octobre 2026. **Confirmée par le fondateur le 2 octobre 2026.**
+
+BR-012 demande une durée « configurable » sans la fixer.
+
+**7 jours par défaut, réglables par `INVITATION_TTL_DAYS`**, un entier de 1 à 30.
+
+La date d'expiration est calculée à la génération et au renvoi, puis figée dans la ligne : modifier la variable n'altère pas les invitations déjà émises.
+
+Le lien reste à usage unique, révocable, et inutilisable dès son expiration. L'expiration est contrôlée à chaque lecture, et DANS la réclamation SQL de l'acceptation, pour qu'aucun intervalle ne sépare le contrôle de l'usage.
+
+**Impact si changé** : une valeur de configuration.
 
 ---
 
@@ -1759,4 +1902,6 @@ Toute fonctionnalité reste gouvernée par le Master Product Specification et le
 | 1.9 | 2026-09-28 | **Les six écrans du Lot 4 ont été affichés et parcourus pour la première fois**, et le schéma appliqué pour la première fois hors du processus de test. Enregistrement de **DEC-038** : Docker Desktop est installé mais son moteur ne démarre pas, la machine ayant Intel VT-x désactivé dans son microprogramme et aucun WSL, donc un script de secours sert PGlite sur le port 5432 par `@electric-sql/pglite-socket`. DEC-007 reste la référence et les limites de DEC-035 s'appliquent telles quelles. Sept défauts corrigés, tous invisibles au typage et aux tests : `npm run db:seed` ne chargeait pas `.env` et n'avait donc jamais pu tourner ; deux connexions simultanées sur un moteur à session unique écrasaient leur instruction préparée, d'où un pool ramené à une connexion hors production ; l'en-tête passait sur deux lignes à 390 pixels ; le libellé d'un champ facultatif s'annonçait « Quartier(facultatif) » sans espace ; le message d'erreur d'un champ s'affichait après son aide plutôt qu'avant ; la fiche d'un immeuble n'avait pas de titre d'onglet ; et la confirmation d'archivage promettait de ne pas supprimer « ses 0 logement ». |
 | 2.0 | 2026-09-28 | Lot 5 exécuté : les appartements. Le module, l'API des cinq routes de la section 12 et les quatre écrans sont livrés, la fiche d'appartement étant construite comme le point d'entrée que MVP-BACKLOG-023 exige. Enregistrement de **DEC-039**, OUVERTE : la matrice des rôles prévoit « Archiver un appartement » mais la permission `apartment.archive` n'est pas au catalogue écrit au Lot 3, et la résolution « selon droits » du 27 septembre ne l'a pas tranchée ; l'archivage n'est donc pas offert et le lien vers les archives est retiré de l'écran, le modèle et l'API restant prêts. Trois défauts corrigés, tous trouvés hors du typage et des tests : l'échappement des jokers `LIKE` avait perdu ses antislashs à l'écriture du fichier, ce que le lint a relevé et qu'un test qui passait par accident ne voyait pas ; la liste triait d'abord par étage, ce qui dispersait une série créée sans étage entre les logements du rez-de-chaussée, vu à l'écran ; et le décompte annonçait « 13 logements » pour un immeuble qui en compte quinze lorsqu'un filtre était actif. Deux améliorations d'interface : une page « introuvable » propre aux appartements, l'ancienne parlant d'immeuble alors que l'immeuble existait, et la surface préremplie avec la virgule décimale française. La conversion d'un formulaire vers l'entrée du cas d'usage est sortie du fichier de Server Actions vers `src/modules/apartments/form.ts` : un fichier `'use server'` ne pouvant exporter que des fonctions asynchrones, elle n'était testable qu'en pilotant un navigateur. **Le rendu mobile n'a pas pu être vérifié à l'œil** : la fenêtre du navigateur piloté a refusé tout redimensionnement en largeur dans cette session. |
 | 2.1 | 2026-09-28 | **Rendu mobile du Lot 5 vérifié**, ce que la révision 2.0 avait laissé en suspens faute de pouvoir réduire la fenêtre du navigateur. Enregistrement de **DEC-040** : le rendu mobile se vérifie par `Emulation.setDeviceMetricsOverride` du protocole CDP sur un Chrome en mode sans interface, méthode qui fixe le viewport perçu par la page et ne dépend donc d'aucune fenêtre, aux deux largeurs de référence 360 et 390 pixels. Six points corrigés, aucun visible au typage, aux tests ni au build : les titres de carte n'offraient que 28 par 22 pixels au doigt, sur les deux listes, là où le projet impose 44 pixels ; l'onglet « En maintenance » débordait de 14 pixels à 360 pixels, les onglets se replient désormais sur deux rangées plutôt que de défiler en cachant le dernier ; le bouton « Créer les logements » n'était pas pleine largeur, contrairement aux autres actions de formulaire ; le lien du titre dans l'en-tête ne faisait que 20 pixels de haut, sur tous les écrans du produit ; le décompte annonçait « 3 logements » pour un immeuble qui en compte seize dès qu'une recherche était active ; et une série fraîchement créée atterrissait en page 2 d'une liste paginée, la création groupée renvoyant maintenant vers la liste préfiltrée sur le préfixe employé. Les espaces insécables qui lient un montant à sa devise et une surface à son unité sont figées par des tests : le français en emploie deux différentes, celle d'`Intl` pour les milliers et celle du produit devant l'unité, et les confondre ne se verrait que sur un téléphone. Une note erronée est corrigée dans l'en-tête de l'application : la BottomNavigation ne devient pas justifiée au lot Appartements, l'appartement étant un niveau 3 sous l'immeuble et n'ajoutant donc aucune destination de premier niveau. |
-| 2.2 | 2026-10-02 | **Lot 5 clos : archivage d'un appartement.** DEC-039 passe à VERROUILLÉE : `apartment.archive` est réservée au propriétaire, le même motif patrimonial que `property.archive`. DEC-025 ne bloque plus rien : pas de gestionnaire principal ni secondaire au MVP, seul le propriétaire invite ou révoque. Les deux étaient confirmées par le fondateur le 28 septembre 2026 et intégrées par la PR #10, qui n'avait pas ajouté d'entrée à ce journal : elle l'est ici. **Le Lot 6 Gestionnaires est débloqué.** Le rendu mobile des deux écrans ajoutés a été vérifié à 360 et 390 px, et la règle a été éprouvée sur des logements jetables : le gestionnaire n'a ni bouton, ni page, et l'API répond 403 ; un second archivage et une modification après archivage répondent 409. **La méthode DEC-040 devient un outil du dépôt**, `scripts/mobile/`, dont la logique de verdict est couverte par des tests, avec sept enseignements consignés dans DEC-040, dont le plus important : en émulation mobile, un contenu trop large élargit le viewport au lieu de faire défiler la page, si bien que le débordement doit se lire contre la largeur demandée. |
+| 2.2 | 2026-10-02 | **Lot 5 clos : archivage d'un appartement.** DEC-039 passe à VERROUILLÉE : `apartment.archive` est réservée au propriétaire, le même motif patrimonial que `property.archive`. DEC-025 ne bloque plus rien : pas de gestionnaire principal ni secondaire au MVP, seul le propriétaire invite ou révoque. Les deux étaient confirmées par le fondateur le 28 septembre 2026 et intégrées par la PR #10, qui n'avait pas ajouté d'entrée à ce journal : elle l'est ici. **Le Lot 6 Gestionnaires est débloqué.** Le rendu mobile des deux écrans ajoutés a été vérifié à 360 et 390 px, et la règle a été éprouvée sur des logements jetables : le gestionnaire n'a ni bouton, ni page, et l'API répond 403 ; un second archivage et une modification après archivage répondent 409. **La méthode DEC-040 devient un outil du dépôt**, `scripts/mobile/`, dont la logique de verdict est couverte par des tests, avec neuf enseignements consignés dans DEC-040, dont le plus important : en émulation mobile, un contenu trop large élargit le viewport au lieu de faire défiler la page, si bien que le débordement doit se lire contre la largeur demandée. |
+| 2.3 | 2026-10-02 | **Lot 6 cadré : les gestionnaires.** Quatre décisions confirmées par le fondateur : **DEC-042** le périmètre d'un gestionnaire est une liste explicite d'immeubles, « tous les immeubles » n'étant qu'une sélection de ceux qui existent, sans inclusion automatique des futurs ; **DEC-043** un gestionnaire révoqué peut être réinvité, en réactivant sa même ligne d'accès, sans second compte ni modification rétroactive des actions passées ; **DEC-044** la suspension et la réactivation entrent dans le lot, sous `manager.update` ; **DEC-045** un lien d'invitation vit 7 jours par défaut, réglables par `INVITATION_TTL_DAYS`. **DEC-041**, DÉDUITE, consigne les écarts résolus par la hiérarchie documentaire : table `invitation_properties` pour plusieurs immeubles par invitation, six routes ajoutées à l'API, profil préliminaire en `PENDING_ACTIVATION`, un numéro un compte, jeton haché donc lien affiché une seule fois, activation atomique, lien invalide à réponse unique. Aucune décision verrouillée n'est rouverte. |
+| 2.4 | 2026-10-02 | **Lot 6, tranche 6a exécutée : inviter et activer.** Migration 0002 (`invitations`, `invitation_properties`), noyau d'invitation (jeton de 256 bits stocké haché, expiration dérivée), invitation d'un gestionnaire sur un ou plusieurs immeubles, renvoi qui régénère le jeton dans la même ligne, révocation d'une invitation, aperçu et acceptation publics, activation atomique en une transaction. Écrans : liste des gestionnaires, formulaire d'invitation avec « Tout sélectionner » (DEC-042), lien affiché une seule fois avec copie, fiche et révocation d'une invitation, page publique d'activation, écran « aucun accès actif ». La connexion et la déconnexion acceptent une destination limitée à une liste fermée. **Vérifié dans le navigateur, quatre profils indépendants, au toucher, à 360 px** : invitation, renvoi dont l'ancien lien meurt, activation, périmètre borné (l'immeuble non confié est « introuvable », l'autre organisation invisible), refus d'un gestionnaire sur toutes les routes, révocation d'invitation, compte déjà actif qui revient à son invitation par la connexion sans que son mot de passe change. Un défaut trouvé à l'écran et corrigé : le lien était coupé dans son champ à 360 px. Reste au Lot 6, tranche 6b : fiche d'un gestionnaire, modification du périmètre, suspension, réactivation, révocation d'un accès. |

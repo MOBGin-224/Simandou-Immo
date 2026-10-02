@@ -1,4 +1,5 @@
 import { AccountNotActiveError, InvalidCredentialsError, signInSession } from '@/lib/auth';
+import { safeNextPath } from '@/lib/http/next-path';
 import { redirectWithCookies } from '@/lib/http/redirect';
 
 /**
@@ -28,15 +29,25 @@ export async function POST(request: Request): Promise<Response> {
   const phone = String(form.get('phone') ?? '').trim();
   const password = String(form.get('password') ?? '');
 
+  // Destination demandée, limitée à une liste fermée : un lien d'invitation, pour
+  // l'invité qui a déjà un compte. Toute autre valeur est ignorée (`safeNextPath`).
+  const next = safeNextPath(form.get('suivant'));
+
+  // L'échec conserve la destination : l'invité qui se trompe de mot de passe ne
+  // doit pas perdre le chemin de son invitation.
   const refuse = (code: string) =>
-    redirectWithCookies(request, `${CONNEXION_PATH}?erreur=${code}`, []);
+    redirectWithCookies(
+      request,
+      `${CONNEXION_PATH}?erreur=${code}${next ? `&suivant=${encodeURIComponent(next)}` : ''}`,
+      [],
+    );
 
   if (phone.length === 0 || password.length === 0) return refuse('champs-manquants');
 
   try {
     const { cookies } = await signInSession({ phone, password });
 
-    return redirectWithCookies(request, '/immeubles', cookies);
+    return redirectWithCookies(request, next ?? '/immeubles', cookies);
   } catch (error) {
     if (error instanceof InvalidCredentialsError) return refuse('identifiants');
     if (error instanceof AccountNotActiveError) return refuse('compte-inactif');

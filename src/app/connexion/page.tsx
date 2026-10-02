@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Field, Input } from '@/components/ui/field';
 import { getCurrentUser } from '@/lib/auth';
+import { safeNextPath } from '@/lib/http/next-path';
 
 /**
  * Écran de connexion (DEC-032, ADR-006, ADR-008).
@@ -33,11 +34,20 @@ const MESSAGES: Record<string, string> = {
 };
 
 export default async function SignInPage(props: PageProps<'/connexion'>) {
-  // Déjà connecté : rester sur cet écran inviterait à se reconnecter sans raison.
-  if (await getCurrentUser()) redirect('/immeubles');
-
   const searchParams = await props.searchParams;
-  const code = Array.isArray(searchParams.erreur) ? searchParams.erreur[0] : searchParams.erreur;
+  const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
+
+  /*
+   * Destination après la connexion, limitée à une liste fermée (voir `safeNextPath`).
+   * Elle sert un invité qui possède déjà un compte : il se connecte, puis revient à
+   * son invitation (DEC-041). Toute autre valeur est ignorée, jamais suivie.
+   */
+  const next = safeNextPath(first(searchParams.suivant));
+
+  // Déjà connecté : rester sur cet écran inviterait à se reconnecter sans raison.
+  if (await getCurrentUser()) redirect(next ?? '/immeubles');
+
+  const code = first(searchParams.erreur);
   const message = code ? MESSAGES[code] : undefined;
 
   return (
@@ -52,7 +62,16 @@ export default async function SignInPage(props: PageProps<'/connexion'>) {
         <Card className="flex flex-col gap-5">
           {message ? <Alert tone="danger">{message}</Alert> : null}
 
+          {next ? (
+            <Alert tone="info">
+              Cette invitation est destinée à un compte existant. Connectez-vous avec ce compte pour
+              l&apos;accepter.
+            </Alert>
+          ) : null}
+
           <form method="post" action="/api/v1/sessions" className="flex flex-col gap-5">
+            {next ? <input type="hidden" name="suivant" value={next} /> : null}
+
             <Field
               id="phone"
               label="Numéro de téléphone"

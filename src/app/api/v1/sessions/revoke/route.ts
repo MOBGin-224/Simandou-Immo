@@ -1,4 +1,5 @@
 import { signOutSession } from '@/lib/auth';
+import { safeNextPath } from '@/lib/http/next-path';
 import { redirectWithCookies } from '@/lib/http/redirect';
 
 /**
@@ -19,5 +20,21 @@ import { redirectWithCookies } from '@/lib/http/redirect';
 export async function POST(request: Request): Promise<Response> {
   const cookies = await signOutSession();
 
-  return redirectWithCookies(request, '/connexion', cookies);
+  /*
+   * Un invité connecté avec un AUTRE compte que celui de son invitation doit se
+   * déconnecter, puis se connecter avec le bon : sans mémoire de sa destination, il
+   * perdrait le chemin de son invitation. Comme à la connexion, la destination est
+   * limitée à une liste fermée (`safeNextPath`) : toute autre valeur est ignorée.
+   *
+   * Le formulaire de l'en-tête n'envoie aucun champ : la lecture échoue alors sans
+   * conséquence, et la déconnexion se fait quand même.
+   */
+  const form = await request.formData().catch(() => null);
+  const next = safeNextPath(form?.get('suivant'));
+
+  return redirectWithCookies(
+    request,
+    next ? `/connexion?suivant=${encodeURIComponent(next)}` : '/connexion',
+    cookies,
+  );
 }

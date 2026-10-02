@@ -298,23 +298,31 @@ Exemple :
 **Camayenne**
 **Kipé**
 
+Au moins un immeuble. Une action « Tout sélectionner » coche tous les immeubles existants, sans que les immeubles créés plus tard s'ajoutent d'eux-mêmes (DEC-042).
+
 ### Étape 4
 
 Il choisit le niveau d'accès si plusieurs niveaux sont disponibles.
+
+Au MVP il n'existe qu'un niveau (DEC-025) : cette étape est absente de l'écran.
 
 ### Étape 5
 
 Il sélectionne :
 
-> Envoyer l'invitation
+> Créer l'invitation
+
+Le libellé dit « créer » et non « envoyer » : aucun envoi automatique n'a lieu au MVP (DEC-026).
 
 ### Étape 6
 
-Le système crée une invitation unique.
+Le système crée une invitation unique, valable 7 jours par défaut (DEC-045).
 
 ### Étape 7
 
-Le gestionnaire reçoit le message.
+Le système affiche le lien d'invitation, **une seule fois**, avec une action pour le copier. Le propriétaire le transmet lui-même, par WhatsApp, SMS ou en personne.
+
+Un lien perdu se renvoie depuis la liste des gestionnaires : le jeton n'est stocké que haché et ne peut pas être réaffiché.
 
 ## Résultat
 

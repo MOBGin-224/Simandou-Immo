@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { UnauthenticatedError } from '../../src/lib/auth/session';
+import { UnauthenticatedError, WeakPasswordError } from '../../src/lib/auth/session';
 import {
   PermissionDeniedError,
   ResourceOutOfScopeError,
@@ -14,6 +14,14 @@ import {
   ApartmentValidationError,
   ArchivedApartmentError,
 } from '../../src/modules/apartments/errors';
+import {
+  InvitationInvalidError,
+  InvitationLoginRequiredError,
+  InvitationNotOpenError,
+  InvitationTargetUnavailableError,
+  ManagerInvitationConflictError,
+  ManagerValidationError,
+} from '../../src/modules/managers/errors';
 import {
   ArchivedPropertyError,
   PropertyNameAlreadyUsedError,
@@ -52,6 +60,21 @@ describe('Traduction des erreurs en réponses HTTP', () => {
     { error: new ApartmentBulkConflictError(['A01', 'A02']), status: 409, code: 'CONFLICT' },
     { error: new ArchivedApartmentError('property-archived'), status: 409, code: 'CONFLICT' },
     { error: new AlreadyArchivedApartmentError(), status: 409, code: 'CONFLICT' },
+    {
+      error: new ManagerValidationError({ phone: ['invalide'] }),
+      status: 422,
+      code: 'VALIDATION_ERROR',
+    },
+    {
+      error: new ManagerInvitationConflictError('already-manager'),
+      status: 409,
+      code: 'CONFLICT',
+    },
+    { error: new InvitationTargetUnavailableError(), status: 409, code: 'CONFLICT' },
+    { error: new InvitationNotOpenError('accepted'), status: 409, code: 'CONFLICT' },
+    { error: new InvitationInvalidError(), status: 404, code: 'NOT_FOUND' },
+    { error: new InvitationLoginRequiredError(), status: 401, code: 'UNAUTHORIZED' },
+    { error: new WeakPasswordError(), status: 422, code: 'VALIDATION_ERROR' },
   ];
 
   for (const { error, status, code } of cases) {
@@ -97,5 +120,27 @@ describe('Traduction des erreurs en réponses HTTP', () => {
 
   it('produit une référence datée et lisible', () => {
     expect(newErrorId(new Date('2026-09-27T00:00:00.000Z'))).toMatch(/^ERR-2026-\d{6}$/);
+  });
+});
+
+/**
+ * Un lien d'invitation inutilisable ne doit rien apprendre (ADR-008).
+ *
+ * Il répond 404, et non 410 « disparu » ni 403 « refusé » : seul 404 laisse
+ * indiscernables un lien inconnu, expiré, révoqué et déjà consommé.
+ */
+describe("Réponse à un lien d'invitation inutilisable", () => {
+  it('est un 404, jamais un 410 ni un 403', () => {
+    const shape = toApiError(new InvitationInvalidError());
+
+    expect(shape.status).toBe(404);
+    expect(shape.status).not.toBe(410);
+    expect(shape.status).not.toBe(403);
+  });
+
+  it('porte toujours le même message, quelle que soit la cause réelle', () => {
+    expect(toApiError(new InvitationInvalidError()).message).toBe(
+      toApiError(new InvitationInvalidError()).message,
+    );
   });
 });
