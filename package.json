@@ -12,6 +12,7 @@
     "test:watch": "vitest",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "mobile": "tsx scripts/mobile/run.ts",
     "db:start": "docker compose up -d",
     "db:stop": "docker compose down",
     "db:pglite": "tsx scripts/db-pglite.ts",
