@@ -87,6 +87,25 @@ npm run dev
 Cette base ne sert **qu'une connexion à la fois** : arrêter le serveur de développement avant
 de lancer `db:seed` ou `db:studio`. Les données vivent dans `.pglite/`, ignoré par git.
 
+### Vérifier le rendu mobile
+
+Tout lot qui produit des écrans se vérifie à **360 et 390 px** (DEC-040), avec un Chrome sans
+interface piloté par `scripts/mobile/` :
+
+```bash
+npm run dev           # dans un terminal, PAS `npm run start`
+npm run db:pglite     # dans un autre, si la base locale est PGlite
+npm run mobile -- immeubles immeubles/<id>/appartements
+```
+
+Pour chaque écran et chaque largeur, l'outil mesure le débordement, les cibles tactiles sous
+44 px (en mesurant la zone réellement atteignable) et le texte coupé, capture la page entière,
+puis se termine en code 1 si un défaut est relevé. Il est en **lecture seule** et ne vise que
+`localhost`. Les captures et `results.json` vont dans le dossier temporaire du système.
+`npm run mobile -- --help` détaille les options.
+
+Sous Git Bash, écrire les chemins sans `/` initial : le shell déforme les autres.
+
 ---
 
 **Les tests n'ont besoin d'aucun serveur.** Ils utilisent PGlite, PostgreSQL compilé en WebAssembly, et appliquent la vraie migration (DEC-035).
@@ -106,6 +125,7 @@ de lancer `db:seed` ou `db:studio`. Les données vivent dans `.pglite/`, ignoré
 | `npm run test:watch`   | Tests en observation continue           |
 | `npm run format`       | Formatage Prettier                      |
 | `npm run format:check` | Vérification du formatage               |
+| `npm run mobile`       | Vérifie le rendu mobile à 360 et 390 px |
 | `npm run db:start`     | Démarre le PostgreSQL local dans Docker |
 | `npm run db:stop`      | Arrête le PostgreSQL local              |
 | `npm run db:generate`  | Génère une migration depuis le schéma   |
