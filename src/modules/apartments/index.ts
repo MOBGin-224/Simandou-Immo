@@ -14,6 +14,7 @@ export { describeFloor, generateNumbers, isArchived, toApartmentView } from './d
 
 export type { ArchivedApartmentReason, FieldErrors } from './errors';
 export {
+  AlreadyArchivedApartmentError,
   ApartmentBulkConflictError,
   ApartmentNumberAlreadyUsedError,
   ApartmentValidationError,
@@ -59,6 +60,7 @@ export type { ApartmentsDatabase } from './repository';
 
 export type { ApartmentCollection } from './service';
 export {
+  archiveApartment,
   createApartment,
   createApartmentsBulk,
   generateApartments,

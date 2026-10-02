@@ -59,6 +59,7 @@ const BY_ERROR_NAME: Record<string, { status: number; code: ApiErrorCode }> = {
   ApartmentNumberAlreadyUsedError: { status: 409, code: 'CONFLICT' },
   ApartmentBulkConflictError: { status: 409, code: 'CONFLICT' },
   ArchivedApartmentError: { status: 409, code: 'CONFLICT' },
+  AlreadyArchivedApartmentError: { status: 409, code: 'CONFLICT' },
 };
 
 /** Référence technique corrélable entre la réponse et les journaux. */

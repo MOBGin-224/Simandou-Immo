@@ -222,3 +222,29 @@ export async function listApartmentRows(
 
   return { rows, total: totals?.value ?? 0 };
 }
+
+/**
+ * Archive un appartement (DEC-039).
+ *
+ * Aucune suppression physique : `archived_at` est renseigné et l'historique
+ * reste intact (BR-025, DEC-020). Le statut d'occupation n'est PAS touché : il
+ * reste la dernière information vraie sur le logement, et l'effacer perdrait ce
+ * que l'archive est censée préserver.
+ *
+ * La condition `archived_at IS NULL` rend l'opération sûre en cas de double
+ * soumission concurrente, le cas d'usage ayant déjà refusé le second archivage.
+ */
+export async function archiveApartmentRow(
+  db: ApartmentsDatabase,
+  apartmentId: string,
+): Promise<Apartment | undefined> {
+  const now = new Date();
+
+  const [row] = await db
+    .update(apartments)
+    .set({ archivedAt: now, updatedAt: now })
+    .where(and(eq(apartments.id, apartmentId), isNull(apartments.archivedAt)))
+    .returning();
+
+  return row;
+}

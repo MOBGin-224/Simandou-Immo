@@ -77,3 +77,17 @@ export class ArchivedApartmentError extends Error {
     this.name = 'ArchivedApartmentError';
   }
 }
+
+/**
+ * Opération refusée parce que l'appartement est déjà archivé.
+ *
+ * Le refus est explicite plutôt qu'idempotent, comme pour l'immeuble : afficher
+ * un succès sur un archivage sans effet tromperait l'utilisateur sur l'état
+ * réel du logement (BR-025, DEC-039).
+ */
+export class AlreadyArchivedApartmentError extends Error {
+  constructor() {
+    super('Cet appartement est déjà archivé.');
+    this.name = 'AlreadyArchivedApartmentError';
+  }
+}

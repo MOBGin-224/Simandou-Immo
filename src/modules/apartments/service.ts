@@ -13,6 +13,7 @@ import {
   changedFields,
   generateNumbers,
   hasChanges,
+  isArchived,
   toApartmentView,
   type ApartmentView,
 } from './domain';
@@ -20,9 +21,12 @@ import {
   ApartmentBulkConflictError,
   ApartmentNumberAlreadyUsedError,
   ApartmentValidationError,
+  AlreadyArchivedApartmentError,
+  ArchivedApartmentError,
 } from './errors';
 import {
   APARTMENT_NUMBER_CONSTRAINT,
+  archiveApartmentRow,
   findApartmentById,
   findApartmentByNumber,
   findUsedNumbers,
@@ -93,7 +97,7 @@ async function loadPropertyFor(
   db: ApartmentsDatabase,
   context: AccessContext,
   propertyId: string,
-  permission: 'apartment.create' | 'apartment.read' | 'apartment.update',
+  permission: 'apartment.create' | 'apartment.read' | 'apartment.update' | 'apartment.archive',
 ): Promise<PropertyView> {
   const property = await getProperty(db, context, propertyId);
 
@@ -119,7 +123,7 @@ async function loadAccessibleApartment(
   db: ApartmentsDatabase,
   context: AccessContext,
   apartmentId: string,
-  permission: 'apartment.read' | 'apartment.update',
+  permission: 'apartment.read' | 'apartment.update' | 'apartment.archive',
 ) {
   if (!z.string().uuid().safeParse(apartmentId).success) throw new ResourceOutOfScopeError();
 
@@ -392,4 +396,45 @@ export async function generateApartments(
   return createApartmentsBulk(db, context, propertyId, {
     apartments: numbers.map((number) => ({ number })),
   });
+}
+
+/**
+ * Archive un appartement (DEC-039, BR-025).
+ *
+ * Réservé au PROPRIÉTAIRE, confirmé par le fondateur le 28 septembre 2026 :
+ * retirer un logement de l'exploitation est un acte patrimonial, au même titre
+ * que l'archivage d'un immeuble. Un gestionnaire garde en revanche toute la main
+ * sur l'opérationnel de son périmètre.
+ *
+ * Aucune suppression : le logement sort de l'exploitation, son historique reste
+ * lisible, et son statut d'occupation est conservé tel quel (DEC-019, DEC-020).
+ * Sa référence reste prise, comme le nom d'un immeuble archivé : libérer « A04 »
+ * rendrait deux lignes homonymes indistinguables dans un historique de bail.
+ *
+ * Un immeuble archivé refuse l'opération avant même de regarder le logement :
+ * il est déjà sorti de l'exploitation, et son archivage ne cascade pas sur ses
+ * appartements.
+ */
+export async function archiveApartment(
+  db: ApartmentsDatabase,
+  context: AccessContext,
+  apartmentId: string,
+): Promise<ApartmentView> {
+  const { apartment, property } = await loadAccessibleApartment(
+    db,
+    context,
+    apartmentId,
+    'apartment.archive',
+  );
+
+  if (property.archived) throw new ArchivedApartmentError('property-archived');
+  if (isArchived(apartment)) throw new AlreadyArchivedApartmentError();
+
+  const archived = await archiveApartmentRow(db, apartment.id);
+
+  // La ligne n'est pas revenue : un autre appel l'a archivée entre la lecture et
+  // l'écriture. Le refus est le même que celui du contrôle précédent.
+  if (!archived) throw new AlreadyArchivedApartmentError();
+
+  return toApartmentView(archived);
 }

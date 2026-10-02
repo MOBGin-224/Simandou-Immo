@@ -76,6 +76,15 @@ export default async function ApartmentDetailPage(
   const canUpdate =
     can(context, 'apartment.update', resource) && !apartment.archived && !property.archived;
 
+  /*
+   * DEC-039 : l'archivage est reserve au proprietaire, retirer un logement de
+   * l'exploitation etant un acte patrimonial. L'action est donc masquee pour un
+   * gestionnaire, qui obtiendrait un refus, et pour un logement deja archive ou
+   * dont l'immeuble l'est.
+   */
+  const canArchive =
+    can(context, 'apartment.archive', resource) && !apartment.archived && !property.archived;
+
   const base = `/immeubles/${property.id}/appartements`;
 
   const details: { label: string; value: string }[] = [
@@ -152,6 +161,24 @@ export default async function ApartmentDetailPage(
           <p className="mt-3 text-sm text-muted">{section.description}</p>
         </Card>
       ))}
+
+      {canArchive ? (
+        <Card>
+          <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-muted">
+            Retirer de l&apos;exploitation
+          </h2>
+          <p className="mt-2 text-sm text-muted">
+            L&apos;archivage conserve tout l&apos;historique du logement et bloque ses opérations
+            futures.
+          </p>
+          <Link
+            href={`${base}/${apartment.id}/archiver`}
+            className={`${buttonClasses('secondary', 'md')} mt-4`}
+          >
+            Archiver cet appartement
+          </Link>
+        </Card>
+      ) : null}
     </div>
   );
 }

@@ -111,7 +111,7 @@ Lorsqu'une contradiction est détectée, elle doit être corrigée dans le docum
 | DEC-022 | Allocation des paiements | VERROUILLÉE | aucun |
 | DEC-023 | Paiement supérieur au montant dû | VERROUILLÉE | aucun |
 | DEC-024 | Rattachement des documents | DÉDUITE | aucun |
-| DEC-025 | Modèle de permissions du MVP | VERROUILLÉE | Lot Gestionnaires |
+| DEC-025 | Modèle de permissions du MVP | VERROUILLÉE | aucun |
 | DEC-026 | Canal de diffusion des invitations au MVP | VERROUILLÉE | aucun |
 | DEC-027 | Canaux de notification du MVP | VERROUILLÉE | aucun |
 | DEC-028 | Jobs et tâches planifiées | DÉDUITE | aucun |
@@ -125,7 +125,7 @@ Lorsqu'une contradiction est détectée, elle doit être corrigée dans le docum
 | DEC-036 | Formulaires et mutations de l'interface | DÉDUITE | aucun |
 | DEC-037 | Socle d'interface introduit au Lot 4 | DÉDUITE | aucun |
 | DEC-038 | Base de développement de secours, sans virtualisation | DÉDUITE | aucun |
-| DEC-039 | Archivage d'un appartement | OUVERTE | Commande d'archivage d'un logement |
+| DEC-039 | Archivage d'un appartement | VERROUILLÉE | aucun |
 | DEC-040 | Méthode de vérification du rendu mobile | DÉDUITE | aucun |
 
 ---
@@ -1192,13 +1192,13 @@ Scope  (organisation, et pour MANAGER la liste des immeubles autorisés)
 3. Le champ `permissions[]` est **retiré** de l'API d'invitation d'un gestionnaire.
 4. `manager_property_access.access_level` est conservé avec une **unique valeur MVP** : `MANAGE`.
 5. La délégation fine par gestionnaire est classée **Future Evolution**.
-6. La distinction « gestionnaire principal / gestionnaire secondaire » est classée **Future Evolution**.
+6. La distinction « gestionnaire principal / gestionnaire secondaire » **n'existe pas au MVP**, confirmée par le fondateur le 28 septembre 2026. Tous les gestionnaires d'une organisation sont égaux en droits sur leur périmètre, et **seul le propriétaire invite ou révoque un gestionnaire**. Elle reste une évolution possible, sans refonte du service d'autorisation.
 
 Le service d'autorisation conserve la signature `can(user, permission, resource)` afin que l'ajout futur de permissions granulaires n'impose aucune refonte.
 
 **Impact si changé** : ajout de deux tables, d'un écran de délégation et d'un champ d'API. Additif, sans refonte du service d'autorisation.
 
-À confirmer avant le lot **Gestionnaires**, car c'est à ce moment que l'écran d'invitation et l'attribution de périmètre sont construits.
+**DEC-025 ne bloque plus rien.** Elle devait être confirmée avant le lot **Gestionnaires**, parce que c'est à ce moment que l'écran d'invitation et l'attribution de périmètre se construisent. Ce fut fait le 28 septembre 2026, sur son dernier point ouvert.
 
 ### Résolution de la mention « selon droits », 27 septembre 2026, CONFIRMÉE
 
@@ -1215,10 +1215,11 @@ La matrice globale des rôles porte la mention « selon droits » sur sept ligne
 | `manager.invite`, `manager.update`, `manager.revoke` | Propriétaire seul | La matrice refuse au gestionnaire chacune des quatre lignes concernant les gestionnaires |
 | `manager.read` | Propriétaire seul | Aucune ligne de la matrice n'ouvre la consultation d'un gestionnaire au gestionnaire. En l'absence de règle, le moindre privilège décide |
 | `audit.read` | Propriétaire seul | Le journal d'audit est une donnée de sécurité, et aucun document ne l'ouvre au gestionnaire |
+| `apartment.archive` | Propriétaire seul | Ajoutée le 28 septembre 2026 par DEC-039 : retirer un logement de l'exploitation est un acte patrimonial, absent de la liste du gestionnaire |
 
 Chacune se modifie en ajoutant une ligne dans `src/lib/authorization/permissions.ts`, et un test fige aujourd'hui chaque exclusion afin qu'un changement soit visible en revue.
 
-**Portée exacte de la confirmation** : ces cinq permissions, et elles seules. La question du gestionnaire principal et du gestionnaire secondaire, classée Future Evolution au point 6 ci-dessus, reste à confirmer avant le lot **Gestionnaires** : c'est pourquoi DEC-025 continue de le bloquer.
+**Portée de cette confirmation du 27 septembre** : ces cinq permissions. La sixième ligne « selon droits » de la matrice, l'archivage d'un appartement, a échappé à cette revue et n'a été tranchée que le 28 septembre : voir **DEC-039**, qui la réserve au propriétaire pour le même motif patrimonial que `property.archive`. La question du gestionnaire principal et du gestionnaire secondaire a été tranchée le même jour, au point 6 ci-dessus. **Plus aucune mention « selon droits » n'est sans référent.**
 
 **Une formulation du PRD ne rouvre pas le sujet.** Le PRD section 10.3 écrit que « le propriétaire ou un gestionnaire autorisé » peut créer un immeuble. Cette formulation désignait la délégation fine qu'abandonne le point 1 de DEC-025 : elle est sans référent depuis, et ne constitue pas une contradiction.
 
@@ -1521,6 +1522,48 @@ Aucun sur le code applicatif. Le jour où Docker démarre, `npm run db:start` re
 
 ---
 
+## DEC-039 : Archivage d'un appartement
+
+**Statut** : VERROUILLÉE
+
+**Date d'ouverture** : 28 septembre 2026. **Confirmée par le fondateur le 28 septembre 2026.**
+
+### La lacune découverte
+
+Le Lot 5 a rencontré un manque que les Lots 1 et 3 avaient laissé passer sans qu'il soit visible.
+
+La matrice des rôles, section 12 de `roles-permissions.md`, porte une ligne « Archiver un appartement », notée `A` pour le propriétaire et « Selon droits » pour le gestionnaire. La table `apartments` porte bien une colonne `archived_at` depuis le Lot 1, DEC-020 l'ayant prévue à côté du statut d'occupation.
+
+Or **la permission `apartment.archive` n'existait pas au catalogue** écrit en code au Lot 3, et la résolution « selon droits » du 27 septembre 2026 ne l'avait pas tranchée : elle portait sur sept permissions, celle-ci n'en faisait pas partie.
+
+### La décision
+
+**`apartment.archive` est réservée au PROPRIÉTAIRE.**
+
+Le motif est celui qui a déjà servi pour `property.archive` : retirer un logement de l'exploitation est un acte **patrimonial**, et la liste des capacités du gestionnaire ne contient aucun acte de cette nature. Un gestionnaire garde la main sur tout l'opérationnel de son périmètre, `apartment.create` et `apartment.update` comprises.
+
+La mention « selon droits » de cette ligne est donc résolue comme les sept autres, et la matrice n'en porte plus aucune sans référent.
+
+### Ce que l'archivage fait, et ne fait pas
+
+```text
+archived_at renseigne       le logement sort de l exploitation
+statut d occupation         CONSERVE, tel qu il etait (DEC-019, DEC-020)
+historique                  intact et consultable (BR-025)
+modification ulterieure     refusee
+suppression physique        jamais (DEC-020 point 6)
+```
+
+**L'archivage d'un immeuble ne cascade pas sur ses appartements.** Un immeuble archivé bloque déjà toute opération sur ses logements, qui restent individuellement actifs : leur statut d'occupation reste la dernière information vraie, et les archiver en masse effacerait cette distinction sans rien apporter.
+
+**Un logement archivé conserve sa référence.** La contrainte d'unicité `(property_id, number)` porte sur toutes les lignes, archivées comprises : « A04 » reste pris. C'est la même règle que pour le nom d'un immeuble, et pour la même raison, deux lignes homonymes seraient indistinguables dans un historique de bail.
+
+**Aucun désarchivage au MVP.** Aucun document ne le prévoit, et l'introduire demanderait de décider ce que devient un logement qui revient dans le parc après un bail passé. La question se posera si le besoin apparaît.
+
+**Impact si changé** : une ligne dans `MANAGER_PERMISSIONS` suffirait à l'ouvrir au gestionnaire, et le test qui fige les exclusions le rendrait visible en revue.
+
+---
+
 ## DEC-040 : Méthode de vérification du rendu mobile
 
 **Statut** : DÉDUITE
@@ -1630,52 +1673,6 @@ Contraintes connues :
 Aucun nom de fournisseur ne doit être inventé ou supposé dans le code ou la documentation.
 
 Tant que cette décision est ouverte, le MVP fonctionne avec le **paiement manuel** comme unique moyen opérationnel.
-
----
-
-## DEC-039 : Archivage d'un appartement
-
-**Statut** : OUVERTE
-
-**Date** : 28 septembre 2026
-
-**Bloque** : uniquement la commande « Archiver un appartement ». Aucun lot.
-
-### Ce qui a été découvert
-
-Le Lot 5 a rencontré une lacune que les Lots 1 et 3 avaient laissée passer sans qu'elle soit visible.
-
-La matrice des rôles, section 12 de `roles-permissions.md`, porte une ligne « Archiver un appartement », notée `A` pour le propriétaire et « Selon droits » pour le gestionnaire. La table `apartments` porte bien une colonne `archived_at` depuis le Lot 1, DEC-020 l'ayant prévue à côté du statut d'occupation.
-
-Or **la permission `apartment.archive` n'existe pas au catalogue** écrit en code au Lot 3. Le catalogue ne contient que `apartment.create`, `apartment.read` et `apartment.update`, qui correspondent aux trois lignes suivantes de la même matrice.
-
-Et **la résolution « selon droits » du 27 septembre 2026 ne la mentionne pas** : elle a tranché sept permissions, dont `property.archive`, mais celle-ci n'y figure pas. La mention reste donc sans référent sur cette seule ligne.
-
-### Pourquoi la décision n'est pas prise ici
-
-Trancher reviendrait à choisir pour le fondateur qui peut retirer un logement de l'exploitation, ce qui est une décision de produit et non un détail d'implémentation. DEC-025 montre que ces arbitrages lui appartiennent : les cinq précédents lui ont été soumis et confirmés explicitement.
-
-### Ce que le Lot 5 a fait en attendant
-
-L'archivage d'un appartement **n'est pas offert**. Le backlog du lot, MVP-BACKLOG-020 à 023, demande la liste, la création, le détail et la modification, et rien de plus : l'ajouter dépasserait le périmètre sans justification documentée.
-
-Le modèle et l'API restent prêts :
-
-```text
-apartments.archived_at     existe depuis le Lot 1, inchangee
-includeArchived            parametre de liste honore par l API et par l URL
-lien « Afficher les archives »   RETIRE de l ecran
-```
-
-Le lien a été retiré parce qu'il ne pouvait rien révéler : sans commande d'archivage, la liste des archivés est toujours vide, et une commande sans effet possible est un ornement. Il reviendra avec la décision, sans rien à recâbler.
-
-### Résolution attendue
-
-Par cohérence avec `property.archive`, réservée au propriétaire le 27 septembre 2026 au motif qu'archiver est un acte patrimonial, la résolution la plus probable est **propriétaire seul**. Elle n'est pas appliquée tant qu'elle n'est pas confirmée.
-
-Trois lignes suffiront à l'appliquer : `apartment.archive` dans le catalogue de `src/lib/authorization/permissions.ts`, la même dans `OWNER_PERMISSIONS`, et le test qui fige les exclusions du gestionnaire s'en trouvera mis à jour, donc visible en revue.
-
-**Impact si changé** : une permission, une route, un écran de confirmation, et le retour du lien de liste. Additif, sans refonte.
 
 ---
 

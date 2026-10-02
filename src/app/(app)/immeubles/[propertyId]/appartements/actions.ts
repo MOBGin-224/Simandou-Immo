@@ -10,7 +10,9 @@ import {
   ApartmentBulkConflictError,
   ApartmentNumberAlreadyUsedError,
   ApartmentValidationError,
+  AlreadyArchivedApartmentError,
   ArchivedApartmentError,
+  archiveApartment,
   createApartment,
   generateApartments,
   updateApartment,
@@ -72,7 +74,7 @@ function toFormState(error: unknown, values: Record<string, string>): ApartmentF
     return { fieldErrors: { count: [error.message] }, values };
   }
 
-  if (error instanceof ArchivedApartmentError) {
+  if (error instanceof ArchivedApartmentError || error instanceof AlreadyArchivedApartmentError) {
     return { message: error.message, values };
   }
 
@@ -193,4 +195,31 @@ export async function generateApartmentsAction(
   const base = `/immeubles/${propertyId}/appartements`;
 
   redirect(prefix === '' ? base : `${base}?recherche=${encodeURIComponent(prefix)}`);
+}
+
+/**
+ * Archive un appartement, puis revient à sa fiche (DEC-039).
+ *
+ * La fiche reste accessible après archivage : l'historique d'un logement archivé
+ * demeure consultable (BR-025). Rediriger vers la liste donnerait l'impression
+ * d'une suppression, qui n'a pas eu lieu.
+ */
+export async function archiveApartmentAction(
+  propertyId: string,
+  apartmentId: string,
+  _previousState: ApartmentFormState,
+  _formData: FormData,
+): Promise<ApartmentFormState> {
+  const context = await requireAccessContextOrSignIn();
+
+  try {
+    await archiveApartment(getDb(), context, apartmentId);
+  } catch (error) {
+    // Aucune saisie à réafficher : l'archivage est une confirmation, pas un
+    // formulaire de saisie.
+    return toFormState(error, {});
+  }
+
+  revalidateApartmentViews(propertyId, apartmentId);
+  redirect(`/immeubles/${propertyId}/appartements/${apartmentId}`);
 }
