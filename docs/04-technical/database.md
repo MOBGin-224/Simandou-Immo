@@ -403,6 +403,7 @@ tenant.create
 tenant.read
 tenant.update
 tenant.invite
+tenant.revoke
 
 lease.create
 lease.read
@@ -575,20 +576,22 @@ users
 relation locative
 ```
 
-Selon l'architecture finale, une table dédiée peut être utilisée pour les attributs spécifiques au rôle locataire.
+## Table `tenant_profiles` : NON CRÉÉE AU MVP
 
-## Table : `tenant_profiles`
+> **DEC-046.** La table `tenant_profiles` **n'est pas créée au MVP**. Elle ne porterait que `id` et `user_id`, et `leases.tenant_user_id` référence `users`, pas elle. La distinction entre la personne et le rôle, seule raison d'être de cette table, est déjà portée par `user_access.role`.
 
-### Colonnes
+Le locataire est donc, au MVP :
 
 ```text
-id
-user_id
-created_at
-updated_at
+users         l'identite, profil preliminaire en PENDING_ACTIVATION (BR-008)
+user_access   le role TENANT dans l'organisation, cree a l'acceptation
+invitations   le contexte locatif PREVU : property_id et apartment_id
+leases        la relation locative reelle (BR-020)
 ```
 
-Cela permet de garder une distinction propre entre :
+L'identifiant de la ressource locataire est `user_access.id`. Une invitation en attente a le sien, `invitation.id`.
+
+La distinction reste donc propre entre :
 
 **Personne**
 
@@ -596,8 +599,9 @@ et :
 
 **Rôle locataire**
 
----
+Une table dédiée pourra être ajoutée lorsqu'un attribut propre au rôle locataire existera réellement. Au MVP, il n'en existe aucun.
 
+---
 # 16. Contrats
 
 ## Table : `leases`
@@ -2120,7 +2124,7 @@ enums
 → properties
 → manager_property_access
 → apartments
-→ tenant_profiles
+→ invitations                invitation_properties avec elle (DEC-041)
 → leases
 → rent_installments          créance de loyer
 → charges

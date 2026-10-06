@@ -341,6 +341,12 @@ Légende :
 | Consulter le journal d'activité | L | L selon droits | X |
 | Gérer les paramètres globaux | M | X | X |
 
+
+> **Permissions des lignes « locataire » (DEC-047).** « Suspendre un locataire » et « Réactiver » passent par `tenant.update`, « Révoquer l'accès locataire » par `tenant.revoke`, permission ajoutée au catalogue par cette décision. Le propriétaire et le gestionnaire les portent tous les deux, chacun sur son périmètre : c'est une différence assumée avec le gestionnaire, que seul le propriétaire invite ou révoque (DEC-025), justifiée par la section 13 ci-dessous qui fait du gestionnaire le principal point d'entrée pour les locataires.
+>
+> **Révoquer l'accès au produit ne termine jamais le bail.** Les deux concepts restent distincts.
+>
+> **« Modifier un locataire » est restreint par DEC-048** : le nom seulement. Voir la section 14.
 ---
 
 # 10. Gestion des immeubles
@@ -452,17 +458,21 @@ Le propriétaire conserve une visibilité sur ces données.
 
 # 14. Modification des données personnelles du locataire
 
-Certaines données doivent pouvoir être modifiées par le locataire lui-même.
+> **DEC-048 restreint cette section au MVP.** Le locataire modifie **son nom, et rien d'autre**. Le téléphone et l'email ne sont modifiables par personne, ni par le locataire, ni par le gestionnaire, ni par le propriétaire : SEC-049 et SEC-050 exigent une vérification du changement, et DEC-008 ne fournit aucun canal pour la mener.
 
-Par exemple :
+Au MVP :
 
-- photo de profil si utilisée ;
-- email ;
-- certaines informations de contact.
+```text
+nom         modifiable par le locataire lui-meme
+telephone   NON modifiable : identifiant de connexion
+email       NON modifiable : verification impossible
+```
 
-D'autres informations doivent rester contrôlées par le gestionnaire.
+Un numéro ou un email mal saisi se corrige en révoquant l'invitation puis en réinvitant, tant que l'invitation est ouverte. Un numéro mal saisi ne peut pas appartenir à un compte activé, puisque le numéro est l'identifiant de connexion.
 
-Par exemple :
+Le principe de fond reste entier : certaines données appartiennent au locataire, d'autres restent contrôlées par le gestionnaire.
+
+Contrôlées par le gestionnaire :
 
 - appartement ;
 - loyer contractuel ;
@@ -471,8 +481,9 @@ Par exemple :
 
 Le locataire ne doit pas pouvoir modifier directement les données qui déterminent ses obligations financières.
 
----
+La photo de profil et les autres informations de contact deviendront modifiables lorsque les mécanismes de vérification correspondants existeront.
 
+---
 # 15. Gestion des contrats
 
 Le contrat constitue une donnée sensible.
