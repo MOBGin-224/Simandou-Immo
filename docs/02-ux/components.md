@@ -538,20 +538,30 @@ Ouvrir l'appartement.
 
 # 25. TenantCard
 
-## Contenu
+## Contenu au Lot 7 (DEC-046)
 
 - nom ;
-- téléphone éventuellement ;
-- appartement ;
-- montant ;
-- statut ;
-- statut du compte.
+- téléphone ;
+- logement ;
+- statut d'accès.
 
-## Actions
+Le **statut d'accès** est dérivé, jamais saisi, et prend l'une de ces cinq valeurs : « Invité », « Invitation expirée », « Actif », « Suspendu », « Accès révoqué ».
 
-- ouvrir ;
-- relancer ;
-- inviter selon contexte.
+> **Ni montant ni statut financier au Lot 7.** Ces deux informations naissent du bail : la carte ne les affiche pas, et ne réserve pas un emplacement vide à leur place.
+
+## Contenu ajouté au Lot 8
+
+- montant du loyer ;
+- état du paiement.
+
+## Actions au Lot 7
+
+- ouvrir la fiche ;
+- copier à nouveau le lien d'invitation, tant qu'elle est en attente ;
+- suspendre et réactiver, par `tenant.update` ;
+- révoquer l'accès, par `tenant.revoke`.
+
+Suspension et révocation sont portées par le propriétaire comme par le gestionnaire, chacun sur son périmètre (DEC-047). Une action indisponible n'est pas affichée. Révoquer un accès ne clôt aucun bail.
 
 ---
 

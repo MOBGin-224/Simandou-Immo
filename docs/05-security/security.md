@@ -849,20 +849,40 @@ Lorsqu'un gestionnaire est révoqué :
 
 # 47. Révocation d'un locataire
 
-Lorsqu'un locataire quitte un logement :
+Deux mécanismes se ressemblent et ne doivent jamais être confondus (DEC-047). L'un retire l'accès au produit, l'autre met fin à la relation locative.
 
-- son accès au logement est retiré ;
-- le contrat est terminé ;
+## Révocation de l'accès au produit, Lot 7
+
+Portée par `tenant.revoke`. Elle retire à la personne la possibilité d'entrer dans l'espace locataire :
+
+- l'accès passe à `REVOKED` ;
+- ses sessions sont invalidées ou refusées au prochain contrôle ;
 - l'historique reste conservé ;
-- son compte utilisateur peut rester actif si la plateforme prévoit de futurs logements.
+- un événement d'audit est créé.
 
-Il ne faut donc pas confondre :
+**Elle ne termine aucun bail et ne retire aucun logement.** La personne reste le locataire du logement : elle cesse seulement d'utiliser l'application. Le cas est banal, un locataire pouvant n'avoir jamais voulu de compte.
 
-**fin de relation locative**
+Une invitation encore en attente se révoque de la même manière, et c'est le moyen prévu pour corriger un numéro mal saisi (DEC-048) : révoquer, puis réinviter. Les sections 49 et 50 expliquent pourquoi un numéro ou un email ne se modifient pas en place.
 
-et :
+## Fin de la relation locative, Lot 8
 
-**suppression du compte utilisateur**.
+Portée par la fin du bail. **C'est elle, et elle seule, qui porte le retrait de l'accès au logement** :
+
+- le bail est terminé ;
+- l'accès au logement concerné est retiré ;
+- l'historique reste conservé ;
+- le compte utilisateur peut rester actif si la plateforme prévoit de futurs logements.
+
+## Ce qu'il ne faut pas confondre
+
+| Action | Met fin au bail | Fait cesser l'occupation du logement | Empêche d'entrer dans l'application |
+| --- | --- | --- | --- |
+| Révoquer l'accès, Lot 7 | Non | Non | Oui |
+| Suspendre l'accès, Lot 7 | Non | Non | Oui, temporairement |
+| Terminer le bail, Lot 8 | Oui | Oui | Non |
+| Supprimer le compte utilisateur | Non | Non | Oui |
+
+Révoquer l'accès au produit ne termine jamais le bail, et terminer un bail ne supprime jamais le compte.
 
 ---
 

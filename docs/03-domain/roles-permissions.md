@@ -341,12 +341,12 @@ Légende :
 | Consulter le journal d'activité | L | L selon droits | X |
 | Gérer les paramètres globaux | M | X | X |
 
-
 > **Permissions des lignes « locataire » (DEC-047).** « Suspendre un locataire » et « Réactiver » passent par `tenant.update`, « Révoquer l'accès locataire » par `tenant.revoke`, permission ajoutée au catalogue par cette décision. Le propriétaire et le gestionnaire les portent tous les deux, chacun sur son périmètre : c'est une différence assumée avec le gestionnaire, que seul le propriétaire invite ou révoque (DEC-025), justifiée par la section 13 ci-dessous qui fait du gestionnaire le principal point d'entrée pour les locataires.
 >
 > **Révoquer l'accès au produit ne termine jamais le bail.** Les deux concepts restent distincts.
 >
 > **« Modifier un locataire » est restreint par DEC-048** : le nom seulement. Voir la section 14.
+
 ---
 
 # 10. Gestion des immeubles
