@@ -273,6 +273,24 @@ async function loadLeasableApartment(
  *   - DÉCRIRE une personne la crée, ou réutilise le compte du numéro s'il existe
  *     (DEC-041). Aucune trace n'est exigée, et il n'en faut pas : c'est ce geste
  *     qui établit la première.
+ *
+ * **Limite assumée, et consignée** (Security section 49 bis). Décrire un numéro
+ * qui appartient déjà à la locataire d'un autre bailleur réutilise son compte, et
+ * la vue du bail porte alors le nom ENREGISTRÉ de cette personne. L'appelant
+ * apprend donc, pour un numéro qu'il détient, le nom sous lequel elle est connue.
+ *
+ * Trois raisons de ne pas « corriger » cela ici :
+ *
+ *   1. l'invitation a exactement le même comportement depuis le Lot 7, DEC-041
+ *      l'ayant posé : traiter le bail autrement ferait deux règles d'identité ;
+ *   2. refuser révélerait DAVANTAGE, en distinguant « numéro inconnu » de
+ *      « numéro connu ailleurs », ce qui est un signal plus net qu'un nom ;
+ *   3. refuser rendrait impossible la personne qui loue chez deux bailleurs, qui
+ *      est précisément celle que DEC-051 veut représenter.
+ *
+ * La seule correction sans fuite serait un nom par organisation, c'est-à-dire la
+ * table de profils que DEC-051 point 3 refuse. Le choix appartient donc au
+ * fondateur, et la section 49 bis le lui pose.
  */
 async function resolveTenant(
   tx: LeasesDatabase,
