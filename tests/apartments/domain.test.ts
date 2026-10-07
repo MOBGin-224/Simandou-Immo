@@ -28,6 +28,7 @@ const BASE: Apartment = {
   type: 'T3',
   area: '78.50',
   status: 'VACANT',
+  underMaintenance: false,
   referenceRentAmount: 2500000,
   currency: 'GNF',
   createdAt: new Date('2026-09-01T08:00:00.000Z'),
@@ -123,7 +124,7 @@ describe('Différence réelle avant écriture', () => {
       floor: 1,
       type: 'T3',
       area: 78.5,
-      status: 'VACANT',
+      underMaintenance: false,
       referenceRent: { amount: 2500000, currency: 'GNF' },
     });
 
@@ -140,8 +141,26 @@ describe('Différence réelle avant écriture', () => {
     expect(changedFields(BASE, { area: 79 })).toEqual({ area: '79.00' });
   });
 
-  it('retient un changement de statut', () => {
-    expect(changedFields(BASE, { status: 'OCCUPIED' })).toEqual({ status: 'OCCUPIED' });
+  /**
+   * L'occupation n'est PAS dans les champs modifiables (DEC-050) : elle se déduit
+   * du bail. Seule la déclaration de travaux se change à la main.
+   */
+  it('retient une déclaration de travaux', () => {
+    expect(changedFields(BASE, { underMaintenance: true })).toEqual({ underMaintenance: true });
+  });
+
+  it('ne retient rien quand les travaux étaient déjà déclarés', () => {
+    expect(changedFields({ ...BASE, underMaintenance: true }, { underMaintenance: true })).toEqual(
+      {},
+    );
+  });
+
+  it('retient la fin des travaux', () => {
+    expect(changedFields({ ...BASE, underMaintenance: true }, { underMaintenance: false })).toEqual(
+      {
+        underMaintenance: false,
+      },
+    );
   });
 
   it('efface une surface quand le champ est vidé', () => {
@@ -169,7 +188,7 @@ describe('Différence réelle avant écriture', () => {
 
 describe('Vue présentée par l API', () => {
   it('rend la surface numérique et le loyer sous forme de couple', () => {
-    const view = toApartmentView(BASE);
+    const view = toApartmentView(BASE, false);
 
     expect(view.area).toBe(78.5);
     expect(view.referenceRent).toEqual({ amount: 2500000, currency: 'GNF' });
@@ -178,9 +197,29 @@ describe('Vue présentée par l API', () => {
   });
 
   it('ne fabrique pas de loyer quand aucun montant n est connu', () => {
-    const view = toApartmentView({ ...BASE, referenceRentAmount: null, currency: null });
+    const view = toApartmentView({ ...BASE, referenceRentAmount: null, currency: null }, false);
 
     expect(view.referenceRent).toBeNull();
+  });
+
+  /**
+   * DEC-050 : l'occupation vient du BAIL, et la colonne `status` est gelée.
+   *
+   * Le logement ci-dessous porte encore `status: 'VACANT'` en base, et la vue
+   * l'annonce pourtant occupé : c'est précisément la contradiction que la
+   * décision supprime, et la colonne ne doit plus avoir voix au chapitre.
+   */
+  it('annonce occupé un logement dont la colonne gelée dit « vacant »', () => {
+    expect(toApartmentView({ ...BASE, status: 'VACANT' }, true).occupancy).toBe('OCCUPIED');
+    expect(toApartmentView({ ...BASE, status: 'OCCUPIED' }, false).occupancy).toBe('VACANT');
+  });
+
+  /** Les travaux ne sont pas une occupation : les deux coexistent (DEC-050). */
+  it('affiche des travaux SUR un logement occupé, sans les confondre', () => {
+    const view = toApartmentView({ ...BASE, underMaintenance: true }, true);
+
+    expect(view.occupancy).toBe('OCCUPIED');
+    expect(view.underMaintenance).toBe(true);
   });
 
   it('convertit une surface absente sans produire zéro', () => {

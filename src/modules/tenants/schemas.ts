@@ -107,6 +107,18 @@ export const inviteTenantSchema = z.object({
 export type InviteTenantInput = z.output<typeof inviteTenantSchema>;
 
 /**
+ * Identité d'une personne locataire : son nom, son numéro, son email facultatif.
+ *
+ * Exporté pour le module Contrats, qui crée la personne depuis le bail depuis le
+ * Lot 8b (DEC-051). C'est le pendant de `resolveTenantPerson` : la saisie et la
+ * règle d'identité restent définies au même endroit, sinon le bail finirait par
+ * accepter un numéro que l'invitation refuse.
+ */
+export const tenantPersonSchema = z.object({ name, phone, email });
+
+export type TenantPersonInput = z.output<typeof tenantPersonSchema>;
+
+/**
  * Modification d'un locataire (API section 15, DEC-048).
  *
  * **Le nom uniquement.** Le téléphone et l'email ne sont modifiables par

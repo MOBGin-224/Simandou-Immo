@@ -1,4 +1,15 @@
-import { and, asc, desc, eq, inArray, isNull, notInArray, or, type SQL } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  count as countRows,
+  desc,
+  eq,
+  inArray,
+  isNull,
+  notInArray,
+  or,
+  type SQL,
+} from 'drizzle-orm';
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
 
 import * as schema from '@/db/schema';
@@ -366,6 +377,91 @@ export async function findActiveLeasesForTenants(
         eq(leases.status, 'ACTIVE'),
       ),
     );
+}
+
+// --- Occupation, telle que les autres modules la lisent (DEC-050) -----------------
+
+/*
+ * Ces trois lectures existent pour UNE raison : « occupé » ne doit avoir qu'une
+ * seule définition. Depuis le Lot 8b, les modules Appartements et Immeubles
+ * n'affichent plus une saisie mais une déduction, et s'ils la recalculaient
+ * chacun de leur côté, deux écrans finiraient par ne plus dire la même chose du
+ * même logement.
+ *
+ * Elles ne décident rien et ne vérifient aucune permission : l'appelant a déjà
+ * établi son périmètre, et c'est lui qui choisit les logements à interroger.
+ */
+
+/** Parmi les logements indiqués, ceux qui portent un bail en cours. */
+export async function findOccupiedApartmentIds(
+  db: LeasesDatabase,
+  apartmentIds: readonly string[],
+): Promise<string[]> {
+  if (apartmentIds.length === 0) return [];
+
+  const rows = await db
+    .selectDistinct({ apartmentId: leases.apartmentId })
+    .from(leases)
+    .where(and(inArray(leases.apartmentId, [...apartmentIds]), eq(leases.status, 'ACTIVE')));
+
+  return rows.map((row) => row.apartmentId);
+}
+
+/**
+ * Logements d'un immeuble qui portent un bail en cours.
+ *
+ * Nécessaire en plus de la précédente parce que le FILTRE d'une liste doit
+ * s'appliquer en SQL : filtrer après la pagination donnerait des pages
+ * incomplètes, et un total faux.
+ */
+export async function findOccupiedApartmentIdsInProperty(
+  db: LeasesDatabase,
+  propertyId: string,
+): Promise<string[]> {
+  const rows = await db
+    .selectDistinct({ apartmentId: leases.apartmentId })
+    .from(leases)
+    .where(and(eq(leases.propertyId, propertyId), eq(leases.status, 'ACTIVE')));
+
+  return rows.map((row) => row.apartmentId);
+}
+
+/**
+ * Nombre de logements occupés par immeuble, agrégé par la base.
+ *
+ * Les compteurs de la liste des immeubles en ont besoin pour vingt immeubles à
+ * la fois : une requête par immeuble ferait vingt et une requêtes là où une
+ * seule suffit.
+ */
+export async function countOccupiedByProperty(
+  db: LeasesDatabase,
+  propertyIds: readonly string[],
+): Promise<Map<string, number>> {
+  const counts = new Map<string, number>();
+
+  if (propertyIds.length === 0) return counts;
+
+  /*
+   * Jointure sur `apartments` pour exclure les logements ARCHIVÉS : ils ne font
+   * plus partie du parc exploité, et les compter gonflerait le taux d'occupation
+   * de l'immeuble. Les compteurs de `occupancyByProperty` les excluent déjà.
+   */
+  const rows = await db
+    .select({ propertyId: leases.propertyId, value: countRows() })
+    .from(leases)
+    .innerJoin(apartments, eq(apartments.id, leases.apartmentId))
+    .where(
+      and(
+        inArray(leases.propertyId, [...propertyIds]),
+        eq(leases.status, 'ACTIVE'),
+        isNull(apartments.archivedAt),
+      ),
+    )
+    .groupBy(leases.propertyId);
+
+  for (const row of rows) counts.set(row.propertyId, row.value);
+
+  return counts;
 }
 
 export type LeaseInsert = {

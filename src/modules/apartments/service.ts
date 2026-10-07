@@ -5,6 +5,7 @@ import {
   requirePermission,
   type AccessContext,
 } from '@/lib/authorization';
+import { isApartmentOccupied, occupiedApartmentIdsInProperty } from '@/modules/leases';
 import { organizationDefaultCurrency } from '@/modules/organizations';
 import { getProperty, type PropertyView } from '@/modules/properties';
 
@@ -69,6 +70,12 @@ import {
  * indiscernable d'un immeuble inexistant. Un appartement n'est donc jamais
  * atteignable autrement que par un immeuble déjà autorisé, ce qui ferme la voie
  * qu'un contrôle propre au module aurait pu laisser ouverte par distraction.
+ *
+ * **L'occupation est demandée au module Contrats** (DEC-050). Ce module ne la
+ * calcule pas et ne la stocke plus : un logement avec un bail en cours est
+ * occupé, et seul le module Contrats sait ce qu'est un bail en cours. Chaque
+ * composition de vue passe donc par une lecture, groupée quand il y a une liste
+ * à rendre, pour ne pas faire une requête par logement.
  */
 
 /** Traduit un échec de schéma en erreur métier lisible par un formulaire. */
@@ -161,7 +168,7 @@ async function toInsertValues(
     floor: data.floor,
     type: data.type,
     area: data.area === null ? null : data.area.toFixed(2),
-    status: data.status,
+    underMaintenance: data.underMaintenance,
     referenceRentAmount: rent === null ? null : rent.amount,
     currency,
   };
@@ -198,7 +205,9 @@ export async function createApartment(
   try {
     const apartment = await insertApartment(db, await toInsertValues(db, property, data));
 
-    return toApartmentView(apartment);
+    // Vacant par construction : un logement qui vient d'être créé ne peut porter
+    // aucun bail, donc aucune lecture n'est nécessaire pour le savoir.
+    return toApartmentView(apartment, false);
   } catch (error) {
     if (isUniqueViolation(error, APARTMENT_NUMBER_CONSTRAINT)) {
       throw new ApartmentNumberAlreadyUsedError(data.number);
@@ -243,7 +252,7 @@ export async function createApartmentsBulk(
     floor: null,
     type: null,
     area: null,
-    status: 'VACANT',
+    underMaintenance: false,
     referenceRentAmount: null,
     currency: null,
   }));
@@ -251,7 +260,7 @@ export async function createApartmentsBulk(
   try {
     const created = await insertApartments(db, values);
 
-    return created.map(toApartmentView);
+    return created.map((apartment) => toApartmentView(apartment, false));
   } catch (error) {
     // Une course a inséré l'une des références entre la lecture et l'écriture.
     // L'envoi entier est refusé, la transaction n'ayant rien laissé derrière.
@@ -293,10 +302,19 @@ export async function listApartments(
   const parsed = parseOrThrow(listApartmentsQuerySchema, query);
   const property = await loadPropertyFor(db, context, propertyId, 'apartment.read');
 
-  const { rows, total } = await listApartmentRows(db, property.id, parsed);
+  /*
+   * Les logements occupés de l'immeuble, en UNE lecture, avant la pagination.
+   * Les filtres « occupé » et « vacant » s'appuient dessus en SQL : les appliquer
+   * après la pagination donnerait des pages incomplètes et un total faux, ce qui
+   * est le piège naturel d'un champ dérivé.
+   */
+  const occupiedIds = await occupiedApartmentIdsInProperty(db, property.id);
+  const occupied = new Set(occupiedIds);
+
+  const { rows, total } = await listApartmentRows(db, property.id, parsed, occupiedIds);
 
   return {
-    apartments: rows.map(toApartmentView),
+    apartments: rows.map((apartment) => toApartmentView(apartment, occupied.has(apartment.id))),
     meta: {
       page: parsed.page,
       pageSize: parsed.pageSize,
@@ -314,7 +332,7 @@ export async function getApartment(
 ): Promise<ApartmentView> {
   const { apartment } = await loadAccessibleApartment(db, context, apartmentId, 'apartment.read');
 
-  return toApartmentView(apartment);
+  return toApartmentView(apartment, await isApartmentOccupied(db, apartment.id));
 }
 
 /**
@@ -344,8 +362,9 @@ export async function updateApartment(
   assertModifiable(apartment, property);
 
   const changes = changedFields(apartment, data);
+  const occupied = await isApartmentOccupied(db, apartment.id);
 
-  if (!hasChanges(changes)) return toApartmentView(apartment);
+  if (!hasChanges(changes)) return toApartmentView(apartment, occupied);
 
   // Un loyer nouvellement renseigné sans devise reçoit celle de l'organisation
   // (DEC-014) : la base refuse un montant sans devise.
@@ -362,7 +381,7 @@ export async function updateApartment(
   }
 
   try {
-    return toApartmentView(await updateApartmentRow(db, apartment.id, changes));
+    return toApartmentView(await updateApartmentRow(db, apartment.id, changes), occupied);
   } catch (error) {
     if (changes.number !== undefined && isUniqueViolation(error, APARTMENT_NUMBER_CONSTRAINT)) {
       throw new ApartmentNumberAlreadyUsedError(changes.number);
@@ -406,8 +425,10 @@ export async function generateApartments(
  * que l'archivage d'un immeuble. Un gestionnaire garde en revanche toute la main
  * sur l'opérationnel de son périmètre.
  *
- * Aucune suppression : le logement sort de l'exploitation, son historique reste
- * lisible, et son statut d'occupation est conservé tel quel (DEC-019, DEC-020).
+ * Aucune suppression : le logement sort de l'exploitation et son historique reste
+ * lisible (DEC-019, DEC-020). Archiver ne clôture AUCUN bail, et un logement
+ * archivé qui porte encore un bail en cours reste donc annoncé occupé : c'est la
+ * vérité, et la masquer cacherait une situation qui demande une décision.
  * Sa référence reste prise, comme le nom d'un immeuble archivé : libérer « A04 »
  * rendrait deux lignes homonymes indistinguables dans un historique de bail.
  *
@@ -436,5 +457,5 @@ export async function archiveApartment(
   // l'écriture. Le refus est le même que celui du contrôle précédent.
   if (!archived) throw new AlreadyArchivedApartmentError();
 
-  return toApartmentView(archived);
+  return toApartmentView(archived, await isApartmentOccupied(db, archived.id));
 }

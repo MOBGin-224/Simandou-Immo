@@ -50,15 +50,6 @@ export type ApartmentFormProps = {
 
 const INITIAL_STATE: ApartmentFormState = {};
 
-const STATUS_OPTIONS = [
-  { value: 'VACANT', label: 'Vacant' },
-  { value: 'OCCUPIED', label: 'Occupé' },
-  { value: 'MAINTENANCE', label: 'En maintenance' },
-] as const;
-
-const SELECT_CLASSES =
-  'min-h-11 w-full rounded-md border border-line bg-surface px-3 text-base text-ink';
-
 export function ApartmentForm({
   action,
   apartment,
@@ -71,6 +62,18 @@ export function ApartmentForm({
   /** Valeur à afficher : la saisie refusée d'abord, la donnée existante ensuite. */
   const value = (field: string, fallback: string | number | null) =>
     state.values?.[field] ?? (fallback === null ? '' : String(fallback));
+
+  /**
+   * État de la case « en travaux », après un refus comme au premier affichage.
+   *
+   * Le champ caché fait que la valeur renvoyée vaut « on » quand la case était
+   * cochée, et « false » sinon : comparer à « on » est donc suffisant, et laisse
+   * la case telle que l'utilisateur l'avait laissée.
+   */
+  const maintenanceChecked = () =>
+    state.values?.underMaintenance === undefined
+      ? (apartment?.underMaintenance ?? false)
+      : state.values.underMaintenance === 'on';
 
   /**
    * Surface préremplie avec la virgule décimale française.
@@ -164,24 +167,38 @@ export function ApartmentForm({
             />
           )}
         </Field>
-
-        <Field id="status" label="Statut" required errors={state.fieldErrors?.status}>
-          {(attributes) => (
-            <select
-              {...attributes}
-              name="status"
-              defaultValue={value('status', apartment?.status ?? 'VACANT')}
-              className={SELECT_CLASSES}
-            >
-              {STATUS_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          )}
-        </Field>
       </div>
+
+      {/*
+        Les travaux se DÉCLARENT ; l'occupation, non (DEC-050).
+
+        Le choix « Vacant, Occupé, En maintenance » a disparu de ce formulaire :
+        l'occupation se déduit du bail, et la laisser saisissable permettait
+        d'annoncer un logement vacant alors qu'un bail y courait. Pour libérer un
+        logement, on clôture son bail.
+
+        Le champ caché qui précède la case est nécessaire : un formulaire HTML ne
+        transmet pas une case décochée. Sans lui, décocher « en travaux » ne
+        changerait rien, et le logement resterait en chantier pour toujours.
+      */}
+      <input type="hidden" name="underMaintenance" value="false" />
+
+      <label className="flex min-h-12 cursor-pointer items-center gap-3 rounded-md border border-line bg-surface px-3 py-2 has-[:checked]:border-action">
+        <input
+          type="checkbox"
+          name="underMaintenance"
+          value="on"
+          defaultChecked={maintenanceChecked()}
+          className="size-5 shrink-0 accent-action"
+        />
+        <span className="flex min-w-0 flex-col">
+          <span className="text-sm font-medium text-ink">Logement en travaux</span>
+          <span className="text-xs text-muted">
+            Indépendant de l&apos;occupation : un logement peut être en travaux qu&apos;il soit loué
+            ou vide.
+          </span>
+        </span>
+      </label>
 
       <Field
         id="referenceRentAmount"

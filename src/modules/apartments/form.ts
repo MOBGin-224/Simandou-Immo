@@ -17,7 +17,7 @@ export type ApartmentFormInput = {
   floor: FormDataEntryValue | null;
   type: FormDataEntryValue | null;
   area: FormDataEntryValue | null;
-  status: FormDataEntryValue | null;
+  underMaintenance: FormDataEntryValue | null;
   referenceRent: { amount: FormDataEntryValue | null; currency: null };
 };
 
@@ -32,6 +32,12 @@ export type ApartmentFormInput = {
  * Aucune valeur n'est convertie ici. Les chaînes partent telles quelles vers les
  * schémas, qui sont le point unique où une saisie devient une donnée : convertir
  * en deux endroits garantirait que les deux divergent.
+ *
+ * `underMaintenance` est lu par `getAll` et non par `get`, et c'est la seule
+ * exception. Le formulaire envoie DEUX champs du même nom, un champ caché valant
+ * « false » puis la case à cocher : c'est ainsi qu'une case décochée se transmet,
+ * un formulaire HTML n'envoyant rien pour elle. `get` rendrait toujours le
+ * premier, donc toujours « false », et la case ne cocherait jamais rien.
  */
 export function apartmentFields(formData: FormData): ApartmentFormInput {
   return {
@@ -39,7 +45,7 @@ export function apartmentFields(formData: FormData): ApartmentFormInput {
     floor: formData.get('floor'),
     type: formData.get('type'),
     area: formData.get('area'),
-    status: formData.get('status'),
+    underMaintenance: formData.getAll('underMaintenance').at(-1) ?? null,
     referenceRent: { amount: formData.get('referenceRentAmount'), currency: null },
   };
 }
@@ -50,7 +56,7 @@ export const APARTMENT_FIELD_NAMES = [
   'floor',
   'type',
   'area',
-  'status',
+  'underMaintenance',
   'referenceRentAmount',
 ] as const;
 
@@ -64,7 +70,10 @@ export function submittedValues(formData: FormData): Record<string, string> {
   const values: Record<string, string> = {};
 
   for (const field of APARTMENT_FIELD_NAMES) {
-    const value = formData.get(field);
+    // Même raison que ci-dessus : la case à cocher est le DERNIER champ de son
+    // nom, et c'est lui qui porte la saisie à réafficher.
+    const value =
+      field === 'underMaintenance' ? (formData.getAll(field).at(-1) ?? null) : formData.get(field);
 
     if (typeof value === 'string') values[field] = value;
   }

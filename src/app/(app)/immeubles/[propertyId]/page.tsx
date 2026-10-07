@@ -131,14 +131,15 @@ export default async function PropertyDetailPage(props: PageProps<'/immeubles/[p
         ) : (
           <p className="mt-3 text-sm text-ink">
             {pluralize(property.occupancy.apartmentCount, 'logement')}
+            {/* « dont » se rattache au TOTAL : les travaux chevauchent l'occupation (DEC-050). */}
+            {property.occupancy.maintenanceCount > 0
+              ? `, dont ${property.occupancy.maintenanceCount} en travaux`
+              : ''}
             <span className="text-muted">
               {' : '}
               {property.occupancy.occupiedCount} occupé
               {property.occupancy.occupiedCount > 1 ? 's' : ''}, {property.occupancy.vacantCount}{' '}
               vacant{property.occupancy.vacantCount > 1 ? 's' : ''}
-              {property.occupancy.maintenanceCount > 0
-                ? `, ${property.occupancy.maintenanceCount} en maintenance`
-                : ''}
             </span>
           </p>
         )}

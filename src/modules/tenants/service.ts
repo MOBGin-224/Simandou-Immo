@@ -253,9 +253,10 @@ async function assertEmailFree(
 }
 
 /**
- * Utilisateur que l'invitation vise : réutilisé s'il existe, créé sinon (BR-009).
+ * Personne visée par un nom et un numéro : réutilisée si elle existe, créée
+ * sinon (BR-009, DEC-041).
  *
- * Le numéro de téléphone est UNIQUE : inviter un numéro déjà connu ne peut pas
+ * Le numéro de téléphone est UNIQUE : viser un numéro déjà connu ne peut pas
  * créer un second compte, il faut réutiliser celui qui existe. Ce que cela change
  * selon l'état du compte existant est consigné par DEC-041, et vaut pour un
  * locataire comme pour un gestionnaire :
@@ -265,8 +266,13 @@ async function assertEmailFree(
  *   actif                    réutilisé TEL QUEL, le nom saisi est ignoré : il
  *                            appartient à la personne, pas à celui qui l'invite
  *   suspendu ou archivé      refusé
+ *
+ * **Cette règle est la SEULE du produit**, et c'est pourquoi elle ne porte plus
+ * le nom de l'invitation : depuis le Lot 8b, créer un bail peut aussi créer la
+ * personne, sans invitation (DEC-051). Si les deux chemins avaient chacun leur
+ * règle, le même numéro finirait par désigner deux personnes.
  */
-async function resolveInvitee(
+async function resolvePerson(
   db: TenantsDatabase,
   data: { name: string; phone: string; email: string | null },
 ): Promise<User> {
@@ -396,7 +402,7 @@ export async function inviteTenant(
 
   try {
     const { invitation, target } = await db.transaction(async (tx) => {
-      const invitee = await resolveInvitee(tx, data);
+      const invitee = await resolvePerson(tx, data);
 
       await assertCanBeInvited(tx, invitee, apartment.organizationId, now);
 
@@ -1432,4 +1438,37 @@ export async function getMyTenantSpace(
   );
 
   return item ? toDetailView(db, item) : null;
+}
+
+/**
+ * Personne locataire désignée par son nom et son numéro, créée si elle est
+ * inconnue (DEC-051, Lot 8b).
+ *
+ * Exposée pour que le module Contrats puisse créer un bail au nom d'une personne
+ * qui n'a aucun compte et n'en aura jamais : c'est le « geste explicite » que
+ * DEC-051 point 8 réserve, par opposition à la désignation d'un `users.id` trouvé
+ * ailleurs.
+ *
+ * **Cette fonction ne vérifie AUCUNE permission, et c'est volontaire.** Elle ne
+ * touche ni organisation ni accès : elle ne fait qu'établir l'identité d'une
+ * personne dans `users`, table globale et sans organisation. C'est l'appelant qui
+ * a déjà établi son périmètre sur le LOGEMENT, et c'est le bail qu'il écrit
+ * ensuite qui rattache la personne à son organisation. Lui demander de vérifier
+ * une permission ici supposerait une ressource qu'elle n'a pas.
+ *
+ * Elle doit recevoir une TRANSACTION : une personne créée sans le bail qui la
+ * justifie ne doit jamais subsister.
+ */
+export async function resolveTenantPerson(
+  db: TenantsDatabase,
+  input: { name: string; phone: string; email: string | null },
+): Promise<{ id: string; fullName: string; phone: string | null; email: string | null }> {
+  const person = await resolvePerson(db, input);
+
+  return {
+    id: person.id,
+    fullName: person.fullName,
+    phone: person.phone,
+    email: person.email,
+  };
 }

@@ -37,7 +37,7 @@ const STATUS_TABS = [
   { value: 'ALL', label: 'Tous' },
   { value: 'VACANT', label: 'Vacants' },
   { value: 'OCCUPIED', label: 'Occupés' },
-  { value: 'MAINTENANCE', label: 'En maintenance' },
+  { value: 'MAINTENANCE', label: 'En travaux' },
 ] as const;
 
 export default async function ApartmentsPage(
@@ -104,7 +104,7 @@ export default async function ApartmentsPage(
   const FILTER_NOUNS: Record<string, string> = {
     VACANT: 'vacant',
     OCCUPIED: 'occupé',
-    MAINTENANCE: 'en maintenance',
+    MAINTENANCE: 'en travaux',
   };
 
   const describeCount = () => {
@@ -120,8 +120,8 @@ export default async function ApartmentsPage(
 
     if (noun === undefined) return `${counted} · ${property.name}`;
 
-    // « en maintenance » est invariable, les deux autres s'accordent.
-    const qualifier = noun === 'en maintenance' || collection.meta.total === 1 ? noun : `${noun}s`;
+    // « en travaux » est invariable, les deux autres s'accordent.
+    const qualifier = noun === 'en travaux' || collection.meta.total === 1 ? noun : `${noun}s`;
 
     return `${counted} ${qualifier} · ${property.name}`;
   };
@@ -144,8 +144,9 @@ export default async function ApartmentsPage(
         {/*
           Les quatre onglets se replient sur deux rangées à 360 px, où ils
           demandent 390 px pour une ligne : « En maintenance » y débordait de 14
-          pixels, mesuré. Le repli est préféré au défilement horizontal, qui
-          cachait le dernier onglet sans l'annoncer.
+          pixels, mesuré, ce que « En travaux » a d'ailleurs résolu au passage. Le
+          repli est préféré au défilement horizontal, qui cachait le dernier
+          onglet sans l'annoncer.
 
           Il ne fait pas sauter le contenu : à largeur donnée, le nombre de
           rangées ne change pas d'un filtre à l'autre, les libellés étant les

@@ -58,12 +58,14 @@ export type {
   AcceptTenantInvitationInput,
   InviteTenantInput,
   ListTenantsQuery,
+  TenantPersonInput,
   UpdateTenantInput,
 } from './schemas';
 export {
   acceptTenantInvitationSchema,
   inviteTenantSchema,
   listTenantsQuerySchema,
+  tenantPersonSchema,
   updateTenantSchema,
 } from './schemas';
 
@@ -85,6 +87,12 @@ export {
   previewTenantInvitation,
   reactivateTenant,
   resendTenantInvitation,
+  /**
+   * Exposée pour le module Contrats, qui crée la personne depuis le bail
+   * (DEC-051, Lot 8b). Elle n'écrit que dans `users` et ne vérifie aucune
+   * permission : son docblock dit pourquoi, et elle exige une transaction.
+   */
+  resolveTenantPerson,
   revokeTenant,
   revokeTenantInvitation,
   suspendTenant,

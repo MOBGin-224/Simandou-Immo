@@ -1,6 +1,11 @@
 import Link from 'next/link';
 
-import { AccessStatusBadge, ApartmentStatusBadge, ArchivedBadge } from '@/components/ui/badge';
+import {
+  AccessStatusBadge,
+  ApartmentMaintenanceBadge,
+  ApartmentOccupancyBadge,
+  ArchivedBadge,
+} from '@/components/ui/badge';
 import { buttonClasses } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { PageHeader } from '@/components/ui/page-header';
@@ -154,7 +159,8 @@ export default async function ApartmentDetailPage(
       />
 
       <div className="flex flex-wrap items-center gap-2">
-        <ApartmentStatusBadge status={apartment.status} />
+        <ApartmentOccupancyBadge occupancy={apartment.occupancy} />
+        {apartment.underMaintenance ? <ApartmentMaintenanceBadge /> : null}
         {apartment.archived ? <ArchivedBadge /> : null}
       </div>
 

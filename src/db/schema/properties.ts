@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import {
   bigint,
+  boolean,
   char,
   check,
   index,
@@ -60,6 +61,20 @@ export const properties = pgTable(
  *
  * `ARCHIVED` n'est pas une valeur de `apartment_status` : un appartement archivé
  * conserve son dernier statut d'occupation et porte `archived_at` (DEC-020).
+ *
+ * **Depuis le Lot 8b, l'occupation est DÉRIVÉE du bail (DEC-050).** Deux
+ * conséquences sur les colonnes :
+ *
+ *   - `under_maintenance` est la SEULE saisie qui reste. La maintenance n'est pas
+ *     une occupation : un logement peut être en travaux qu'il soit loué ou vide,
+ *     et la décision le dit explicitement. Les deux informations sont donc
+ *     portées séparément, sinon « en travaux » masquerait « occupé » et
+ *     recréerait la contradiction que DEC-050 supprime ;
+ *   - `status` est **GELÉE**. Plus rien ne la lit ni ne l'écrit : l'occupation se
+ *     calcule depuis `leases`. Elle est conservée, et non supprimée, parce que
+ *     DEC-050 point 3 demande de préserver l'historique sans réécrire les
+ *     statuts déjà saisis. Sa suppression est une opération irréversible, qui
+ *     attend l'accord du fondateur.
  */
 export const apartments = pgTable(
   'apartments',
@@ -79,7 +94,11 @@ export const apartments = pgTable(
     /** Surface en mètres carrés. Ce n'est pas un montant : `numeric` convient. */
     area: numeric('area', { precision: 10, scale: 2 }),
 
+    /** GELÉE depuis le Lot 8b : l'occupation se dérive de `leases` (DEC-050). */
     status: apartmentStatusEnum('status').notNull().default('VACANT'),
+
+    /** La seule saisie qui reste, et elle est indépendante de l'occupation. */
+    underMaintenance: boolean('under_maintenance').notNull().default(false),
 
     /**
      * Loyer de référence, indicatif, servant à préremplir un futur contrat.
@@ -113,6 +132,7 @@ export const apartments = pgTable(
     check('apartments_currency_format', sql`currency IS NULL OR currency ~ '^[A-Z]{3}$'`),
     check('apartments_area_positive', sql`area IS NULL OR area > 0`),
     index('apartments_property_status_idx').on(table.propertyId, table.status),
+    index('apartments_property_maintenance_idx').on(table.propertyId, table.underMaintenance),
     index('apartments_organization_idx').on(table.organizationId),
   ],
 );

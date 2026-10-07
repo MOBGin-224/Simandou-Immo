@@ -190,12 +190,21 @@ describe('Cas d usage du module Immeubles', () => {
       expect(collection.meta.total).toBe(0);
     });
 
-    it("compte les logements de l'immeuble, dont ceux en maintenance", async () => {
+    /**
+     * DEC-050 : l'occupation vient des BAUX, et les travaux sont a part.
+     *
+     * Les trois logements du seed n'ont aucun bail, donc ils sont tous vacants.
+     * L'un porte des travaux declares, et ce chiffre CHEVAUCHE les vacants :
+     * c'est voulu, un logement en travaux restant vide ou loue. Additionner les
+     * trois compteurs annoncerait quatre logements la ou il y en a trois.
+     */
+    it("compte les logements de l'immeuble, les travaux chevauchant l'occupation", async () => {
       const property = await getProperty(harness.db, owner, SEED_IDS.propertyA);
 
       expect(property.occupancy.apartmentCount).toBe(3);
+      expect(property.occupancy.occupiedCount).toBe(0);
+      expect(property.occupancy.vacantCount).toBe(3);
       expect(property.occupancy.maintenanceCount).toBe(1);
-      expect(property.occupancy.vacantCount).toBe(2);
     });
   });
 

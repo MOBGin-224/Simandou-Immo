@@ -1,6 +1,6 @@
 import type { Apartment } from '@/db/schema';
 
-import type { ApartmentStatus } from './constants';
+import type { ApartmentOccupancy } from './constants';
 import { ArchivedApartmentError } from './errors';
 import type { UpdateApartmentInput } from './schemas';
 
@@ -11,10 +11,17 @@ import type { UpdateApartmentInput } from './schemas';
  * règles, les états et les calculs (MVP-ENG-034).
  *
  * L'appartement est l'unité OPÉRATIONNELLE du produit (Information Architecture
- * niveau 3) : c'est à lui que se rattacheront le bail, les loyers, les
- * paiements, les charges et les incidents. Son statut d'occupation est
- * orthogonal à son archivage (DEC-019, DEC-020) : un logement archivé conserve
- * son dernier statut connu.
+ * niveau 3) : c'est à lui que se rattachent le bail, les loyers, les paiements,
+ * les charges et les incidents. Son archivage est orthogonal au reste (DEC-019,
+ * DEC-020).
+ *
+ * **Son occupation n'est plus une saisie (DEC-050).** Elle se déduit du bail en
+ * cours, et ce module ne sait pas la calculer : il la REÇOIT du module Contrats,
+ * qui est seul à savoir ce qu'est un bail en cours. Sans cela, deux écrans
+ * finiraient par ne plus dire la même chose du même logement.
+ *
+ * La maintenance, elle, reste saisie, et vit à part : un logement peut être en
+ * travaux qu'il soit loué ou vide.
  */
 
 /**
@@ -45,7 +52,10 @@ export type ApartmentView = {
   type: string | null;
   /** Surface en mètres carrés, ou `null` si elle n'est pas renseignée. */
   area: number | null;
-  status: ApartmentStatus;
+  /** DÉRIVÉE du bail en cours, jamais saisie (DEC-050). */
+  occupancy: ApartmentOccupancy;
+  /** Saisie, et INDÉPENDANTE de l'occupation : on peut louer un logement en travaux. */
+  underMaintenance: boolean;
   /** Loyer de référence, indicatif, servant à préremplir un futur contrat. */
   referenceRent: Money | null;
   archived: boolean;
@@ -98,7 +108,7 @@ export function describeFloor(floor: number | null): string | null {
  * sa référence et l'historique de ses baux.
  */
 export type ApartmentChanges = Partial<
-  Pick<Apartment, 'number' | 'floor' | 'type' | 'area' | 'status'> & {
+  Pick<Apartment, 'number' | 'floor' | 'type' | 'area' | 'underMaintenance'> & {
     referenceRentAmount: number | null;
     currency: string | null;
   }
@@ -155,8 +165,13 @@ export function changedFields(apartment: Apartment, input: UpdateApartmentInput)
     changes.area = input.area === null ? null : input.area.toFixed(2);
   }
 
-  if (input.status !== undefined && input.status !== apartment.status) {
-    changes.status = input.status;
+  // L'occupation n'est pas dans cette liste, et ne peut pas y être : elle se
+  // déduit du bail (DEC-050). La maintenance, elle, se déclare.
+  if (
+    input.underMaintenance !== undefined &&
+    input.underMaintenance !== apartment.underMaintenance
+  ) {
+    changes.underMaintenance = input.underMaintenance;
   }
 
   // Le loyer et sa devise vont toujours ensemble (DEC-014), y compris pour être
@@ -185,8 +200,13 @@ export function hasChanges(changes: ApartmentChanges): boolean {
  * Les dates sortent en ISO 8601 (API section 71) : le formatage local appartient
  * au frontend, et une date déjà formatée côté serveur serait inutilisable par un
  * autre client.
+ *
+ * `occupied` est un PARAMÈTRE et non une lecture de la ligne : la colonne
+ * `status` est gelée depuis DEC-050, et c'est le module Contrats qui dit si un
+ * bail est en cours. Le rendre obligatoire est volontaire, pour qu'aucun appelant
+ * ne puisse composer une vue en oubliant de le demander.
  */
-export function toApartmentView(apartment: Apartment): ApartmentView {
+export function toApartmentView(apartment: Apartment, occupied: boolean): ApartmentView {
   return {
     id: apartment.id,
     organizationId: apartment.organizationId,
@@ -195,7 +215,8 @@ export function toApartmentView(apartment: Apartment): ApartmentView {
     floor: apartment.floor,
     type: apartment.type,
     area: toAreaNumber(apartment.area),
-    status: apartment.status,
+    occupancy: occupied ? 'OCCUPIED' : 'VACANT',
+    underMaintenance: apartment.underMaintenance,
     referenceRent:
       apartment.referenceRentAmount === null || apartment.currency === null
         ? null

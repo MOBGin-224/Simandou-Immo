@@ -1,4 +1,16 @@
-import { and, asc, count, eq, ilike, inArray, isNull, or, sql, type SQL } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  count,
+  eq,
+  ilike,
+  inArray,
+  isNull,
+  notInArray,
+  or,
+  sql,
+  type SQL,
+} from 'drizzle-orm';
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
 
 import * as schema from '@/db/schema';
@@ -109,7 +121,8 @@ export type ApartmentInsert = {
   type: string | null;
   /** Chaîne décimale : `numeric` ne s'écrit pas depuis un flottant sans arrondi. */
   area: string | null;
-  status: 'VACANT' | 'OCCUPIED' | 'MAINTENANCE';
+  /** La seule saisie restante (DEC-050). L'occupation se déduit du bail. */
+  underMaintenance: boolean;
   referenceRentAmount: number | null;
   currency: string | null;
 };
@@ -163,12 +176,39 @@ export async function updateApartmentRow(
   return row;
 }
 
-/** Conditions de filtre et de recherche, dans un immeuble donné. */
-function filterConditions(propertyId: string, query: ListApartmentsQuery): SQL[] {
+/**
+ * Conditions de filtre et de recherche, dans un immeuble donné.
+ *
+ * `occupiedIds` est fourni par l'appelant, qui l'a demandé au module Contrats :
+ * l'occupation n'est plus une colonne (DEC-050). Le filtre reste pourtant en SQL,
+ * et c'est essentiel : l'appliquer après la pagination donnerait des pages
+ * incomplètes et un total faux.
+ *
+ * Une liste vide est traitée explicitement. `inArray` sur un tableau vide produit
+ * une condition toujours fausse selon les versions, et `notInArray` une condition
+ * toujours vraie : s'en remettre à ce comportement rendrait le code dépendant
+ * d'un détail de bibliothèque, là où la règle métier est simple à écrire.
+ */
+function filterConditions(
+  propertyId: string,
+  query: ListApartmentsQuery,
+  occupiedIds: readonly string[],
+): SQL[] {
   const conditions: SQL[] = [eq(apartments.propertyId, propertyId)];
 
   if (!query.includeArchived) conditions.push(isNull(apartments.archivedAt));
-  if (query.status !== 'ALL') conditions.push(eq(apartments.status, query.status));
+
+  if (query.status === 'MAINTENANCE') conditions.push(eq(apartments.underMaintenance, true));
+
+  if (query.status === 'OCCUPIED') {
+    conditions.push(
+      occupiedIds.length === 0 ? sql`false` : inArray(apartments.id, [...occupiedIds]),
+    );
+  }
+
+  if (query.status === 'VACANT' && occupiedIds.length > 0) {
+    conditions.push(notInArray(apartments.id, [...occupiedIds]));
+  }
 
   if (query.search !== null) {
     const pattern = `%${escapeLikePattern(query.search)}%`;
@@ -207,8 +247,9 @@ export async function listApartmentRows(
   db: ApartmentsDatabase,
   propertyId: string,
   query: ListApartmentsQuery,
+  occupiedIds: readonly string[],
 ): Promise<ApartmentPage> {
-  const where = and(...filterConditions(propertyId, query));
+  const where = and(...filterConditions(propertyId, query, occupiedIds));
 
   const [totals] = await db.select({ value: count() }).from(apartments).where(where);
 
@@ -227,9 +268,9 @@ export async function listApartmentRows(
  * Archive un appartement (DEC-039).
  *
  * Aucune suppression physique : `archived_at` est renseigné et l'historique
- * reste intact (BR-025, DEC-020). Le statut d'occupation n'est PAS touché : il
- * reste la dernière information vraie sur le logement, et l'effacer perdrait ce
- * que l'archive est censée préserver.
+ * reste intact (BR-025, DEC-020). Ni l'occupation ni les travaux ne sont touchés :
+ * l'occupation n'est plus une colonne (DEC-050), et la déclaration de travaux
+ * reste la dernière information vraie sur le logement.
  *
  * La condition `archived_at IS NULL` rend l'opération sûre en cas de double
  * soumission concurrente, le cas d'usage ayant déjà refusé le second archivage.

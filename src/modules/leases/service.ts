@@ -8,6 +8,7 @@ import {
   type AccessContext,
   type Permission,
 } from '@/lib/authorization';
+import { resolveTenantPerson } from '@/modules/tenants';
 
 import type { LeaseStatus } from './constants';
 import {
@@ -29,9 +30,12 @@ import {
   ACTIVE_PER_TENANT_CONSTRAINT,
   findActiveLeaseForApartment,
   findActiveLeaseForTenant,
+  countOccupiedByProperty,
   findApartmentById,
   findApartmentsByIds,
   findLeaseById,
+  findOccupiedApartmentIds,
+  findOccupiedApartmentIdsInProperty,
   findOrganizationName,
   findPeopleByIds,
   findPersonById,
@@ -256,17 +260,63 @@ async function loadLeasableApartment(
 }
 
 /**
+ * Identité du locataire du bail à créer : désignée, ou décrite puis créée.
+ *
+ * Les deux chemins ne se valent PAS du point de vue de l'isolation, et c'est tout
+ * l'objet de cette fonction :
+ *
+ *   - DÉSIGNER un `users.id` exige que l'organisation connaisse déjà la personne.
+ *     `users` est une table globale : sans ce contrôle, un bailleur attribuerait
+ *     un logement à la locataire d'un autre bailleur et lirait en retour son nom
+ *     et son téléphone. Personne inexistante, archivée ou inconnue de
+ *     l'organisation reçoivent donc le MÊME refus (ADR-008, DEC-051 point 8) ;
+ *   - DÉCRIRE une personne la crée, ou réutilise le compte du numéro s'il existe
+ *     (DEC-041). Aucune trace n'est exigée, et il n'en faut pas : c'est ce geste
+ *     qui établit la première.
+ */
+async function resolveTenant(
+  tx: LeasesDatabase,
+  organizationId: string,
+  data: { tenantId?: string; tenant?: { name: string; phone: string; email: string | null } },
+): Promise<string> {
+  if (data.tenant !== undefined) {
+    return (await resolveTenantPerson(tx, data.tenant)).id;
+  }
+
+  const person = await findPersonById(tx, data.tenantId ?? '');
+
+  if (!person || person.archivedAt !== null) throw new ResourceOutOfScopeError();
+
+  if (!(await isPersonKnownToOrganization(tx, organizationId, person.userId))) {
+    throw new ResourceOutOfScopeError();
+  }
+
+  return person.userId;
+}
+
+/**
  * Crée un bail (MVP-BACKLOG-032, parcours 11).
  *
  * L'organisation et l'immeuble sont RECOPIÉS depuis le logement, jamais reçus de
  * l'appelant : c'est ce qui garantit qu'ils restent cohérents avec lui, et la
  * dénormalisation n'a de valeur que si elle ne peut pas mentir (ADR-007).
  *
- * Le locataire doit être une personne que l'organisation CONNAÎT DÉJÀ, sans pour
+ * **Deux façons de désigner le locataire.**
+ *
+ * `tenantId` désigne une personne que l'organisation CONNAÎT DÉJÀ, sans pour
  * autant avoir d'accès au produit (DEC-051). Une personne d'un autre bailleur
  * reçoit le même refus qu'un identifiant inconnu : son existence ne doit pas se
  * déduire d'un message, et surtout, un bail ne doit pas servir à lire le nom et
  * le téléphone d'une personne qu'on ne connaît pas (ADR-008).
+ *
+ * `tenant` DÉCRIT une personne, par son nom et son numéro, et la crée si elle est
+ * inconnue : c'est le geste explicite que DEC-051 point 8 réserve, et c'est ce qui
+ * permet de loger quelqu'un qui n'utilisera jamais l'application. La règle
+ * d'identité est celle de l'invitation, `resolveTenantPerson` étant partagée : un
+ * numéro déjà connu réutilise son compte au lieu d'en créer un second (DEC-041).
+ *
+ * Tout se passe alors dans une TRANSACTION : une personne créée sans le bail qui
+ * la justifie ne doit jamais subsister.
  *
  * **Un locataire dont l'accès est révoqué peut recevoir un bail.** Les deux
  * concepts sont distincts (DEC-047) : révoquer l'accès au produit ne termine
@@ -284,24 +334,6 @@ export async function createLease(
 ): Promise<LeaseView> {
   const data = parseOrThrow(createLeaseSchema, input);
   const apartment = await loadLeasableApartment(db, context, data.apartmentId, 'lease.create');
-  const person = await findPersonById(db, data.tenantId);
-
-  /*
-   * Trois situations, UN SEUL refus (ADR-008) : personne inexistante, personne
-   * archivée, personne qu'une autre organisation connaît. Les distinguer
-   * reviendrait à répondre « cet identifiant existe ailleurs », et le bail créé
-   * renverrait ensuite le nom et le téléphone de quelqu'un qu'on ne connaît pas.
-   *
-   * Aucun ACCÈS n'est exigé pour autant : une invitation révoquée ou un bail
-   * terminé suffisent comme trace (DEC-051). C'est ce qui laisse le bail créer la
-   * relation LOCATIVE d'une personne qui n'utilisera jamais l'application, sans
-   * ouvrir `users`, qui est une table globale, à l'organisation entière.
-   */
-  if (!person || person.archivedAt !== null) throw new ResourceOutOfScopeError();
-
-  if (!(await isPersonKnownToOrganization(db, apartment.organizationId, person.userId))) {
-    throw new ResourceOutOfScopeError();
-  }
 
   if (data.endDate !== null && data.endDate < data.startDate) {
     throw new LeaseValidationError({
@@ -309,28 +341,37 @@ export async function createLease(
     });
   }
 
-  // Pré-contrôles : ils donnent un message qui ORIENTE, là où la contrainte de
-  // base ne dirait que « violation d'unicité ». Les deux sont nécessaires.
+  // Le logement d'abord : le refuser ne dépend d'aucune personne, et le vérifier
+  // avant évite de créer une personne pour un bail qui ne naîtra pas.
   if (await findActiveLeaseForApartment(db, apartment.id)) {
     throw new LeaseConflictError('apartment-occupied');
   }
 
-  if (await findActiveLeaseForTenant(db, apartment.organizationId, person.userId)) {
-    throw new LeaseConflictError('tenant-engaged');
-  }
-
   try {
-    const created = await insertLease(db, {
-      organizationId: apartment.organizationId,
-      propertyId: apartment.propertyId,
-      apartmentId: apartment.id,
-      tenantUserId: person.userId,
-      startDate: data.startDate,
-      endDate: data.endDate,
-      rentAmount: data.rentAmount,
-      currency: data.currency,
-      dueDay: data.dueDay,
-      depositAmount: data.depositAmount,
+    const created = await db.transaction(async (tx) => {
+      const tenantUserId = await resolveTenant(tx, apartment.organizationId, data);
+
+      /*
+       * Pré-contrôle de la simultanéité, DANS la transaction : il donne un message
+       * qui ORIENTE, là où la contrainte de base ne dirait que « violation
+       * d'unicité ». L'index partiel reste l'arbitre, plus bas, en cas de course.
+       */
+      if (await findActiveLeaseForTenant(tx, apartment.organizationId, tenantUserId)) {
+        throw new LeaseConflictError('tenant-engaged');
+      }
+
+      return insertLease(tx, {
+        organizationId: apartment.organizationId,
+        propertyId: apartment.propertyId,
+        apartmentId: apartment.id,
+        tenantUserId,
+        startDate: data.startDate,
+        endDate: data.endDate,
+        rentAmount: data.rentAmount,
+        currency: data.currency,
+        dueDay: data.dueDay,
+        depositAmount: data.depositAmount,
+      });
     });
 
     return toSingleView(db, created);
@@ -604,19 +645,54 @@ export async function terminateLease(
 /**
  * Statut d'occupation DÉRIVÉ d'un logement (DEC-050).
  *
- * Exposé pour que les modules Appartements et Immeubles cessent de lire une
- * saisie : un logement avec un bail actif est occupé, sans bail actif il est
- * vacant. `MAINTENANCE` reste une saisie, n'étant pas une occupation, et c'est
- * donc à l'appelant de lui donner la priorité d'affichage qu'il mérite.
+ * Les modules Appartements et Immeubles ne lisent plus une saisie : un logement
+ * avec un bail en cours est occupé, sans bail en cours il est vacant. La
+ * maintenance n'entre pas dans ce calcul, n'étant pas une occupation : elle reste
+ * une saisie, portée à part par `apartments.under_maintenance`, et affichée en
+ * plus de l'occupation et non à sa place.
  *
- * La bascule complète des deux modules est la seconde tranche du Lot 8 : cette
- * fonction est le point d'appui qu'elle utilisera.
+ * Aucune permission n'est vérifiée ici : l'appelant a déjà établi qu'il pouvait
+ * lire CE logement, et c'est cette lecture qui le lui dit occupé ou non.
  */
 export async function isApartmentOccupied(
   db: LeasesDatabase,
   apartmentId: string,
 ): Promise<boolean> {
   return (await findActiveLeaseForApartment(db, apartmentId)) !== undefined;
+}
+
+/**
+ * Parmi les logements indiqués, ceux qui portent un bail en cours.
+ *
+ * La version en lot de la fonction ci-dessus : afficher une page de vingt
+ * logements ferait autrement vingt requêtes.
+ */
+export async function occupiedApartmentIds(
+  db: LeasesDatabase,
+  apartmentIds: readonly string[],
+): Promise<Set<string>> {
+  return new Set(await findOccupiedApartmentIds(db, apartmentIds));
+}
+
+/**
+ * Logements occupés d'un immeuble, pour FILTRER une liste en SQL.
+ *
+ * Distincte de la précédente parce qu'un filtre doit s'appliquer avant la
+ * pagination : filtrer après donnerait des pages incomplètes et un total faux.
+ */
+export async function occupiedApartmentIdsInProperty(
+  db: LeasesDatabase,
+  propertyId: string,
+): Promise<string[]> {
+  return findOccupiedApartmentIdsInProperty(db, propertyId);
+}
+
+/** Nombre de logements occupés par immeuble, pour les compteurs du parc. */
+export async function occupiedCountByProperty(
+  db: LeasesDatabase,
+  propertyIds: readonly string[],
+): Promise<Map<string, number>> {
+  return countOccupiedByProperty(db, propertyIds);
 }
 
 /**

@@ -29,6 +29,13 @@
       "when": 1791366789130,
       "tag": "0003_contrats",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791398494656,
+      "tag": "0004_occupation",
+      "breakpoints": true
     }
   ]
 }
