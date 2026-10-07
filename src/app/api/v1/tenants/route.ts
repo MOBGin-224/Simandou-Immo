@@ -4,20 +4,22 @@ import { apiErrorResponse, collectionResponse } from '@/lib/http/responses';
 import { listTenants } from '@/modules/tenants';
 
 /**
- * Liste des locataires (API section 15, DEC-046).
+ * Liste des locataires (API section 15, DEC-051).
  *
  * ```text
  * GET /api/v1/tenants
  * ```
  *
- * Réunit les locataires, de tout statut, et les invitations en attente ou
- * expirées. Chaque élément porte un type : `ACCESS` ou `INVITATION`. Le `status`
- * est DÉRIVÉ, jamais stocké.
+ * Réunit **toute personne qui a une relation locative** avec une organisation du
+ * périmètre, qu'elle ait ou non un accès à l'application : une invitation, un
+ * accès ou un bail suffit à l'y faire figurer. Un élément par couple personne et
+ * organisation, dont l'identifiant est un `users.id`.
  *
- * **Aucun `POST` ici** : un locataire se crée par son invitation, sous
- * `/tenant-invitations`, qui porte le logement visé (DEC-046). Le périmètre d'un
- * gestionnaire sur un locataire ne se résout que par le logement, et seule
- * l'invitation le porte au Lot 7.
+ * Le `status` est DÉRIVÉ, jamais stocké, et distingue `NO_ACCESS` de `REVOKED` :
+ * le premier n'a jamais eu de compte, le second en avait un qu'on lui a retiré.
+ *
+ * **Aucun `POST` ici** : une personne entre dans le produit par son invitation,
+ * sous `/tenant-invitations`, ou par le bail qu'on lui crée (DEC-046, DEC-051).
  *
  * Permission `tenant.read`. Un gestionnaire ne voit que les locataires des
  * logements de son périmètre ; un locataire ne voit pas cette liste et reçoit

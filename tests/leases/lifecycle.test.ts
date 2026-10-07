@@ -94,7 +94,7 @@ describe("Vie d'un bail", () => {
       owner,
       {
         apartmentId: apartment,
-        tenantId: tenant.accessId,
+        tenantId: tenant.userId,
         startDate: TODAY,
         rentAmount: 2_500_000,
         currency: 'GNF',
@@ -357,7 +357,7 @@ describe("Vie d'un bail", () => {
           owner,
           {
             apartmentId: apartment,
-            tenantId: next.accessId,
+            tenantId: next.userId,
             startDate: dayOffset(1),
             rentAmount: 2_600_000,
             currency: 'GNF',
@@ -381,7 +381,7 @@ describe("Vie d'un bail", () => {
           owner,
           {
             apartmentId: other,
-            tenantId: tenant.accessId,
+            tenantId: tenant.userId,
             startDate: dayOffset(1),
             rentAmount: 2_000_000,
             currency: 'GNF',

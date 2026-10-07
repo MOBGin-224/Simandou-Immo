@@ -80,7 +80,14 @@ export default async function TenantInvitationPage(
       <PageHeader
         title={invitation.fullName}
         description={`Invitation à l'espace locataire, ${describeApartment(invitation.apartment)}`}
-        back={{ href: '/locataires', label: 'Locataires' }}
+        back={
+          invitation.userId
+            ? {
+                href: `/locataires/${invitation.userId}?organisation=${invitation.organizationId}`,
+                label: invitation.fullName,
+              }
+            : { href: '/locataires', label: 'Locataires' }
+        }
       />
 
       <div>
@@ -111,8 +118,8 @@ export default async function TenantInvitationPage(
 
       {invitation.status === 'ACCEPTED' ? (
         <Alert tone="success">
-          Cette invitation a été acceptée : la personne a ouvert son espace locataire. Elle figure
-          dans la liste des locataires.
+          Cette invitation a été acceptée : la personne a ouvert son espace locataire. Tout se passe
+          désormais sur sa fiche de locataire.
         </Alert>
       ) : null}
 

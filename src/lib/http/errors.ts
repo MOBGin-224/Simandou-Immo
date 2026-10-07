@@ -74,6 +74,15 @@ const BY_ERROR_NAME: Record<string, { status: number; code: ApiErrorCode }> = {
   // produit, pas l'existence d'une donnée.
   TenantNameNotOwnedError: { status: 403, code: 'FORBIDDEN' },
 
+  // Une personne locataire sans accès au produit n'a rien à suspendre ni à
+  // révoquer (DEC-051) : 409, l'état de la ressource empêche l'opération.
+  TenantNoAccessError: { status: 409, code: 'CONFLICT' },
+
+  // La personne est locataire dans plusieurs organisations de l'appelant et la
+  // requête ne dit pas laquelle (DEC-051). 409 : il manque une précision que
+  // seul l'appelant peut donner, et le produit ne devine pas.
+  TenantOrganizationRequiredError: { status: 409, code: 'CONFLICT' },
+
   LeaseValidationError: { status: 422, code: 'VALIDATION_ERROR' },
   LeaseStateError: { status: 409, code: 'CONFLICT' },
 

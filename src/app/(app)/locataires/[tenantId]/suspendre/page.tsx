@@ -29,11 +29,15 @@ export default async function SuspendTenantPage(
   props: PageProps<'/locataires/[tenantId]/suspendre'>,
 ) {
   const { tenantId } = await props.params;
-  const tenant = await loadTenantPage(tenantId);
+  const { organisation } = await props.searchParams;
+  const requested = Array.isArray(organisation) ? organisation[0] : organisation;
+  const tenant = await loadTenantPage(tenantId, requested);
 
   if (tenant.status !== 'ACTIVE') notFound();
 
-  const fiche = `/locataires/${tenant.id}`;
+  // L'organisation voyage dans l'adresse : la ressource est le couple personne
+  // et organisation (DEC-051), et le retour doit viser la bonne relation.
+  const fiche = `/locataires/${tenant.id}?organisation=${tenant.organizationId}`;
 
   return (
     <div className="flex max-w-2xl flex-col gap-6">
@@ -58,7 +62,7 @@ export default async function SuspendTenantPage(
         </div>
 
         <ConfirmTenantActionForm
-          action={suspendTenantAction.bind(null, tenant.id)}
+          action={suspendTenantAction.bind(null, tenant.id, tenant.organizationId)}
           cancelHref={fiche}
           submitLabel="Suspendre l'accès"
           pendingLabel="Suspension..."

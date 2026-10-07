@@ -8,7 +8,9 @@ import {
   writeCredential,
 } from '@/lib/auth';
 import {
+  PermissionDeniedError,
   ResourceOutOfScopeError,
+  evaluate,
   readablePropertyScopes,
   requirePermission,
   type AccessContext,
@@ -36,6 +38,7 @@ import type { TenantListStatus } from './constants';
 import {
   compareTenantItems,
   type AcceptedTenantInvitation,
+  type ApartmentSource,
   type IssuedTenantInvitation,
   type TenantApartmentRef,
   type TenantDetailView,
@@ -46,6 +49,8 @@ import {
 import {
   TenantInvitationConflictError,
   TenantNameNotOwnedError,
+  TenantNoAccessError,
+  TenantOrganizationRequiredError,
   TenantStateError,
   TenantValidationError,
 } from './errors';
@@ -58,11 +63,11 @@ import {
   findApartmentsByIds,
   findInvitationById,
   findInvitationByTokenHash,
-  findLatestAcceptedInvitation,
   findOrganizationName,
+  findOrganizationNames,
   findStoredOpenInvitation,
   findTenantAccess,
-  findTenantAccessById,
+  findTenantAccessFor,
   findUserByEmail,
   findUserById,
   findUserByPhone,
@@ -74,6 +79,7 @@ import {
   listAcceptedInvitationRows,
   listPendingInvitationRows,
   listTenantAccessRows,
+  listTenantLeaseRows,
   markInvitationExpired,
   reactivateRevokedAccess,
   revokeInvitationRow,
@@ -108,17 +114,34 @@ import {
  * Persistance       en transaction dès qu'il y a plus d'une écriture
  * ```
  *
- * **Ce qu'est un locataire au Lot 7** (DEC-046) : une personne invitée à l'espace
- * locataire d'un LOGEMENT désigné. Ni date d'entrée, ni loyer : ils appartiennent
- * au bail, au Lot 8. Aucune table `tenant_profiles` n'existe, et aucune n'est
- * créée : l'identité vit dans `users`, le rôle dans `user_access`, le contexte
- * locatif prévu dans `invitations`.
+ * **Ce qu'est un locataire** (DEC-051) : une PERSONNE qui a une relation locative
+ * avec l'organisation, qu'elle utilise l'application ou non. Son identité métier
+ * est `users.id`. `user_access` n'est pas cette identité : c'est un DROIT D'ACCÈS
+ * au produit, qui peut être absent, suspendu ou révoqué sans que la personne
+ * cesse d'être locataire. Aucune table `tenant_profiles` n'existe, et aucune n'est
+ * créée : l'identité vit dans `users`, le droit dans `user_access`, la relation
+ * locative dans `leases`, et l'invitation garde la trace de l'ouverture d'accès.
+ *
+ * Conséquence pratique : un locataire SANS COMPTE existe, au statut `NO_ACCESS`,
+ * et les opérations d'accès, suspendre, réactiver, révoquer, lui opposent
+ * `TenantNoAccessError` plutôt que d'inventer un droit à modifier.
+ *
+ * **La ressource est le COUPLE personne et organisation.** `users.id` ne porte pas
+ * l'organisation, à dessein : la même personne peut être locataire chez deux
+ * bailleurs. Quand une seule organisation lisible par l'appelant la connaît, elle
+ * est déduite ; quand plusieurs la connaissent, le produit ne devine pas, il
+ * demande, par `TenantOrganizationRequiredError`.
+ *
+ * **D'où viennent ces relations.** Trois traces les révèlent, et chacune suffit :
+ * un `user_access`, une invitation encore ouverte, un bail. Les trois sont lues
+ * puis fusionnées par `assembleRelationships`, qui est le seul endroit où cette
+ * définition est écrite.
  *
  * **D'où vient le périmètre.** Un gestionnaire n'a d'autorité que sur ses
- * immeubles (ADR-007). Le lien entre un locataire et un immeuble n'existe au
- * Lot 7 que par son invitation, qui porte `apartment_id` et `property_id` : c'est
- * donc elle qui résout le périmètre, pour une invitation en attente comme pour un
- * accès déjà ouvert. Au Lot 8, le bail prendra ce rôle.
+ * immeubles (ADR-007). Le lien entre un locataire et un immeuble vient du BAIL en
+ * cours, et à défaut de son invitation, qui le portait avant que le bail existe
+ * (DEC-046). `apartmentSource` dit laquelle des deux a parlé, afin qu'un écran
+ * n'ait jamais à le deviner.
  *
  * Aucune fonction ne reçoit ni `Request`, ni `FormData`, ni composant : ce module
  * est testable contre une vraie base sans monter de serveur.
@@ -331,6 +354,9 @@ async function toInvitationView(
   return {
     id: invitation.id,
     organizationId: invitation.organizationId,
+    // L'identité métier de la personne invitée (DEC-051) : c'est elle qui
+    // conduira à sa fiche de locataire une fois l'invitation acceptee.
+    userId: invitation.targetUserId,
     fullName: target?.fullName ?? invitation.contact,
     phone: target?.phone ?? null,
     email: target?.email ?? null,
@@ -393,6 +419,7 @@ export async function inviteTenant(
       invitation: {
         id: invitation.id,
         organizationId: invitation.organizationId,
+        userId: target.id,
         fullName: target.fullName,
         phone: target.phone,
         email: target.email,
@@ -757,7 +784,7 @@ export async function acceptTenantInvitation(
   });
 }
 
-// --- Liste des locataires -------------------------------------------------------------
+// --- Le locataire, c'est-à-dire la personne et sa relation (DEC-051) ---------------
 
 export type TenantCollection = {
   tenants: TenantListItem[];
@@ -767,10 +794,7 @@ export type TenantCollection = {
 /** L'immeuble est-il lisible dans ce périmètre ? Un immeuble inconnu ferme l'accès. */
 function withinScopes(
   scopes: readonly PropertyScope[],
-  item: {
-    organizationId: string;
-    propertyId: string | null;
-  },
+  item: { organizationId: string; propertyId: string | null },
 ): boolean {
   return scopes.some((scope) => {
     if (scope.organizationId !== item.organizationId) return false;
@@ -793,28 +817,265 @@ function matchesSearch(item: TenantListItem, search: string | null): boolean {
 }
 
 /**
- * Liste les locataires et les invitations en attente (API section 15, PRD 10.2).
+ * Relation d'une personne avec une organisation, assemblée des trois traces.
  *
- * Réunit deux natures, distinguées par `kind` : les accès, de tout statut, et les
- * invitations ouvertes. Les invitations acceptées ne s'y répètent pas, leur
- * locataire les remplace ; les invitations révoquées n'y figurent pas, elles sont
- * annulées.
+ * C'est le cœur de DEC-051 : une personne est locataire d'une organisation dès
+ * qu'une invitation, un accès OU un bail l'y rattache. Aucune des trois n'est
+ * obligatoire pour les deux autres, et c'est ce qui permet de représenter le
+ * locataire qui n'utilisera jamais l'application.
+ */
+type Relationship = {
+  organizationId: string;
+  userId: string;
+  fullName: string;
+  phone: string | null;
+  email: string | null;
+  accessId: string | null;
+  accessStatus: 'ACTIVE' | 'SUSPENDED' | 'REVOKED' | null;
+  accessUpdatedAt: Date | null;
+  accessRevokedAt: Date | null;
+  openInvitationId: string | null;
+  openInvitationIssuedAt: Date | null;
+  openInvitationExpiresAt: Date | null;
+  openInvitationExpired: boolean;
+  invitedAt: Date | null;
+  activatedAt: Date | null;
+  invitationApartmentId: string | null;
+  activeLeaseId: string | null;
+  leaseApartmentId: string | null;
+  leasePropertyId: string | null;
+};
+
+function emptyRelationship(
+  organizationId: string,
+  userId: string,
+  identity: { fullName: string; phone: string | null; email: string | null },
+): Relationship {
+  return {
+    organizationId,
+    userId,
+    fullName: identity.fullName,
+    phone: identity.phone,
+    email: identity.email,
+    accessId: null,
+    accessStatus: null,
+    accessUpdatedAt: null,
+    accessRevokedAt: null,
+    openInvitationId: null,
+    openInvitationIssuedAt: null,
+    openInvitationExpiresAt: null,
+    openInvitationExpired: false,
+    invitedAt: null,
+    activatedAt: null,
+    invitationApartmentId: null,
+    activeLeaseId: null,
+    leaseApartmentId: null,
+    leasePropertyId: null,
+  };
+}
+
+/**
+ * Assemble les relations locataires des organisations indiquées.
  *
- * Le `status` est DÉRIVÉ, jamais stocké (DEC-046) : il se lit de l'invitation et
- * de l'accès.
+ * UNE seule fonction sert la liste et la fiche, la seconde n'étant que la
+ * première filtrée à une personne : deux chemins de lecture pour la même notion
+ * finiraient par diverger sur un détail, et c'est toujours le détail qui compte.
+ *
+ * Quatre lectures, quel que soit le nombre de personnes : les accès, les
+ * invitations ouvertes, les invitations acceptées, les baux. Puis les logements
+ * et les noms d'organisation, en une lecture chacun.
+ */
+async function assembleRelationships(
+  db: TenantsDatabase,
+  organizationIds: readonly string[],
+  now: Date,
+  userId?: string,
+): Promise<TenantListItem[]> {
+  if (organizationIds.length === 0) return [];
+
+  const [accessRows, pendingRows, acceptedRows, leaseRows] = await Promise.all([
+    listTenantAccessRows(db, organizationIds, userId),
+    listPendingInvitationRows(db, organizationIds, userId),
+    listAcceptedInvitationRows(db, organizationIds, userId),
+    listTenantLeaseRows(db, organizationIds, userId),
+  ]);
+
+  const relationships = new Map<string, Relationship>();
+  const keyOf = (organizationId: string, person: string) => `${organizationId}:${person}`;
+
+  const upsert = (
+    organizationId: string,
+    person: string,
+    identity: { fullName: string; phone: string | null; email: string | null },
+  ): Relationship => {
+    const key = keyOf(organizationId, person);
+    const known = relationships.get(key);
+
+    if (known) return known;
+
+    const fresh = emptyRelationship(organizationId, person, identity);
+
+    relationships.set(key, fresh);
+
+    return fresh;
+  };
+
+  for (const row of accessRows) {
+    const relationship = upsert(row.organizationId, row.userId, row);
+
+    relationship.accessId = row.accessId;
+    relationship.accessStatus = row.status;
+    relationship.accessUpdatedAt = row.updatedAt;
+    relationship.accessRevokedAt = row.revokedAt;
+  }
+
+  for (const row of pendingRows) {
+    const relationship = upsert(row.organizationId, row.userId, row);
+
+    relationship.openInvitationId = row.invitationId;
+    relationship.openInvitationIssuedAt = row.issuedAt;
+    relationship.openInvitationExpiresAt = row.expiresAt;
+    relationship.openInvitationExpired =
+      effectiveInvitationStatus({ status: row.status, expiresAt: row.expiresAt }, now) ===
+      'EXPIRED';
+    relationship.invitedAt = row.issuedAt;
+    relationship.invitationApartmentId = row.apartmentId;
+  }
+
+  // La DERNIERE invitation acceptée par personne et organisation : elle date
+  // l'ouverture de l'accès, et portait le logement avant que le bail existe.
+  const latestAccepted = new Map<string, (typeof acceptedRows)[number]>();
+
+  for (const row of acceptedRows) {
+    const key = keyOf(row.organizationId, row.userId);
+    const known = latestAccepted.get(key);
+
+    if (!known || row.acceptedAt.getTime() > known.acceptedAt.getTime()) {
+      latestAccepted.set(key, row);
+    }
+  }
+
+  for (const [key, row] of latestAccepted) {
+    const relationship = relationships.get(key);
+
+    // Une invitation acceptée sans accès ni bail ne crée pas de relation à elle
+    // seule : son accès a forcément été créé, et c'est lui qui la porte.
+    if (!relationship) continue;
+
+    relationship.activatedAt = row.acceptedAt;
+    relationship.invitedAt = relationship.invitedAt ?? row.issuedAt;
+    relationship.invitationApartmentId = relationship.invitationApartmentId ?? row.apartmentId;
+  }
+
+  for (const row of leaseRows) {
+    const relationship = upsert(row.organizationId, row.tenantUserId, row);
+
+    // Seul le bail EN COURS porte le logement : un bail terminé appartient à
+    // l'historique, que la liste des baux montre (Database Schema section 18).
+    if (row.status === 'ACTIVE' && relationship.activeLeaseId === null) {
+      relationship.activeLeaseId = row.leaseId;
+      relationship.leaseApartmentId = row.apartmentId;
+      relationship.leasePropertyId = row.propertyId;
+    }
+  }
+
+  const apartmentIds = [
+    ...new Set(
+      [...relationships.values()]
+        .flatMap((relationship) => [
+          relationship.leaseApartmentId,
+          relationship.invitationApartmentId,
+        ])
+        .filter((id): id is string => id !== null),
+    ),
+  ];
+
+  const apartments = new Map(
+    (await findApartmentsByIds(db, apartmentIds)).map((row) => [row.id, row]),
+  );
+  const names = await findOrganizationNames(db, organizationIds);
+
+  return [...relationships.values()].map((relationship) => {
+    /*
+     * Le BAIL fait foi pour le logement, l'invitation ne sert qu'en son absence.
+     *
+     * Au Lot 7 l'invitation le portait faute de bail (DEC-046). Les deux peuvent
+     * diverger, si l'on invite une personne sur un logement puis qu'on lui en loue
+     * un autre : afficher les deux sources côte à côte donnerait un écran qui se
+     * contredit.
+     */
+    const apartmentId = relationship.leaseApartmentId ?? relationship.invitationApartmentId;
+    const apartmentRow = apartmentId ? apartments.get(apartmentId) : undefined;
+    const apartment = apartmentRow ? refOf(apartmentRow) : null;
+
+    const source: ApartmentSource =
+      relationship.leaseApartmentId !== null
+        ? 'LEASE'
+        : relationship.invitationApartmentId !== null
+          ? 'INVITATION'
+          : 'NONE';
+
+    /*
+     * Statut DÉRIVÉ, dans cet ordre, et l'ordre est le sens :
+     *
+     *   1. une invitation OUVERTE est le fait vivant : la personne est invitée,
+     *      même si un accès révoqué subsiste d'un passage précédent (DEC-043) ;
+     *   2. sinon l'accès, s'il y en a un ;
+     *   3. sinon aucun accès, ce qui est l'état normal du locataire qui
+     *      n'utilisera jamais l'application (DEC-051).
+     */
+    const status: TenantListStatus =
+      relationship.openInvitationId !== null
+        ? relationship.openInvitationExpired
+          ? 'INVITATION_EXPIRED'
+          : 'INVITED'
+        : (relationship.accessStatus ?? 'NO_ACCESS');
+
+    return {
+      id: relationship.userId,
+      organizationId: relationship.organizationId,
+      organizationName: names.get(relationship.organizationId) ?? '',
+      fullName: relationship.fullName,
+      phone: relationship.phone,
+      email: relationship.email,
+      status,
+      apartment,
+      apartmentSource: source,
+      accessId: relationship.accessId,
+      invitationId: relationship.openInvitationId,
+      leaseId: relationship.activeLeaseId,
+      invitedAt: relationship.invitedAt,
+      activatedAt: relationship.activatedAt,
+      expiresAt: relationship.openInvitationExpiresAt,
+    };
+  });
+}
+
+/** Immeuble qui rattache une relation, pour la soumettre au contrôle d'accès. */
+function propertyOf(item: TenantListItem): string | null {
+  return item.apartment?.propertyId ?? null;
+}
+
+/**
+ * Liste les locataires (API section 15, DEC-051).
+ *
+ * **Toute personne qui a une relation locative avec l'organisation**, qu'elle ait
+ * ou non un accès à l'application : une invitation, un accès ou un bail suffit à
+ * l'y faire figurer. Un élément par couple personne et organisation.
+ *
+ * Le `status` est DÉRIVÉ, jamais stocké, et distingue `NO_ACCESS` de `REVOKED` :
+ * le premier n'a jamais eu de compte, le second en avait un qu'on lui a retiré.
  *
  * Deux filtres se superposent, et c'est voulu :
  *
  *   1. l'ORGANISATION, dans la requête SQL : aucune ligne d'une autre
  *      organisation n'est lue, c'est la barrière d'isolation ;
- *   2. l'IMMEUBLE, ici : le logement d'un locataire est porté par son invitation,
- *      donc le périmètre d'un gestionnaire ne se résout qu'après avoir rapproché
- *      l'accès de son invitation acceptée. Rien ne quitte le serveur dans
- *      l'intervalle.
+ *   2. l'IMMEUBLE, ici : le logement d'un locataire vient de son bail ou de son
+ *      invitation, donc le périmètre d'un gestionnaire ne se résout qu'après
+ *      avoir assemblé la relation. Rien ne quitte le serveur dans l'intervalle.
  *
- * Un appelant qui n'a aucun périmètre lisible obtient « inexistant », comme pour
- * toute ressource de ce genre : c'est le cas d'un locataire, qui ne voit jamais
- * la liste des locataires (DEC-047).
+ * Un appelant qui n'a aucun périmètre lisible obtient « inexistant » : c'est le
+ * cas d'un locataire, qui ne voit jamais la liste des locataires (DEC-047).
  */
 export async function listTenants(
   db: TenantsDatabase,
@@ -827,86 +1088,14 @@ export async function listTenants(
 
   if (scopes.length === 0) throw new ResourceOutOfScopeError();
 
-  const now = nowOf(options);
-  const organizationIds = scopes.map((scope) => scope.organizationId);
-
-  const accessRows = await listTenantAccessRows(db, organizationIds);
-  const pendingRows = await listPendingInvitationRows(db, organizationIds);
-  const acceptedRows = await listAcceptedInvitationRows(db, organizationIds);
-
-  // Dernière invitation acceptée par personne et organisation : elle date l'accès
-  // et porte son logement.
-  const latestAccepted = new Map<string, (typeof acceptedRows)[number]>();
-
-  for (const row of acceptedRows) {
-    const key = `${row.organizationId}:${row.userId}`;
-    const known = latestAccepted.get(key);
-
-    if (!known || row.acceptedAt.getTime() > known.acceptedAt.getTime()) {
-      latestAccepted.set(key, row);
-    }
-  }
-
-  const apartmentIds = [
-    ...new Set(
-      [
-        ...pendingRows.map((row) => row.apartmentId),
-        ...[...latestAccepted.values()].map((row) => row.apartmentId),
-      ].filter((id): id is string => id !== null),
-    ),
-  ];
-
-  const apartments = new Map(
-    (await findApartmentsByIds(db, apartmentIds)).map((row) => [row.id, refOf(row)]),
+  const assembled = await assembleRelationships(
+    db,
+    scopes.map((scope) => scope.organizationId),
+    nowOf(options),
   );
 
-  const accessItems: TenantListItem[] = accessRows.map((row) => {
-    const accepted = latestAccepted.get(`${row.organizationId}:${row.userId}`);
-    const apartment = accepted?.apartmentId ? (apartments.get(accepted.apartmentId) ?? null) : null;
-
-    return {
-      kind: 'ACCESS',
-      id: row.accessId,
-      organizationId: row.organizationId,
-      organizationName: row.organizationName,
-      fullName: row.fullName,
-      phone: row.phone,
-      email: row.email,
-      status: row.status,
-      apartment,
-      invitedAt: accepted?.issuedAt ?? null,
-      activatedAt: accepted?.acceptedAt ?? null,
-      expiresAt: null,
-    };
-  });
-
-  const invitationItems: TenantListItem[] = pendingRows.map((row) => {
-    const status: TenantListStatus =
-      effectiveInvitationStatus({ status: row.status, expiresAt: row.expiresAt }, now) === 'EXPIRED'
-        ? 'INVITATION_EXPIRED'
-        : 'INVITED';
-
-    return {
-      kind: 'INVITATION',
-      id: row.invitationId,
-      organizationId: row.organizationId,
-      organizationName: row.organizationName,
-      fullName: row.fullName,
-      phone: row.phone,
-      email: row.email,
-      status,
-      apartment: row.apartmentId ? (apartments.get(row.apartmentId) ?? null) : null,
-      invitedAt: row.issuedAt,
-      activatedAt: null,
-      expiresAt: row.expiresAt,
-    };
-  });
-
-  const visible = [...invitationItems, ...accessItems].filter((item) =>
-    withinScopes(scopes, {
-      organizationId: item.organizationId,
-      propertyId: item.apartment?.propertyId ?? null,
-    }),
+  const visible = assembled.filter((item) =>
+    withinScopes(scopes, { organizationId: item.organizationId, propertyId: propertyOf(item) }),
   );
 
   const filtered = visible
@@ -924,107 +1113,146 @@ export async function listTenants(
   };
 }
 
-// --- Vie d'un accès : fiche, nom, suspension, réactivation, révocation ----------------
+// --- Une relation précise : fiche, nom, suspension, réactivation, révocation -------
 
 /**
- * Accès locataire accessible à l'appelant, ou refus indiscernable d'une absence.
+ * Réglages d'une opération qui vise UNE relation.
  *
- * Un identifiant inconnu, mal formé, d'une autre organisation, ou qui désigne un
- * accès de propriétaire ou de gestionnaire, lève la MÊME erreur (ADR-007).
+ * `organizationId` est facultatif : la ressource locataire est le couple personne
+ * et organisation, et `users.id` ne porte pas la seconde. Quand une seule
+ * organisation de l'appelant connaît cette personne, elle est déduite ; quand
+ * plusieurs la connaissent, elle doit être désignée (DEC-051).
+ */
+export type TenantRelationshipOptions = TenantServiceOptions & {
+  organizationId?: string;
+};
+
+/**
+ * Relation locataire accessible à l'appelant, ou refus indiscernable d'une absence.
  *
- * La ressource soumise à la décision porte DEUX rattachements, et il faut les deux
- * (ADR-007) :
+ * Un identifiant inconnu, mal formé, une personne d'une autre organisation, ou
+ * une personne hors du périmètre d'immeubles lèvent la MÊME erreur (ADR-007).
  *
- *   `propertyId`    l'immeuble du logement, porté par l'invitation acceptée. Sans
- *                   lui, un gestionnaire n'atteint rien, ce qui est correct : son
- *                   autorité est bornée à un périmètre d'immeubles.
+ * La ressource soumise à la décision porte DEUX rattachements, et il faut les
+ * deux :
+ *
+ *   `propertyId`    l'immeuble du logement, porté par le bail ou l'invitation.
+ *                   Sans lui, un gestionnaire n'atteint rien, ce qui est
+ *                   correct : son autorité est bornée à un périmètre.
  *   `ownerUserId`   la personne elle-même. C'est ce qui permet au locataire
  *                   d'atteindre SES données, et seulement les siennes : un autre
- *                   locataire reçoit « inexistant » (DEC-047).
+ *                   locataire reçoit « inexistant » (DEC-047, BR-021).
+ *
+ * Depuis DEC-051, `ownerUserId` est exactement l'identifiant de la ressource :
+ * l'autorisation du locataire sur ses propres données n'a plus besoin de
+ * remonter d'un accès vers une personne.
  */
-async function loadManageableAccess(
+async function loadReadableRelationship(
   db: TenantsDatabase,
   context: AccessContext,
-  accessId: string,
+  userId: string,
   permission: Extract<Permission, 'tenant.read' | 'tenant.update' | 'tenant.revoke'>,
-) {
-  // Un identifiant qui n'est pas un UUID ne peut désigner aucun accès. Sans ce
-  // contrôle PostgreSQL refuserait la conversion et produirait une erreur interne,
-  // là où la réponse correcte est « inexistant ».
-  if (!z.uuid().safeParse(accessId).success) throw new ResourceOutOfScopeError();
+  options: TenantRelationshipOptions = {},
+): Promise<TenantListItem> {
+  // Un identifiant qui n'est pas un UUID ne peut désigner aucune personne. Sans
+  // ce contrôle PostgreSQL refuserait la conversion et produirait une erreur
+  // interne, là où la réponse correcte est « inexistant ».
+  if (!z.uuid().safeParse(userId).success) throw new ResourceOutOfScopeError();
 
-  const access = await findTenantAccessById(db, accessId);
+  const scopes = readablePropertyScopes(context, permission).filter(
+    (scope) =>
+      options.organizationId === undefined || scope.organizationId === options.organizationId,
+  );
 
-  if (!access) throw new ResourceOutOfScopeError();
+  /*
+   * Le locataire lit ses propres données, et son rattachement est LUI-MÊME et non
+   * un immeuble : `readablePropertyScopes` ne lui donne donc aucun périmètre
+   * (BR-021). Son organisation vient de son rattachement.
+   */
+  const ownScopes =
+    userId === context.userId
+      ? context.memberships
+          .filter((membership) => membership.role === 'TENANT')
+          .filter(
+            (membership) =>
+              options.organizationId === undefined ||
+              membership.organizationId === options.organizationId,
+          )
+          .map((membership) => ({
+            organizationId: membership.organizationId,
+            propertyIds: 'all' as const,
+          }))
+      : [];
 
-  const accepted = await findLatestAcceptedInvitation(db, access.organizationId, access.userId);
-  const apartment = accepted?.apartmentId
-    ? await findApartmentById(db, accepted.apartmentId)
-    : undefined;
+  const searchable = [...scopes, ...ownScopes];
 
-  requirePermission(context, permission, {
-    organizationId: access.organizationId,
-    propertyId: apartment?.propertyId ?? null,
-    ownerUserId: access.userId,
-  });
+  if (searchable.length === 0) throw new ResourceOutOfScopeError();
 
-  return { access, accepted, apartment };
+  const assembled = await assembleRelationships(
+    db,
+    [...new Set(searchable.map((scope) => scope.organizationId))],
+    nowOf(options),
+    userId,
+  );
+
+  /*
+   * `evaluate` et non `can` : la DISTINCTION entre les deux refus compte (ADR-007).
+   *
+   * Une ressource hors périmètre doit se comporter comme inexistante, donc 404.
+   * Mais une ressource que l'appelant atteint bien, sur laquelle il n'a pas la
+   * permission, doit donner 403 : c'est le cas du locataire qui viserait la
+   * révocation de son propre accès, qu'il voit et ne peut pas décider. Collapser
+   * les deux en « inexistant » lui dirait que sa propre fiche n'existe pas.
+   */
+  const decisions = assembled.map((item) => ({
+    item,
+    decision: evaluate(context, permission, {
+      organizationId: item.organizationId,
+      propertyId: propertyOf(item),
+      ownerUserId: item.id,
+    }),
+  }));
+
+  const readable = decisions.filter((entry) => entry.decision.allowed).map((entry) => entry.item);
+
+  if (readable.length === 0) {
+    const denied = decisions.some(
+      (entry) => !entry.decision.allowed && entry.decision.reason === 'permission-denied',
+    );
+
+    throw denied ? new PermissionDeniedError(permission) : new ResourceOutOfScopeError();
+  }
+
+  if (readable.length > 1) {
+    throw new TenantOrganizationRequiredError(readable.map((item) => item.organizationId));
+  }
+
+  return readable[0] as TenantListItem;
 }
 
-/** Fiche d'un locataire : identité, statut, logement désigné, dates. Rien de financier. */
-async function toDetailView(db: TenantsDatabase, accessId: string): Promise<TenantDetailView> {
-  const access = await findTenantAccessById(db, accessId);
-
-  if (!access) throw new ResourceOutOfScopeError();
-
-  const accepted = await findLatestAcceptedInvitation(db, access.organizationId, access.userId);
-  const apartment = accepted?.apartmentId
-    ? await findApartmentById(db, accepted.apartmentId)
+/** Fiche d'un locataire : son identité, sa relation, son logement. Rien de financier. */
+async function toDetailView(db: TenantsDatabase, item: TenantListItem): Promise<TenantDetailView> {
+  const access = item.accessId
+    ? await findTenantAccessFor(db, item.id, item.organizationId)
     : undefined;
 
   return {
-    id: access.accessId,
-    userId: access.userId,
-    organizationId: access.organizationId,
-    organizationName: access.organizationName,
-    fullName: access.fullName,
-    phone: access.phone,
-    email: access.email,
-    status: access.status,
-    apartment: apartment ? refOf(apartment) : null,
-    invitedAt: accepted?.issuedAt ?? null,
-    activatedAt: accepted?.acceptedAt ?? null,
-    statusChangedAt: access.updatedAt,
-    revokedAt: access.revokedAt,
+    ...item,
+    statusChangedAt: access?.updatedAt ?? null,
+    revokedAt: access?.revokedAt ?? null,
   };
-}
-
-/**
- * Pourquoi une transition d'accès a été refusée : l'état RÉEL, relu après coup.
- *
- * La transition est conditionnelle en base. Quand elle ne touche aucune ligne,
- * c'est que l'accès n'était plus dans l'état attendu ; on relit son état pour dire
- * le vrai motif plutôt qu'un refus générique.
- */
-async function stateErrorOf(
-  db: TenantsDatabase,
-  action: 'suspend' | 'reactivate' | 'revoke',
-  accessId: string,
-): Promise<Error> {
-  const current = await findTenantAccessById(db, accessId);
-
-  return current ? new TenantStateError(action, current.status) : new ResourceOutOfScopeError();
 }
 
 /** Consulte la fiche d'un locataire (MVP-BACKLOG-031, API section 15). */
 export async function getTenant(
   db: TenantsDatabase,
   context: AccessContext,
-  accessId: string,
+  userId: string,
+  options: TenantRelationshipOptions = {},
 ): Promise<TenantDetailView> {
-  const { access } = await loadManageableAccess(db, context, accessId, 'tenant.read');
+  const item = await loadReadableRelationship(db, context, userId, 'tenant.read', options);
 
-  return toDetailView(db, access.accessId);
+  return toDetailView(db, item);
 }
 
 /**
@@ -1034,59 +1262,81 @@ export async function getTenant(
  * personne au MVP, faute du mécanisme de vérification qu'exigent SEC-049 et
  * SEC-050. Le schéma ne les accepte même pas.
  *
- * Et seulement par le locataire LUI-MÊME, comme l'écrit la section 14 des rôles
- * et permissions. La raison est concrète : le nom vit dans `users`, donc le
- * modifier depuis l'écran d'un propriétaire changerait l'identité de la personne
- * partout, y compris chez un autre bailleur. Un propriétaire ou un gestionnaire
- * reçoit donc `TenantNameNotOwnedError`, et non un refus silencieux.
+ * Et seulement par le locataire LUI-MÊME. La raison est plus forte encore depuis
+ * DEC-051 : `users` porte l'IDENTITÉ MÉTIER de la personne, donc la modifier
+ * depuis l'écran d'un propriétaire changerait son identité partout, y compris
+ * chez un autre bailleur.
  */
 export async function updateTenant(
   db: TenantsDatabase,
   context: AccessContext,
-  accessId: string,
+  userId: string,
   input: unknown,
-  options: TenantServiceOptions = {},
+  options: TenantRelationshipOptions = {},
 ): Promise<TenantDetailView> {
   const data = parseOrThrow(updateTenantSchema, input);
-  const { access } = await loadManageableAccess(db, context, accessId, 'tenant.update');
+  const item = await loadReadableRelationship(db, context, userId, 'tenant.update', options);
 
-  if (access.userId !== context.userId) throw new TenantNameNotOwnedError();
+  if (item.id !== context.userId) throw new TenantNameNotOwnedError();
 
-  const updated = await updateUserFullName(db, access.userId, data.name, nowOf(options));
+  const updated = await updateUserFullName(db, item.id, data.name, nowOf(options));
 
   if (!updated) throw new ResourceOutOfScopeError();
 
-  return toDetailView(db, access.accessId);
+  return toDetailView(db, { ...item, fullName: updated.fullName });
+}
+
+/**
+ * Accès sur lequel une opération d'accès va porter.
+ *
+ * Une personne locataire SANS accès n'a rien à suspendre ni à révoquer : c'est la
+ * séparation que DEC-051 établit entre l'identité métier et le droit d'accès, et
+ * le refus le dit plutôt que de feindre un succès.
+ */
+function accessOf(item: TenantListItem): string {
+  if (item.accessId === null) throw new TenantNoAccessError();
+
+  return item.accessId;
+}
+
+/**
+ * Pourquoi une transition d'accès a été refusée : l'état RÉEL, relu après coup.
+ *
+ * La transition est conditionnelle en base. Quand elle ne touche aucune ligne,
+ * c'est que l'accès n'était plus dans l'état attendu ; on relit son état pour
+ * dire le vrai motif plutôt qu'un refus générique.
+ */
+async function stateErrorOf(
+  db: TenantsDatabase,
+  action: 'suspend' | 'reactivate' | 'revoke',
+  item: TenantListItem,
+): Promise<Error> {
+  const current = await findTenantAccessFor(db, item.id, item.organizationId);
+
+  return current ? new TenantStateError(action, current.status) : new ResourceOutOfScopeError();
 }
 
 /**
  * Suspend l'accès d'un locataire (DEC-047).
  *
  * Bloque l'accès à la requête suivante. Le propriétaire et le gestionnaire le
- * peuvent tous les deux, chacun sur son périmètre : c'est une différence assumée
- * avec le gestionnaire, que seul le propriétaire suspend (DEC-025).
+ * peuvent tous les deux, chacun sur son périmètre.
  *
- * **Ne termine aucun bail** et ne retire aucun logement : la personne reste le
+ * **Ne termine aucun bail** et ne retire aucun logement : la personne reste la
  * locataire du logement, elle cesse seulement d'utiliser l'application.
  */
 export async function suspendTenant(
   db: TenantsDatabase,
   context: AccessContext,
-  accessId: string,
-  options: TenantServiceOptions = {},
+  userId: string,
+  options: TenantRelationshipOptions = {},
 ): Promise<TenantDetailView> {
-  const { access } = await loadManageableAccess(db, context, accessId, 'tenant.update');
-  const moved = await transitionAccess(
-    db,
-    access.accessId,
-    ['ACTIVE'],
-    'SUSPENDED',
-    nowOf(options),
-  );
+  const item = await loadReadableRelationship(db, context, userId, 'tenant.update', options);
+  const moved = await transitionAccess(db, accessOf(item), ['ACTIVE'], 'SUSPENDED', nowOf(options));
 
-  if (!moved) throw await stateErrorOf(db, 'suspend', access.accessId);
+  if (!moved) throw await stateErrorOf(db, 'suspend', item);
 
-  return toDetailView(db, access.accessId);
+  return getTenant(db, context, userId, options);
 }
 
 /**
@@ -1098,21 +1348,15 @@ export async function suspendTenant(
 export async function reactivateTenant(
   db: TenantsDatabase,
   context: AccessContext,
-  accessId: string,
-  options: TenantServiceOptions = {},
+  userId: string,
+  options: TenantRelationshipOptions = {},
 ): Promise<TenantDetailView> {
-  const { access } = await loadManageableAccess(db, context, accessId, 'tenant.update');
-  const moved = await transitionAccess(
-    db,
-    access.accessId,
-    ['SUSPENDED'],
-    'ACTIVE',
-    nowOf(options),
-  );
+  const item = await loadReadableRelationship(db, context, userId, 'tenant.update', options);
+  const moved = await transitionAccess(db, accessOf(item), ['SUSPENDED'], 'ACTIVE', nowOf(options));
 
-  if (!moved) throw await stateErrorOf(db, 'reactivate', access.accessId);
+  if (!moved) throw await stateErrorOf(db, 'reactivate', item);
 
-  return toDetailView(db, access.accessId);
+  return getTenant(db, context, userId, options);
 }
 
 /**
@@ -1130,8 +1374,9 @@ export async function reactivateTenant(
  * (DEC-046).
  *
  * **Révoquer l'accès au produit ne termine JAMAIS le bail**, et ne clôt aucune
- * relation locative : les deux concepts restent distincts, et c'est la fin du
- * bail, au Lot 8, qui portera le retrait de l'accès au logement (DEC-047).
+ * relation locative : c'est la fin du bail qui porte le retrait de l'accès au
+ * logement (DEC-047). Depuis DEC-051, la personne reste d'ailleurs dans la liste
+ * des locataires, au statut `REVOKED` : elle occupe toujours son logement.
  *
  * L'HISTORIQUE EST CONSERVÉ. Rien n'est supprimé : ni la personne, ni sa ligne
  * d'accès. Possible depuis un accès actif comme suspendu.
@@ -1139,50 +1384,52 @@ export async function reactivateTenant(
 export async function revokeTenant(
   db: TenantsDatabase,
   context: AccessContext,
-  accessId: string,
-  options: TenantServiceOptions = {},
+  userId: string,
+  options: TenantRelationshipOptions = {},
 ): Promise<TenantDetailView> {
-  const { access } = await loadManageableAccess(db, context, accessId, 'tenant.revoke');
+  const item = await loadReadableRelationship(db, context, userId, 'tenant.revoke', options);
+  const accessId = accessOf(item);
   const now = nowOf(options);
 
   await db.transaction(async (tx) => {
-    const moved = await transitionAccess(
-      tx,
-      access.accessId,
-      ['ACTIVE', 'SUSPENDED'],
-      'REVOKED',
-      now,
-    );
+    const moved = await transitionAccess(tx, accessId, ['ACTIVE', 'SUSPENDED'], 'REVOKED', now);
 
-    if (!moved) throw await stateErrorOf(tx, 'revoke', access.accessId);
+    if (!moved) throw await stateErrorOf(tx, 'revoke', item);
 
-    if ((await countActiveAccesses(tx, access.userId)) === 0) {
-      await endAllSessionsOf(tx, access.userId);
+    if ((await countActiveAccesses(tx, item.id)) === 0) {
+      await endAllSessionsOf(tx, item.id);
     }
   });
 
-  return toDetailView(db, access.accessId);
+  return getTenant(db, context, userId, options);
 }
 
 /**
- * Espace locataire de la personne connectée, au Lot 7 (DEC-046).
+ * Espace locataire de la personne connectée (DEC-046, BR-021).
  *
- * Son logement, son statut, et rien de financier : le loyer, les paiements et les
- * quittances naissent du bail, au Lot 8. Tant qu'il n'existe pas, un locataire
- * qui vient d'activer son compte voit donc son logement et l'annonce de la suite,
- * ce qui est exactement ce que le chaînage des lots implique.
+ * Son logement, son statut, et son contrat quand le bail existe. Renvoie `null`
+ * quand la personne n'a aucun accès locataire actif : un propriétaire ou un
+ * gestionnaire n'a pas d'espace locataire, et l'écran doit pouvoir le dire sans
+ * traiter cela comme une erreur.
  *
- * Renvoie `null` quand la personne n'a aucun accès locataire actif : un
- * propriétaire ou un gestionnaire n'a pas d'espace locataire, et l'écran doit
- * pouvoir le dire sans traiter cela comme une erreur.
+ * Le périmètre est LUI-MÊME et non un immeuble : c'est son rattachement qui
+ * donne l'organisation, pas un périmètre lisible (BR-021).
  */
 export async function getMyTenantSpace(
   db: TenantsDatabase,
   context: AccessContext,
+  options: TenantServiceOptions = {},
 ): Promise<TenantDetailView | null> {
   const membership = context.memberships.find((entry) => entry.role === 'TENANT');
 
   if (!membership) return null;
 
-  return toDetailView(db, membership.accessId);
+  const [item] = await assembleRelationships(
+    db,
+    [membership.organizationId],
+    nowOf(options),
+    context.userId,
+  );
+
+  return item ? toDetailView(db, item) : null;
 }

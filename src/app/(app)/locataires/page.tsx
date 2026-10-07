@@ -14,16 +14,19 @@ import { listTenants } from '@/modules/tenants';
 /**
  * Liste des locataires (MVP-BACKLOG-031, API section 15, PRD 10.2).
  *
- * Réunit les locataires, de tout statut, et les invitations en attente. Ce qui
- * appelle une action, une invitation à renvoyer ou expirée, vient avant les
- * locataires actifs.
+ * Réunit **toute personne qui a une relation locative** avec une organisation du
+ * périmètre, qu'elle ait ou non un accès à l'application (DEC-051) : une
+ * invitation, un accès ou un bail suffit à l'y faire figurer. Ce qui appelle une
+ * action, une invitation à renvoyer ou expirée, vient avant les locataires
+ * installés.
  *
  * Ouverte au propriétaire ET au gestionnaire, chacun sur son périmètre : le
  * gestionnaire est le principal point d'entrée pour les locataires (Rôles et
  * permissions section 13). Pour un locataire, la page n'existe pas : il ne voit
  * aucun autre locataire (DEC-047).
  *
- * **Aucun montant n'y figure** : le loyer naît du bail, au Lot 8 (DEC-046).
+ * **Aucun montant n'y figure** : le loyer appartient au bail, et c'est la fiche
+ * du locataire qui y renvoie.
  */
 export const metadata = { title: 'Locataires' };
 
@@ -41,8 +44,24 @@ export default async function TenantsPage() {
   }
 
   const canInvite = readablePropertyScopes(context, 'tenant.invite').length > 0;
-  const invitations = collection.tenants.filter((item) => item.kind === 'INVITATION').length;
-  const accesses = collection.tenants.length - invitations;
+
+  /*
+   * Le décompte se lit par STATUT et non par nature (DEC-051) : la liste ne mêle
+   * plus deux sortes d'éléments, elle montre des personnes. Ce qui mérite d'être
+   * annoncé en tête, c'est ce qui appelle une action, les invitations en attente.
+   */
+  const pending = collection.tenants.filter(
+    (item) => item.status === 'INVITED' || item.status === 'INVITATION_EXPIRED',
+  ).length;
+  const settled = collection.tenants.length - pending;
+
+  /*
+   * L'adresse d'une fiche porte l'organisation dès que l'appelant en lit
+   * plusieurs : la ressource est le couple personne et organisation, et une même
+   * personne peut être locataire chez deux bailleurs (DEC-051).
+   */
+  const organizations = new Set(collection.tenants.map((item) => item.organizationId));
+  const withOrganization = organizations.size > 1;
 
   return (
     <div className="flex flex-col gap-6">
@@ -52,8 +71,8 @@ export default async function TenantsPage() {
           collection.meta.total === 0
             ? 'Les personnes qui occupent vos logements apparaîtront ici.'
             : [
-                accesses > 0 ? pluralize(accesses, 'locataire') : null,
-                invitations > 0 ? pluralize(invitations, 'invitation') + ' en attente' : null,
+                settled > 0 ? pluralize(settled, 'locataire') : null,
+                pending > 0 ? pluralize(pending, 'invitation') + ' en attente' : null,
               ]
                 .filter(Boolean)
                 .join(', ')
@@ -83,7 +102,11 @@ export default async function TenantsPage() {
       ) : (
         <ul className="grid gap-3 sm:grid-cols-2">
           {collection.tenants.map((item) => (
-            <TenantCard key={`${item.kind}-${item.id}`} item={item} />
+            <TenantCard
+              key={`${item.organizationId}-${item.id}`}
+              item={item}
+              withOrganization={withOrganization}
+            />
           ))}
         </ul>
       )}

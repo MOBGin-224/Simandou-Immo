@@ -81,7 +81,7 @@ describe('Liste des baux', () => {
       owner,
       {
         apartmentId: apartment,
-        tenantId: tenant.accessId,
+        tenantId: tenant.userId,
         startDate: options.startDate ?? TODAY,
         rentAmount: 2_500_000,
         currency: 'GNF',
@@ -158,7 +158,7 @@ describe('Liste des baux', () => {
       const first = await addLease();
       const second = await addLease();
 
-      const visible = await idsOf(owner, { tenantId: first.tenant.accessId });
+      const visible = await idsOf(owner, { tenantId: first.tenant.userId });
 
       expect(visible).toContain(first.lease.id);
       expect(visible).not.toContain(second.lease.id);

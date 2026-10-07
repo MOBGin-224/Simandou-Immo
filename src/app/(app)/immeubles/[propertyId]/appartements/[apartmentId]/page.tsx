@@ -255,7 +255,7 @@ export default async function ApartmentDetailPage(
         {tenants.length > 0 ? (
           <ul className="mt-4 flex flex-col gap-3">
             {tenants.map((item) => (
-              <li key={`${item.kind}-${item.id}`} className="flex flex-col gap-1">
+              <li key={item.id} className="flex flex-col gap-1">
                 <div className="flex flex-wrap items-center gap-2">
                   {/*
                     `min-h-11` : une ligne de texte de 20 px de haut est une cible
@@ -264,12 +264,10 @@ export default async function ApartmentDetailPage(
                     lui-même, et non par la ligne, pour que la zone touchable soit
                     bien celle que l'on voit.
                   */}
+                  {/* Une seule fiche par personne depuis DEC-051 : l'invitation en
+                      attente n'est plus un élément à part, c'est un état. */}
                   <Link
-                    href={
-                      item.kind === 'INVITATION'
-                        ? `/locataires/invitations/${item.id}`
-                        : `/locataires/${item.id}`
-                    }
+                    href={`/locataires/${item.id}`}
                     className="inline-flex min-h-11 items-center break-words text-sm font-medium text-action underline underline-offset-4 hover:text-brand"
                   >
                     {item.fullName}

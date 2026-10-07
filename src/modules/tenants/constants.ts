@@ -12,18 +12,28 @@ export const TENANT_NAME_MAX_LENGTH = 200;
 export const TENANT_EMAIL_MAX_LENGTH = 320;
 
 /**
- * Statuts d'un élément de la liste des locataires (DEC-046).
+ * Statuts d'un locataire (DEC-046, DEC-051).
  *
- * Les trois derniers viennent de `user_access.status`. Les deux premiers
- * décrivent une INVITATION encore sans accès : la personne n'a pas encore
- * d'espace locataire. `INVITATION_EXPIRED` est dérivé de la date d'expiration
- * (DEC-041), jamais d'une valeur stockée.
+ * Le statut entier est DÉRIVÉ, jamais stocké : il se lit de l'invitation, de
+ * l'accès et du bail. Aucune colonne ne le porte, et c'est voulu : deux sources
+ * de vérité pour un même état finissent par se contredire.
  *
- * Le statut entier est DÉRIVÉ, jamais stocké : il se lit de l'invitation et de
- * l'accès. Aucune colonne ne le porte, et c'est voulu : deux sources de vérité
- * pour un même état finissent par se contredire.
+ * ```text
+ * NO_ACCESS           locataire SANS acces au produit : il occupe un logement et
+ *                     n'utilisera peut-etre jamais l'application (DEC-051)
+ * INVITED             invitation ouverte, pas encore acceptee
+ * INVITATION_EXPIRED  invitation ouverte dont la date est passee (DEC-041)
+ * ACTIVE              acces ouvert et fonctionnel
+ * SUSPENDED           acces bloque, perimetre conserve (DEC-047)
+ * REVOKED             acces retire. Ne termine aucun bail (DEC-047)
+ * ```
+ *
+ * **Ne pas confondre `NO_ACCESS` et `REVOKED`.** Le premier n'a jamais eu de
+ * compte, le second en avait un qu'on lui a retiré. La différence compte pour qui
+ * lit la liste : l'un est un état normal, l'autre une décision.
  */
 export const TENANT_LIST_STATUSES = [
+  'NO_ACCESS',
   'INVITED',
   'INVITATION_EXPIRED',
   'ACTIVE',
@@ -32,9 +42,6 @@ export const TENANT_LIST_STATUSES = [
 ] as const;
 
 export type TenantListStatus = (typeof TENANT_LIST_STATUSES)[number];
-
-/** Nature d'un élément de la liste : un accès, ou une invitation en attente. */
-export type TenantListKind = 'ACCESS' | 'INVITATION';
 
 /** Ce que la liste affiche : un statut précis, ou tous. */
 export const TENANT_LIST_FILTERS = ['ALL', ...TENANT_LIST_STATUSES] as const;

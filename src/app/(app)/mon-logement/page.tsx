@@ -9,21 +9,27 @@ import { PageHeader } from '@/components/ui/page-header';
 import { getDb } from '@/db/client';
 import { requireAccessContextOrSignIn } from '@/lib/auth/guard';
 import { formatDate, formatMoney } from '@/lib/ui/format';
-import { describePeriod, listMyLeases } from '@/modules/leases';
+import {
+  describeApartment as describeLeaseApartment,
+  describePeriod,
+  listMyLeases,
+} from '@/modules/leases';
 import { describeApartment, getMyTenantSpace } from '@/modules/tenants';
 
 /**
  * Espace locataire, racine de l'architecture du locataire (Information
  * Architecture 7.3, MVP-BACKLOG-030).
  *
- * Au Lot 7, cet espace montre ce qui existe : le logement, l'organisation qui le
- * gère, le statut de l'accès, et le nom que la personne peut corriger (DEC-048).
+ * Cet espace montre ce qui existe : le logement, l'organisation qui le gère, le
+ * statut de l'accès, le nom que la personne peut corriger (DEC-048), et depuis le
+ * Lot 8 SON CONTRAT, que BR-021 lui ouvre explicitement. Il ne peut pas le
+ * modifier : les données financières de référence ne sont pas les siennes
+ * (BR-022).
  *
  * **Et il dit ce qui n'existe pas encore.** « À payer », « Paiements »,
  * « Quittances », « Mes charges » et « Mes incidents » sont des destinations de
- * l'architecture cible, pas du Lot 7 : le locataire n'a pas encore de bail, donc
- * aucune de ces notions n'a de contenu (DEC-046). Les afficher vides laisserait
- * croire à une panne ; les annoncer explique l'attente.
+ * l'architecture cible que les lots suivants rempliront. Les afficher vides
+ * laisserait croire à une panne ; les annoncer explique l'attente.
  *
  * La page n'existe pas pour qui n'est pas locataire : un propriétaire ou un
  * gestionnaire n'a pas d'espace locataire, et c'est la liste des locataires qui
@@ -47,8 +53,23 @@ export default async function MyApartmentPage() {
   const leases = await listMyLeases(getDb(), context);
   const activeLease = leases.find((lease) => lease.status === 'ACTIVE') ?? null;
 
+  /*
+   * Le logement vient du BAIL dès qu'il y en a un.
+   *
+   * L'espace locataire du Lot 7 lisait le logement de l'invitation acceptée,
+   * faute de bail (DEC-046). Les deux peuvent diverger : on invite une personne
+   * sur un logement, puis on lui loue un autre. Afficher les deux sources côte à
+   * côte donnerait un écran qui se contredit, exactement ce que DEC-050 reproche
+   * à une saisie concurrente. Le bail fait donc foi, et l'invitation ne sert plus
+   * qu'en son absence, tant que la bascule complète du module Locataires n'est
+   * pas faite.
+   */
+  const apartmentLabel = activeLease
+    ? describeLeaseApartment(activeLease.apartment)
+    : describeApartment(tenant.apartment);
+
   const details: { label: string; value: string }[] = [
-    { label: 'Logement', value: describeApartment(tenant.apartment) },
+    { label: 'Logement', value: apartmentLabel },
     { label: 'Gestion assurée par', value: tenant.organizationName },
     { label: 'Votre numéro de connexion', value: tenant.phone ?? 'Non renseigné' },
     { label: 'Votre adresse email', value: tenant.email ?? 'Non renseignée' },
@@ -66,7 +87,8 @@ export default async function MyApartmentPage() {
         <AccessStatusBadge status={tenant.status} />
       </div>
 
-      {tenant.apartment === null ? (
+      {/* Ni bail ni invitation ne donnent de logement : il n'y a rien à montrer. */}
+      {activeLease === null && tenant.apartment === null ? (
         <Alert tone="info" title="Logement non renseigné">
           Votre logement n&apos;est pas encore rattaché à votre espace. Adressez-vous à la personne
           qui gère l&apos;immeuble.
@@ -113,12 +135,7 @@ export default async function MyApartmentPage() {
 
         {activeLease ? (
           <dl className="flex flex-col gap-3">
-            <div className="flex flex-col gap-0.5">
-              <dt className="text-xs font-medium uppercase tracking-wide text-muted">Logement</dt>
-              <dd className="break-words text-base text-ink">
-                {describeApartment(activeLease.apartment)}
-              </dd>
-            </div>
+            {/* Le logement est déjà en tête de page : le répéter ici n'ajouterait rien. */}
             <div className="flex flex-col gap-0.5">
               <dt className="text-xs font-medium uppercase tracking-wide text-muted">Période</dt>
               <dd className="text-base text-ink">{describePeriod(activeLease, formatDate)}</dd>

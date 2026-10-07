@@ -10,6 +10,8 @@ import { InvitationNotOpenError, InvitationTargetUnavailableError } from '@/modu
 import {
   TenantInvitationConflictError,
   TenantNameNotOwnedError,
+  TenantNoAccessError,
+  TenantOrganizationRequiredError,
   TenantStateError,
   TenantValidationError,
   inviteTenant,
@@ -98,6 +100,15 @@ function toFormState(error: unknown, values: Record<string, string>): TenantForm
   }
 
   if (error instanceof InvitationNotOpenError || error instanceof TenantStateError) {
+    return { message: error.message, values };
+  }
+
+  /*
+   * Deux refus que DEC-051 a rendus possibles, tous deux explicatifs plutôt que
+   * techniques : la personne n'a aucun accès à suspendre, ou bien l'écran n'a pas
+   * dit de quelle organisation il parle.
+   */
+  if (error instanceof TenantNoAccessError || error instanceof TenantOrganizationRequiredError) {
     return { message: error.message, values };
   }
 
@@ -190,45 +201,47 @@ export async function revokeTenantInvitationAction(
 }
 
 /** Rafraîchit les écrans que la vie d'un accès change : la liste et la fiche. */
-function revalidateTenantViews(accessId: string): void {
+function revalidateTenantViews(userId: string): void {
   revalidatePath('/locataires');
-  revalidatePath(`/locataires/${accessId}`);
+  revalidatePath(`/locataires/${userId}`);
 }
 
 /** Suspend l'accès d'un locataire (DEC-047), puis revient à sa fiche. */
 export async function suspendTenantAction(
-  accessId: string,
+  userId: string,
+  organizationId: string,
   _previousState: TenantFormState,
   _formData: FormData,
 ): Promise<TenantFormState> {
   const context = await requireAccessContextOrSignIn();
 
   try {
-    await suspendTenant(getDb(), context, accessId);
+    await suspendTenant(getDb(), context, userId, { organizationId });
   } catch (error) {
     return toFormState(error, {});
   }
 
-  revalidateTenantViews(accessId);
-  redirect(`/locataires/${accessId}`);
+  revalidateTenantViews(userId);
+  redirect(`/locataires/${userId}?organisation=${organizationId}`);
 }
 
 /** Réactive un locataire suspendu (DEC-047), puis revient à sa fiche. */
 export async function reactivateTenantAction(
-  accessId: string,
+  userId: string,
+  organizationId: string,
   _previousState: TenantFormState,
   _formData: FormData,
 ): Promise<TenantFormState> {
   const context = await requireAccessContextOrSignIn();
 
   try {
-    await reactivateTenant(getDb(), context, accessId);
+    await reactivateTenant(getDb(), context, userId, { organizationId });
   } catch (error) {
     return toFormState(error, {});
   }
 
-  revalidateTenantViews(accessId);
-  redirect(`/locataires/${accessId}`);
+  revalidateTenantViews(userId);
+  redirect(`/locataires/${userId}?organisation=${organizationId}`);
 }
 
 /**
@@ -239,20 +252,21 @@ export async function reactivateTenantAction(
  * suppression, qui n'a pas eu lieu. Aucun bail n'est terminé.
  */
 export async function revokeTenantAction(
-  accessId: string,
+  userId: string,
+  organizationId: string,
   _previousState: TenantFormState,
   _formData: FormData,
 ): Promise<TenantFormState> {
   const context = await requireAccessContextOrSignIn();
 
   try {
-    await revokeTenant(getDb(), context, accessId);
+    await revokeTenant(getDb(), context, userId, { organizationId });
   } catch (error) {
     return toFormState(error, {});
   }
 
-  revalidateTenantViews(accessId);
-  redirect(`/locataires/${accessId}`);
+  revalidateTenantViews(userId);
+  redirect(`/locataires/${userId}?organisation=${organizationId}`);
 }
 
 /**
@@ -263,7 +277,7 @@ export async function revokeTenantAction(
  * `TenantNameNotOwnedError`, et non un refus silencieux.
  */
 export async function renameTenantAction(
-  accessId: string,
+  userId: string,
   _previousState: TenantFormState,
   formData: FormData,
 ): Promise<TenantFormState> {
@@ -273,12 +287,12 @@ export async function renameTenantAction(
     typeof fields.name === 'string' ? { name: fields.name } : {};
 
   try {
-    await updateTenant(getDb(), context, accessId, fields);
+    await updateTenant(getDb(), context, userId, fields);
   } catch (error) {
     return toFormState(error, values);
   }
 
-  revalidateTenantViews(accessId);
+  revalidateTenantViews(userId);
   revalidatePath('/mon-logement');
   redirect('/mon-logement');
 }

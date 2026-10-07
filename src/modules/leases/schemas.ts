@@ -163,8 +163,9 @@ function currencyRules(missing: string) {
 /**
  * Création d'un bail (API section 17, MVP-BACKLOG-032).
  *
- * `tenantId` est l'identifiant de la ressource locataire du Lot 7, un
- * `user_access.id`. L'organisation et l'immeuble ne sont PAS demandés : ils se
+ * `tenantId` est un `users.id`, l'identité métier de la personne (DEC-051) : le
+ * bail rattache une PERSONNE à un logement, et cette personne n'a pas forcément
+ * d'accès au produit. L'organisation et l'immeuble ne sont PAS demandés : ils se
  * déduisent du logement, et les recevoir de l'appelant ouvrirait la porte à un
  * couple incohérent.
  *
@@ -253,7 +254,7 @@ export const listLeasesQuerySchema = z.object({
     .default(LEASE_LIST_DEFAULT_PAGE_SIZE),
   propertyId: z.string().nullish().pipe(z.uuid(UUID_MESSAGE).nullish()),
   apartmentId: z.string().nullish().pipe(z.uuid(UUID_MESSAGE).nullish()),
-  /** `user_access.id` d'un locataire, comme au Lot 7. */
+  /** `users.id` de la personne locataire (DEC-051). */
   tenantId: z.string().nullish().pipe(z.uuid(UUID_MESSAGE).nullish()),
   status: z.enum(LEASE_LIST_FILTERS, 'Statut invalide.').default('ALL'),
 });

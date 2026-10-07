@@ -14,6 +14,7 @@
 
 export type {
   AcceptedTenantInvitation,
+  ApartmentSource,
   IssuedTenantInvitation,
   TenantApartmentRef,
   TenantDetailView,
@@ -21,7 +22,7 @@ export type {
   TenantInvitationView,
   TenantListItem,
 } from './domain';
-export { compareTenantItems, describeApartment } from './domain';
+export { compareTenantItems, describeApartment, hasProductAccess } from './domain';
 
 export type {
   FieldErrors,
@@ -32,6 +33,8 @@ export type {
 export {
   TenantInvitationConflictError,
   TenantNameNotOwnedError,
+  TenantNoAccessError,
+  TenantOrganizationRequiredError,
   TenantStateError,
   TenantValidationError,
 } from './errors';
@@ -41,7 +44,7 @@ export {
  * aussi exposées à l'interface par `client.ts`, qui ne doit rien entraîner de
  * serveur derrière lui.
  */
-export type { TenantListFilter, TenantListKind, TenantListStatus } from './constants';
+export type { TenantListFilter, TenantListStatus } from './constants';
 export {
   TENANT_EMAIL_MAX_LENGTH,
   TENANT_LIST_DEFAULT_PAGE_SIZE,
@@ -69,6 +72,7 @@ export type { TenantsDatabase } from './repository';
 export type {
   AcceptTenantInvitationDependencies,
   TenantCollection,
+  TenantRelationshipOptions,
   TenantServiceOptions,
 } from './service';
 export {

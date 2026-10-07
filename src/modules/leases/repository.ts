@@ -4,6 +4,7 @@ import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
 import * as schema from '@/db/schema';
 import {
   apartments,
+  invitations,
   leases,
   organizations,
   properties,
@@ -135,43 +136,91 @@ export async function findApartmentsByIds(
 
 // --- Locataire visé ---------------------------------------------------------------
 
-export type TenantRow = {
-  accessId: string;
+export type TenantPersonRow = {
   userId: string;
-  organizationId: string;
   fullName: string;
   phone: string | null;
   email: string | null;
-  status: 'ACTIVE' | 'SUSPENDED' | 'REVOKED';
+  status: 'PENDING_ACTIVATION' | 'ACTIVE' | 'SUSPENDED';
+  archivedAt: Date | null;
 };
 
 /**
- * Locataire par l'identifiant de sa ressource, c'est-à-dire son `user_access.id`.
+ * Personne à qui un bail peut être attribué, par son identité métier (DEC-051).
  *
- * Le rôle est dans la requête : l'identifiant d'un accès de propriétaire ou de
- * gestionnaire ne désigne pas un locataire et doit se comporter comme inconnu
- * (ADR-007).
+ * `users.id` et non `user_access.id` : le bail rattache une PERSONNE à un
+ * logement, et cette personne n'a pas forcément d'accès au produit. Chercher un
+ * accès ici rendrait impossible le locataire qui n'utilisera jamais
+ * l'application, celui-là même que DEC-051 veut représenter.
+ *
+ * Aucun rôle n'est exigé : c'est le bail qui CRÉE la relation locative, et non
+ * un accès préexistant qui l'autoriserait.
  */
-export async function findTenantByAccessId(
+export async function findPersonById(
   db: LeasesDatabase,
-  accessId: string,
-): Promise<TenantRow | undefined> {
+  userId: string,
+): Promise<TenantPersonRow | undefined> {
   const [row] = await db
     .select({
-      accessId: userAccess.id,
       userId: users.id,
-      organizationId: userAccess.organizationId,
       fullName: users.fullName,
       phone: users.phone,
       email: users.email,
-      status: userAccess.status,
+      status: users.status,
+      archivedAt: users.archivedAt,
     })
-    .from(userAccess)
-    .innerJoin(users, eq(users.id, userAccess.userId))
-    .where(and(eq(userAccess.id, accessId), eq(userAccess.role, 'TENANT')))
+    .from(users)
+    .where(eq(users.id, userId))
     .limit(1);
 
   return row;
+}
+
+/**
+ * Une organisation connaît-elle déjà cette personne ?
+ *
+ * `users` est une table GLOBALE : une personne y existe sans appartenir à
+ * personne. Sans cette vérification, un bailleur pourrait attribuer un bail à un
+ * identifiant quelconque et lire en retour le nom et le téléphone d'une personne
+ * d'un autre bailleur. L'organisation ne doit donc écrire que sur des personnes
+ * dont elle a déjà une trace.
+ *
+ * Les trois traces possibles sont lues, et aucune n'exige un accès au produit
+ * (DEC-051) :
+ *
+ *   - un `user_access`, quel que soit son statut, même révoqué (DEC-047) ;
+ *   - une invitation, quel que soit son sort, même expirée ou révoquée ;
+ *   - un bail, quel que soit son statut, même terminé.
+ *
+ * C'est ce qui laisse exister le locataire sans compte : sa trace est son
+ * invitation ou son bail, jamais un droit d'accès.
+ */
+export async function isPersonKnownToOrganization(
+  db: LeasesDatabase,
+  organizationId: string,
+  userId: string,
+): Promise<boolean> {
+  const [access, invitation, lease] = await Promise.all([
+    db
+      .select({ id: userAccess.id })
+      .from(userAccess)
+      .where(and(eq(userAccess.organizationId, organizationId), eq(userAccess.userId, userId)))
+      .limit(1),
+    db
+      .select({ id: invitations.id })
+      .from(invitations)
+      .where(
+        and(eq(invitations.organizationId, organizationId), eq(invitations.targetUserId, userId)),
+      )
+      .limit(1),
+    db
+      .select({ id: leases.id })
+      .from(leases)
+      .where(and(eq(leases.organizationId, organizationId), eq(leases.tenantUserId, userId)))
+      .limit(1),
+  ]);
+
+  return access.length > 0 || invitation.length > 0 || lease.length > 0;
 }
 
 export type PersonRow = {

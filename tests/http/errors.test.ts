@@ -39,6 +39,8 @@ import {
 import {
   TenantInvitationConflictError,
   TenantNameNotOwnedError,
+  TenantNoAccessError,
+  TenantOrganizationRequiredError,
   TenantStateError,
   TenantValidationError,
 } from '../../src/modules/tenants/errors';
@@ -96,6 +98,12 @@ describe('Traduction des erreurs en réponses HTTP', () => {
     { error: new TenantInvitationConflictError('already-tenant'), status: 409, code: 'CONFLICT' },
     { error: new TenantStateError('reactivate', 'REVOKED'), status: 409, code: 'CONFLICT' },
     { error: new TenantNameNotOwnedError(), status: 403, code: 'FORBIDDEN' },
+    { error: new TenantNoAccessError(), status: 409, code: 'CONFLICT' },
+    {
+      error: new TenantOrganizationRequiredError(['a', 'b']),
+      status: 409,
+      code: 'CONFLICT',
+    },
     {
       error: new LeaseValidationError({ startDate: ['invalide'] }),
       status: 422,

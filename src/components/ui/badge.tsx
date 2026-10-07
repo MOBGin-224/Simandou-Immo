@@ -104,9 +104,18 @@ export function ArchivedBadge() {
  * terminal. Chaque badge porte un texte, jamais la couleur seule.
  */
 export type AccessStatusValue =
-  'INVITED' | 'INVITATION_EXPIRED' | 'ACTIVE' | 'SUSPENDED' | 'REVOKED';
+  'NO_ACCESS' | 'INVITED' | 'INVITATION_EXPIRED' | 'ACTIVE' | 'SUSPENDED' | 'REVOKED';
 
 const ACCESS_STATUS_BADGES: Record<AccessStatusValue, { tone: BadgeTone; label: string }> = {
+  /*
+   * `NO_ACCESS` n'arrive QUE pour un locataire (DEC-051) : une personne qui
+   * occupe un logement sans avoir de compte. Un gestionnaire ne l'atteint
+   * jamais, son accès étant la raison même de son existence dans le produit.
+   *
+   * Ton neutre et non rouge : ne pas utiliser l'application n'est pas une
+   * anomalie, c'est le cas courant du locataire qui paie en main propre.
+   */
+  NO_ACCESS: { tone: 'neutral', label: 'Sans accès' },
   INVITED: { tone: 'info', label: 'Invitation en attente' },
   INVITATION_EXPIRED: { tone: 'warning', label: 'Invitation expirée' },
   ACTIVE: { tone: 'success', label: 'Actif' },

@@ -34,8 +34,9 @@ import {
   findLeaseById,
   findOrganizationName,
   findPeopleByIds,
-  findTenantByAccessId,
+  findPersonById,
   insertLease,
+  isPersonKnownToOrganization,
   isUniqueViolation,
   listApartmentsWithoutActiveLease,
   listLeaseRows,
@@ -261,9 +262,11 @@ async function loadLeasableApartment(
  * l'appelant : c'est ce qui garantit qu'ils restent cohérents avec lui, et la
  * dénormalisation n'a de valeur que si elle ne peut pas mentir (ADR-007).
  *
- * Le locataire doit appartenir à la MÊME organisation que le logement. Un
- * locataire d'un autre bailleur reçoit le même refus qu'un identifiant inconnu :
- * son existence ne doit pas se déduire d'un message.
+ * Le locataire doit être une personne que l'organisation CONNAÎT DÉJÀ, sans pour
+ * autant avoir d'accès au produit (DEC-051). Une personne d'un autre bailleur
+ * reçoit le même refus qu'un identifiant inconnu : son existence ne doit pas se
+ * déduire d'un message, et surtout, un bail ne doit pas servir à lire le nom et
+ * le téléphone d'une personne qu'on ne connaît pas (ADR-008).
  *
  * **Un locataire dont l'accès est révoqué peut recevoir un bail.** Les deux
  * concepts sont distincts (DEC-047) : révoquer l'accès au produit ne termine
@@ -281,9 +284,22 @@ export async function createLease(
 ): Promise<LeaseView> {
   const data = parseOrThrow(createLeaseSchema, input);
   const apartment = await loadLeasableApartment(db, context, data.apartmentId, 'lease.create');
-  const tenant = await findTenantByAccessId(db, data.tenantId);
+  const person = await findPersonById(db, data.tenantId);
 
-  if (!tenant || tenant.organizationId !== apartment.organizationId) {
+  /*
+   * Trois situations, UN SEUL refus (ADR-008) : personne inexistante, personne
+   * archivée, personne qu'une autre organisation connaît. Les distinguer
+   * reviendrait à répondre « cet identifiant existe ailleurs », et le bail créé
+   * renverrait ensuite le nom et le téléphone de quelqu'un qu'on ne connaît pas.
+   *
+   * Aucun ACCÈS n'est exigé pour autant : une invitation révoquée ou un bail
+   * terminé suffisent comme trace (DEC-051). C'est ce qui laisse le bail créer la
+   * relation LOCATIVE d'une personne qui n'utilisera jamais l'application, sans
+   * ouvrir `users`, qui est une table globale, à l'organisation entière.
+   */
+  if (!person || person.archivedAt !== null) throw new ResourceOutOfScopeError();
+
+  if (!(await isPersonKnownToOrganization(db, apartment.organizationId, person.userId))) {
     throw new ResourceOutOfScopeError();
   }
 
@@ -299,7 +315,7 @@ export async function createLease(
     throw new LeaseConflictError('apartment-occupied');
   }
 
-  if (await findActiveLeaseForTenant(db, apartment.organizationId, tenant.userId)) {
+  if (await findActiveLeaseForTenant(db, apartment.organizationId, person.userId)) {
     throw new LeaseConflictError('tenant-engaged');
   }
 
@@ -308,7 +324,7 @@ export async function createLease(
       organizationId: apartment.organizationId,
       propertyId: apartment.propertyId,
       apartmentId: apartment.id,
-      tenantUserId: tenant.userId,
+      tenantUserId: person.userId,
       startDate: data.startDate,
       endDate: data.endDate,
       rentAmount: data.rentAmount,
@@ -412,21 +428,17 @@ export async function listLeases(
 
   if (scopes.length === 0) throw new ResourceOutOfScopeError();
 
-  // Le filtre par locataire est donné en `user_access.id`, l'identifiant de la
-  // ressource locataire : il faut le traduire en personne pour interroger les
-  // baux, qui référencent `users`.
-  let tenantUserId: string | null = null;
-
-  if (query.tenantId) {
-    const tenant = await findTenantByAccessId(db, query.tenantId);
-
-    // Un locataire inconnu ou d'ailleurs ne donne aucune ligne, et ne se
-    // distingue pas d'un locataire sans bail.
-    if (!tenant)
-      return { leases: [], meta: { total: 0, page: query.page, pageSize: query.pageSize } };
-
-    tenantUserId = tenant.userId;
-  }
+  /*
+   * Le filtre par locataire est donné en `users.id`, l'identité métier de la
+   * personne (DEC-051) : c'est exactement ce que `leases.tenant_user_id`
+   * référence, donc aucune traduction n'est nécessaire. Avant DEC-051 il fallait
+   * passer d'un identifiant d'accès à une personne, et un locataire sans accès
+   * n'aurait pas été filtrable du tout.
+   *
+   * Une personne inconnue ne donne aucune ligne, et ne se distingue pas d'une
+   * personne sans bail (ADR-008).
+   */
+  const tenantUserId = query.tenantId ?? null;
 
   const rows = await listLeaseRows(db, scopes, {
     propertyId: query.propertyId ?? null,

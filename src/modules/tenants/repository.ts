@@ -5,6 +5,7 @@ import * as schema from '@/db/schema';
 import {
   apartments,
   invitations,
+  leases,
   organizations,
   properties,
   userAccess,
@@ -585,41 +586,6 @@ export async function claimInvitation(
   return row;
 }
 
-/**
- * Dernière invitation de locataire acceptée par une personne dans une
- * organisation.
- *
- * C'est elle qui porte le LOGEMENT d'un locataire actif au Lot 7 : son accès
- * n'en conserve aucun, et le bail qui le portera n'arrive qu'au Lot 8 (DEC-046).
- */
-export async function findLatestAcceptedInvitation(
-  db: TenantsDatabase,
-  organizationId: string,
-  userId: string,
-): Promise<{ issuedAt: Date; acceptedAt: Date; apartmentId: string | null } | undefined> {
-  const [row] = await db
-    .select({
-      issuedAt: invitations.issuedAt,
-      acceptedAt: invitations.acceptedAt,
-      apartmentId: invitations.apartmentId,
-    })
-    .from(invitations)
-    .where(
-      and(
-        eq(invitations.organizationId, organizationId),
-        eq(invitations.targetUserId, userId),
-        eq(invitations.role, 'TENANT'),
-        eq(invitations.status, 'ACCEPTED'),
-      ),
-    )
-    .orderBy(desc(invitations.acceptedAt))
-    .limit(1);
-
-  return row && row.acceptedAt !== null
-    ? { issuedAt: row.issuedAt, acceptedAt: row.acceptedAt, apartmentId: row.apartmentId }
-    : undefined;
-}
-
 // --- Fiche et liste ---------------------------------------------------------------
 
 export type TenantAccessRow = {
@@ -668,10 +634,17 @@ export async function findTenantAccessById(
   return row;
 }
 
-/** Accès locataires des organisations indiquées, de tout statut. */
+/**
+ * Accès locataires des organisations indiquées, de tout statut.
+ *
+ * `userId` restreint à une personne : la fiche se construit avec le MÊME
+ * assemblage que la liste, filtré à une personne. Deux chemins de lecture pour
+ * la même notion finiraient par diverger.
+ */
 export async function listTenantAccessRows(
   db: TenantsDatabase,
   organizationIds: readonly string[],
+  userId?: string,
 ): Promise<TenantAccessRow[]> {
   if (organizationIds.length === 0) return [];
 
@@ -692,7 +665,11 @@ export async function listTenantAccessRows(
     .innerJoin(users, eq(users.id, userAccess.userId))
     .innerJoin(organizations, eq(organizations.id, userAccess.organizationId))
     .where(
-      and(eq(userAccess.role, 'TENANT'), inArray(userAccess.organizationId, [...organizationIds])),
+      and(
+        eq(userAccess.role, 'TENANT'),
+        inArray(userAccess.organizationId, [...organizationIds]),
+        userId === undefined ? undefined : eq(userAccess.userId, userId),
+      ),
     );
 }
 
@@ -715,6 +692,7 @@ export type PendingTenantInvitationRow = {
 export async function listPendingInvitationRows(
   db: TenantsDatabase,
   organizationIds: readonly string[],
+  userId?: string,
 ): Promise<PendingTenantInvitationRow[]> {
   if (organizationIds.length === 0) return [];
 
@@ -741,6 +719,7 @@ export async function listPendingInvitationRows(
         eq(invitations.role, 'TENANT'),
         inArray(invitations.status, ['PENDING', 'SENT']),
         inArray(invitations.organizationId, [...organizationIds]),
+        userId === undefined ? undefined : eq(invitations.targetUserId, userId),
       ),
     )
     .orderBy(desc(invitations.issuedAt));
@@ -758,6 +737,7 @@ export type AcceptedTenantInvitationRow = {
 export async function listAcceptedInvitationRows(
   db: TenantsDatabase,
   organizationIds: readonly string[],
+  userId?: string,
 ): Promise<AcceptedTenantInvitationRow[]> {
   if (organizationIds.length === 0) return [];
 
@@ -775,6 +755,7 @@ export async function listAcceptedInvitationRows(
         eq(invitations.role, 'TENANT'),
         eq(invitations.status, 'ACCEPTED'),
         inArray(invitations.organizationId, [...organizationIds]),
+        userId === undefined ? undefined : eq(invitations.targetUserId, userId),
       ),
     );
 
@@ -791,4 +772,123 @@ export async function listAcceptedInvitationRows(
         ]
       : [],
   );
+}
+
+// --- Ce que le bail apprend sur un locataire (DEC-051) -------------------------------
+
+export type TenantLeaseRow = {
+  leaseId: string;
+  organizationId: string;
+  tenantUserId: string;
+  apartmentId: string;
+  propertyId: string;
+  status: 'DRAFT' | 'ACTIVE' | 'ENDED' | 'CANCELLED';
+  startDate: string;
+  fullName: string;
+  phone: string | null;
+  email: string | null;
+};
+
+/**
+ * Baux des organisations indiquées, avec l'identité de leur locataire.
+ *
+ * **C'est cette lecture qui rend DEC-051 possible** : une personne peut être
+ * locataire d'une organisation sans y avoir aucun accès, et sans invitation. Le
+ * bail est alors la seule trace de la relation, et la liste des locataires doit
+ * la voir.
+ *
+ * La table `leases` est lue ici, dans le dépôt du module Locataires, plutôt que
+ * demandée au module Contrats : il s'agit de FAITS et non d'un cas d'usage, et le
+ * module Gestionnaires lit déjà de la même façon `properties` et `organizations`.
+ * Le dépôt ne décide toujours rien.
+ */
+export async function listTenantLeaseRows(
+  db: TenantsDatabase,
+  organizationIds: readonly string[],
+  userId?: string,
+): Promise<TenantLeaseRow[]> {
+  if (organizationIds.length === 0) return [];
+
+  return db
+    .select({
+      leaseId: leases.id,
+      organizationId: leases.organizationId,
+      tenantUserId: leases.tenantUserId,
+      apartmentId: leases.apartmentId,
+      propertyId: leases.propertyId,
+      status: leases.status,
+      startDate: leases.startDate,
+      fullName: users.fullName,
+      phone: users.phone,
+      email: users.email,
+    })
+    .from(leases)
+    .innerJoin(users, eq(users.id, leases.tenantUserId))
+    .where(
+      and(
+        inArray(leases.organizationId, [...organizationIds]),
+        userId === undefined ? undefined : eq(leases.tenantUserId, userId),
+      ),
+    )
+    .orderBy(desc(leases.startDate));
+}
+
+/**
+ * Noms des organisations indiquées.
+ *
+ * Nécessaire depuis DEC-051 : une personne connue par son seul bail n'a pas de
+ * ligne d'accès, donc aucune jointure ne ramène le nom de l'organisation avec
+ * elle.
+ */
+export async function findOrganizationNames(
+  db: TenantsDatabase,
+  organizationIds: readonly string[],
+): Promise<Map<string, string>> {
+  if (organizationIds.length === 0) return new Map();
+
+  const rows = await db
+    .select({ id: organizations.id, name: organizations.name })
+    .from(organizations)
+    .where(inArray(organizations.id, [...organizationIds]));
+
+  return new Map(rows.map((row) => [row.id, row.name]));
+}
+
+/**
+ * Accès locataire d'une personne dans une organisation, avec son organisation.
+ *
+ * Sert les trois opérations d'accès, qui partent désormais du couple personne et
+ * organisation et non d'un identifiant d'accès (DEC-051).
+ */
+export async function findTenantAccessFor(
+  db: TenantsDatabase,
+  userId: string,
+  organizationId: string,
+): Promise<TenantAccessRow | undefined> {
+  const [row] = await db
+    .select({
+      accessId: userAccess.id,
+      organizationId: userAccess.organizationId,
+      organizationName: organizations.name,
+      userId: users.id,
+      fullName: users.fullName,
+      phone: users.phone,
+      email: users.email,
+      status: userAccess.status,
+      updatedAt: userAccess.updatedAt,
+      revokedAt: userAccess.revokedAt,
+    })
+    .from(userAccess)
+    .innerJoin(users, eq(users.id, userAccess.userId))
+    .innerJoin(organizations, eq(organizations.id, userAccess.organizationId))
+    .where(
+      and(
+        eq(userAccess.userId, userId),
+        eq(userAccess.organizationId, organizationId),
+        eq(userAccess.role, 'TENANT'),
+      ),
+    )
+    .limit(1);
+
+  return row;
 }

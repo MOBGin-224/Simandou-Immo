@@ -46,18 +46,16 @@ export default async function NewLeasePage(props: PageProps<'/baux/nouveau'>) {
   const leasable = await listLeasableApartments(getDb(), context);
 
   /*
-   * Les locataires déjà invités, de tout statut d'accès : un accès suspendu ou
-   * révoqué n'empêche pas d'occuper un logement, les deux concepts étant
-   * distincts (DEC-047). Seules les invitations encore en attente sont écartées,
-   * n'ayant pas encore d'identifiant de ressource locataire.
+   * Toute personne connue de l'organisation comme locataire, quel que soit son
+   * accès au produit (DEC-051) : un accès suspendu, révoqué ou absent n'empêche
+   * pas d'occuper un logement. Même une personne encore invitée peut recevoir un
+   * bail, l'identité métier existant dès l'invitation.
    */
   const tenants = await listTenants(getDb(), context, { pageSize: 100 });
-  const tenantChoices: TenantChoice[] = tenants.tenants
-    .filter((item) => item.kind === 'ACCESS')
-    .map((item) => ({
-      id: item.id,
-      label: item.phone ? `${item.fullName} (${item.phone})` : item.fullName,
-    }));
+  const tenantChoices: TenantChoice[] = tenants.tenants.map((item) => ({
+    id: item.id,
+    label: item.phone ? `${item.fullName} (${item.phone})` : item.fullName,
+  }));
 
   const apartmentChoices: ApartmentChoice[] = leasable.map((apartment) => ({
     id: apartment.id,

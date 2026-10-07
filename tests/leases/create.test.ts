@@ -4,7 +4,11 @@ import { SEED_IDS, seed } from '../../src/db/seed';
 import { ResourceOutOfScopeError } from '../../src/lib/authorization/service';
 import { LeaseConflictError, LeaseValidationError } from '../../src/modules/leases/errors';
 import { createLease, listLeasableApartments } from '../../src/modules/leases/service';
-import { revokeTenant } from '../../src/modules/tenants/service';
+import {
+  inviteTenant,
+  revokeTenant,
+  revokeTenantInvitation,
+} from '../../src/modules/tenants/service';
 import { createTestDatabase, type TestDatabase } from '../helpers/database';
 import {
   OPTIONS,
@@ -102,7 +106,7 @@ describe("Création d'un bail", () => {
         createLease(
           harness.db,
           owner,
-          input({ apartmentId: apartment, tenantId: tenant.accessId }),
+          input({ apartmentId: apartment, tenantId: tenant.userId }),
           OPTIONS,
         ),
       ).rejects.toBeInstanceOf(ResourceOutOfScopeError);
@@ -117,7 +121,7 @@ describe("Création d'un bail", () => {
           owner,
           input({
             apartmentId: '00000000-0000-4000-8000-000000000999',
-            tenantId: tenant.accessId,
+            tenantId: tenant.userId,
           }),
           OPTIONS,
         ),
@@ -132,7 +136,7 @@ describe("Création d'un bail", () => {
         createLease(
           harness.db,
           manager,
-          input({ apartmentId: apartment, tenantId: tenant.accessId }),
+          input({ apartmentId: apartment, tenantId: tenant.userId }),
           OPTIONS,
         ),
       ).rejects.toBeInstanceOf(ResourceOutOfScopeError);
@@ -146,7 +150,7 @@ describe("Création d'un bail", () => {
         createLease(
           harness.db,
           otherOwner,
-          input({ apartmentId: apartment, tenantId: tenant.accessId }),
+          input({ apartmentId: apartment, tenantId: tenant.userId }),
           OPTIONS,
         ),
       ).rejects.toBeInstanceOf(ResourceOutOfScopeError);
@@ -160,7 +164,7 @@ describe("Création d'un bail", () => {
         createLease(
           harness.db,
           owner,
-          input({ apartmentId: apartment, tenantId: tenant.accessId }),
+          input({ apartmentId: apartment, tenantId: tenant.userId }),
           OPTIONS,
         ),
       );
@@ -169,7 +173,30 @@ describe("Création d'un bail", () => {
       expect((error as LeaseValidationError).fieldErrors.apartmentId?.[0]).toMatch(/archivé/);
     });
 
-    it("refuse un locataire d'une autre organisation, comme un inconnu", async () => {
+    it('refuse une personne inexistante', async () => {
+      const apartment = await freshApartment();
+
+      await expect(
+        createLease(
+          harness.db,
+          owner,
+          input({
+            apartmentId: apartment,
+            tenantId: '00000000-0000-4000-8000-000000000998',
+          }),
+          OPTIONS,
+        ),
+      ).rejects.toBeInstanceOf(ResourceOutOfScopeError);
+    });
+
+    /**
+     * `users` est une table GLOBALE.
+     *
+     * Une personne qu'un autre bailleur connait doit donc recevoir le MEME refus
+     * qu'un identifiant inexistant (ADR-008) : sinon un bail suffirait a lire le
+     * nom et le telephone de n'importe qui, et a l'attacher a son organisation.
+     */
+    it("refuse une personne d'une autre organisation, comme un inconnu", async () => {
       const apartment = await freshApartment();
       const foreignApartment = await addApartment(harness, SEED_IDS.propertyB, 'ZB2', {
         organizationId: SEED_IDS.organizationB,
@@ -185,7 +212,7 @@ describe("Création d'un bail", () => {
         createLease(
           harness.db,
           owner,
-          input({ apartmentId: apartment, tenantId: foreign.accessId }),
+          input({ apartmentId: apartment, tenantId: foreign.userId }),
           OPTIONS,
         ),
       );
@@ -195,7 +222,7 @@ describe("Création d'un bail", () => {
           owner,
           input({
             apartmentId: apartment,
-            tenantId: '00000000-0000-4000-8000-000000000998',
+            tenantId: '00000000-0000-4000-8000-000000000997',
           }),
           OPTIONS,
         ),
@@ -205,9 +232,49 @@ describe("Création d'un bail", () => {
       expect((elsewhere as Error).message).toBe((unknown as Error).message);
     });
 
-    it("refuse l'identifiant d'un accès de gestionnaire comme locataire", async () => {
+    /**
+     * DEC-051 : le bail cree la relation LOCATIVE, sans exiger d'acces.
+     *
+     * La personne ci-dessous n'a jamais accepte son invitation, et celle-ci a ete
+     * revoquee : elle n'a donc AUCUN acces au produit. Elle reste pourtant connue
+     * de l'organisation, et peut recevoir un bail. C'est exactement le locataire
+     * qui n'utilisera jamais l'application.
+     */
+    it('accepte une personne connue SANS acces au produit', async () => {
+      const apartment = await freshApartment();
+      const invited = await inviteTenant(
+        harness.db,
+        owner,
+        {
+          apartmentId: await freshApartment(),
+          name: 'Sans Compte',
+          phone: freshPhone(),
+          email: '',
+        },
+        TENANT_OPTIONS,
+      );
+
+      await revokeTenantInvitation(harness.db, owner, invited.invitation.id, TENANT_OPTIONS);
+
+      const personId = invited.invitation.userId as string;
+
+      const lease = await createLease(
+        harness.db,
+        owner,
+        input({ apartmentId: apartment, tenantId: personId }),
+        OPTIONS,
+      );
+
+      expect(lease.status).toBe('ACTIVE');
+      expect(lease.tenant.userId).toBe(personId);
+      expect(lease.tenant.accessId).toBeNull();
+    });
+
+    it("refuse l'identifiant d'un ACCES : le bail vise une personne", async () => {
       const apartment = await freshApartment();
 
+      // DEC-051 : `tenantId` est un `users.id`. Un `user_access.id` ne designe
+      // plus rien, et doit se comporter comme inconnu.
       await expect(
         createLease(
           harness.db,
@@ -228,7 +295,7 @@ describe("Création d'un bail", () => {
           owner,
           input({
             apartmentId: apartment,
-            tenantId: tenant.accessId,
+            tenantId: tenant.userId,
             startDate: dayOffset(10),
             endDate: dayOffset(5),
           }),
@@ -248,7 +315,7 @@ describe("Création d'un bail", () => {
         createLease(
           harness.db,
           owner,
-          input({ apartmentId: apartment, tenantId: tenant.accessId, startDate: '2026-02-31' }),
+          input({ apartmentId: apartment, tenantId: tenant.userId, startDate: '2026-02-31' }),
           OPTIONS,
         ),
       );
@@ -266,7 +333,7 @@ describe("Création d'un bail", () => {
           createLease(
             harness.db,
             owner,
-            input({ apartmentId: apartment, tenantId: tenant.accessId, dueDay }),
+            input({ apartmentId: apartment, tenantId: tenant.userId, dueDay }),
             OPTIONS,
           ),
         );
@@ -284,7 +351,7 @@ describe("Création d'un bail", () => {
           createLease(
             harness.db,
             owner,
-            input({ apartmentId: apartment, tenantId: tenant.accessId, rentAmount }),
+            input({ apartmentId: apartment, tenantId: tenant.userId, rentAmount }),
             OPTIONS,
           ),
         );
@@ -301,7 +368,7 @@ describe("Création d'un bail", () => {
         createLease(
           harness.db,
           owner,
-          input({ apartmentId: apartment, tenantId: tenant.accessId, currency: 'francs' }),
+          input({ apartmentId: apartment, tenantId: tenant.userId, currency: 'francs' }),
           OPTIONS,
         ),
       );
@@ -320,7 +387,7 @@ describe("Création d'un bail", () => {
       await createLease(
         harness.db,
         owner,
-        input({ apartmentId: apartment, tenantId: first.accessId }),
+        input({ apartmentId: apartment, tenantId: first.userId }),
         OPTIONS,
       );
 
@@ -328,7 +395,7 @@ describe("Création d'un bail", () => {
         createLease(
           harness.db,
           owner,
-          input({ apartmentId: apartment, tenantId: second.accessId }),
+          input({ apartmentId: apartment, tenantId: second.userId }),
           OPTIONS,
         ),
       );
@@ -346,7 +413,7 @@ describe("Création d'un bail", () => {
       await createLease(
         harness.db,
         owner,
-        input({ apartmentId: first, tenantId: tenant.accessId }),
+        input({ apartmentId: first, tenantId: tenant.userId }),
         OPTIONS,
       );
 
@@ -354,7 +421,7 @@ describe("Création d'un bail", () => {
         createLease(
           harness.db,
           owner,
-          input({ apartmentId: second, tenantId: tenant.accessId }),
+          input({ apartmentId: second, tenantId: tenant.userId }),
           OPTIONS,
         ),
       );
@@ -376,7 +443,7 @@ describe("Création d'un bail", () => {
       const lease = await createLease(
         harness.db,
         owner,
-        input({ apartmentId: apartment, tenantId: first.accessId }),
+        input({ apartmentId: apartment, tenantId: first.userId }),
         OPTIONS,
       );
 
@@ -408,7 +475,7 @@ describe("Création d'un bail", () => {
         owner,
         input({
           apartmentId: apartment,
-          tenantId: tenant.accessId,
+          tenantId: tenant.userId,
           startDate: dayOffset(1),
           endDate: dayOffset(366),
         }),
@@ -433,7 +500,7 @@ describe("Création d'un bail", () => {
       const lease = await createLease(
         harness.db,
         owner,
-        input({ apartmentId: apartment, tenantId: tenant.accessId }),
+        input({ apartmentId: apartment, tenantId: tenant.userId }),
         OPTIONS,
       );
 
@@ -454,7 +521,7 @@ describe("Création d'un bail", () => {
         const lease = await createLease(
           harness.db,
           owner,
-          input({ apartmentId: fresh, tenantId: other.accessId, endDate }),
+          input({ apartmentId: fresh, tenantId: other.userId, endDate }),
           OPTIONS,
         );
 
@@ -472,7 +539,7 @@ describe("Création d'un bail", () => {
       const lease = await createLease(
         harness.db,
         owner,
-        input({ apartmentId: apartment, tenantId: tenant.accessId, depositAmount: undefined }),
+        input({ apartmentId: apartment, tenantId: tenant.userId, depositAmount: undefined }),
         OPTIONS,
       );
 
@@ -487,7 +554,7 @@ describe("Création d'un bail", () => {
         createLease(
           harness.db,
           manager,
-          input({ apartmentId: apartment, tenantId: tenant.accessId }),
+          input({ apartmentId: apartment, tenantId: tenant.userId }),
           OPTIONS,
         ),
       ).resolves.toMatchObject({ status: 'ACTIVE' });
@@ -506,7 +573,7 @@ describe("Création d'un bail", () => {
       const lease = await createLease(
         harness.db,
         owner,
-        input({ apartmentId: apartment, tenantId: tenant.accessId }),
+        input({ apartmentId: apartment, tenantId: tenant.userId }),
         OPTIONS,
       );
 
@@ -525,13 +592,13 @@ describe("Création d'un bail", () => {
       const apartment = await freshApartment();
       const tenant = await freshTenant(await freshApartment());
 
-      await revokeTenant(harness.db, owner, tenant.accessId, TENANT_OPTIONS);
+      await revokeTenant(harness.db, owner, tenant.userId, TENANT_OPTIONS);
 
       await expect(
         createLease(
           harness.db,
           owner,
-          input({ apartmentId: apartment, tenantId: tenant.accessId }),
+          input({ apartmentId: apartment, tenantId: tenant.userId }),
           OPTIONS,
         ),
       ).resolves.toMatchObject({ status: 'ACTIVE' });
@@ -550,7 +617,7 @@ describe("Création d'un bail", () => {
       await createLease(
         harness.db,
         owner,
-        input({ apartmentId: apartment, tenantId: tenant.accessId }),
+        input({ apartmentId: apartment, tenantId: tenant.userId }),
         OPTIONS,
       );
 

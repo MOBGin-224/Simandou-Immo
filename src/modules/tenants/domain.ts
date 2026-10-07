@@ -1,20 +1,26 @@
 import type { InvitationPreviewMode, InvitationStatus } from '@/modules/invitations';
 
-import type { TenantListKind, TenantListStatus } from './constants';
+import type { TenantListStatus } from './constants';
 
 /**
- * Vues du module Locataires (DEC-046).
+ * Vues du module Locataires (DEC-046, DEC-051).
  *
  * Ce que le service renvoie aux routes et aux écrans. Jamais une ligne de base
  * brute : un champ ajouté demain à une table ne doit pas se retrouver exposé par
  * accident, et le hachage d'un jeton ne doit jamais pouvoir quitter le serveur.
  *
- * **Aucune donnée financière au Lot 7.** Ni montant de loyer, ni état de
- * paiement : ces notions naissent du bail, au Lot 8. Une vue qui porterait un
- * champ vide en attendant obligerait chaque écran à décider quoi en faire.
+ * **Le locataire est une PERSONNE** (DEC-051), identifiée par `users.id`. Son
+ * accès au produit est un attribut de sa relation avec l'organisation, pas son
+ * identité : `accessId` peut donc être nul, et c'est le cas normal du locataire
+ * qui n'utilisera jamais l'application.
+ *
+ * **La ressource est le couple personne et organisation.** `users` ne porte pas
+ * d'organisation, à dessein : une personne peut être locataire chez deux
+ * bailleurs, et chaque relation a son propre accès, son propre logement et son
+ * propre statut.
  */
 
-/** Logement désigné par l'invitation, tel que l'écran l'affiche. */
+/** Logement, tel que l'écran l'affiche. */
 export type TenantApartmentRef = {
   id: string;
   /** Référence affichée du logement, par exemple A01. */
@@ -26,21 +32,24 @@ export type TenantApartmentRef = {
 };
 
 /**
- * Un élément de la liste des locataires.
+ * D'où vient le logement affiché.
  *
- * Réunit deux natures, distinguées par `kind`. Un `ACCESS` est un locataire
- * dont le compte existe, identifié par `user_access.id`. Une `INVITATION` est
- * une personne invitée qui n'a pas encore accepté, identifiée par
- * `invitations.id` : elle n'a pas d'accès tant qu'elle n'a pas accepté
- * (DEC-041, DEC-046).
+ * Le bail fait foi dès qu'il y en a un ; l'invitation ne sert qu'en son absence,
+ * parce qu'au Lot 7 elle portait le logement faute de bail (DEC-046). Les deux
+ * peuvent diverger, si l'on invite une personne sur un logement puis qu'on lui en
+ * loue un autre : le dire évite un écran qui se contredit.
+ */
+export type ApartmentSource = 'LEASE' | 'INVITATION' | 'NONE';
+
+/**
+ * Un locataire dans une organisation : la personne, et sa relation.
  *
- * `apartment` peut être nul pour un accès : au Lot 7, le logement d'un locataire
- * est celui que portait son invitation acceptée, et une relation locative créée
- * autrement n'existera qu'au Lot 8.
+ * `id` est l'identifiant de la PERSONNE. Il se répète d'une organisation à
+ * l'autre lorsqu'une même personne est locataire chez deux bailleurs : c'est le
+ * couple `(id, organizationId)` qui identifie la relation.
  */
 export type TenantListItem = {
-  kind: TenantListKind;
-  /** `user_access.id` pour un accès, `invitations.id` pour une invitation. */
+  /** `users.id`, l'identité métier du locataire (DEC-051). */
   id: string;
   organizationId: string;
   organizationName: string;
@@ -49,18 +58,39 @@ export type TenantListItem = {
   email: string | null;
   status: TenantListStatus;
   apartment: TenantApartmentRef | null;
-  /** Émission du lien en vigueur (invitation) ou de la dernière invitation acceptée (accès). */
+  apartmentSource: ApartmentSource;
+  /** `user_access.id`, ou `null` si la personne n'a aucun accès au produit. */
+  accessId: string | null;
+  /** `invitations.id` d'une invitation ENCORE OUVERTE, pour la renvoyer ou la révoquer. */
+  invitationId: string | null;
+  /** `leases.id` du bail en cours, s'il y en a un. */
+  leaseId: string | null;
+  /** Émission du lien en vigueur, ou de la dernière invitation acceptée. */
   invitedAt: Date | null;
-  /** Acceptation de la dernière invitation, pour un accès. */
+  /** Acceptation de la dernière invitation : l'instant où l'accès s'est ouvert. */
   activatedAt: Date | null;
-  /** Expiration, pour une invitation en attente ou expirée. */
+  /** Expiration, pour une invitation encore ouverte. */
   expiresAt: Date | null;
 };
 
-/** Invitation d'un locataire, telle que le propriétaire ou le gestionnaire la voit. */
+/**
+ * Fiche d'un locataire, telle que le propriétaire ou le gestionnaire la consulte.
+ *
+ * Même contenu qu'un élément de liste, plus les dates de changement d'état de
+ * l'accès, qui n'ont de sens que sur la fiche.
+ */
+export type TenantDetailView = TenantListItem & {
+  /** Dernier changement de statut de l'accès, s'il y en a un. */
+  statusChangedAt: Date | null;
+  revokedAt: Date | null;
+};
+
+/** Invitation d'un locataire, telle que l'inviteur la voit. */
 export type TenantInvitationView = {
   id: string;
   organizationId: string;
+  /** `users.id` de la personne invitée : son identité métier (DEC-051). */
+  userId: string | null;
   fullName: string;
   phone: string | null;
   email: string | null;
@@ -89,7 +119,7 @@ export type IssuedTenantInvitation = {
  *
  * Le logement remplace la liste d'immeubles de l'invitation de gestionnaire :
  * c'est ce que l'invité reconnaît, et c'est aussi tout ce que l'invitation lui
- * accorde. Aucun montant n'y figure, aucun n'existant avant le bail (DEC-046).
+ * accorde. Aucun montant n'y figure : l'invitation n'est pas le bail.
  */
 export type TenantInvitationPreview = {
   organizationName: string;
@@ -115,13 +145,19 @@ export type AcceptedTenantInvitation = {
   activatedAccount: boolean;
 };
 
-/** Ordre d'affichage : ce qui appelle une action d'abord. */
+/**
+ * Ordre d'affichage : ce qui appelle une action d'abord.
+ *
+ * `NO_ACCESS` vient après `ACTIVE` et avant `SUSPENDED` : ce n'est pas un état à
+ * corriger, juste un locataire qui n'utilise pas l'application.
+ */
 const STATUS_ORDER: Record<TenantListStatus, number> = {
   INVITED: 0,
   INVITATION_EXPIRED: 1,
   ACTIVE: 2,
-  SUSPENDED: 3,
-  REVOKED: 4,
+  NO_ACCESS: 3,
+  SUSPENDED: 4,
+  REVOKED: 5,
 };
 
 /** Tri de la liste : par statut, puis par nom. Le nom départage sans tenir compte de la casse ni des accents. */
@@ -133,36 +169,20 @@ export function compareTenantItems(a: TenantListItem, b: TenantListItem): number
   return a.fullName.localeCompare(b.fullName, 'fr', { sensitivity: 'base' });
 }
 
-/**
- * Fiche d'un locataire, telle que le propriétaire ou le gestionnaire la consulte.
- *
- * Porte l'identité, le statut d'accès, le logement désigné et les dates
- * d'invitation et d'activation. **Rien de financier** : le loyer et les paiements
- * arrivent avec le bail (DEC-046).
- */
-export type TenantDetailView = {
-  /** `user_access.id`. */
-  id: string;
-  userId: string;
-  organizationId: string;
-  organizationName: string;
-  fullName: string;
-  phone: string | null;
-  email: string | null;
-  status: 'ACTIVE' | 'SUSPENDED' | 'REVOKED';
-  apartment: TenantApartmentRef | null;
-  /** Émission de la dernière invitation acceptée. */
-  invitedAt: Date | null;
-  /** Acceptation de cette invitation. */
-  activatedAt: Date | null;
-  /** Dernier changement de statut : suspension, réactivation ou révocation. */
-  statusChangedAt: Date;
-  revokedAt: Date | null;
-};
-
 /** Libellé d'un logement, tel qu'on le lit partout : « A01, Résidence Camayenne ». */
 export function describeApartment(apartment: TenantApartmentRef | null): string {
   if (!apartment) return 'Aucun logement';
 
   return `${apartment.number}, ${apartment.propertyName}`;
+}
+
+/**
+ * La personne a-t-elle un accès au produit ?
+ *
+ * Ce que suspendre, réactiver et révoquer supposent : ces trois opérations
+ * agissent sur le droit d'accès, et une personne qui n'en a pas n'a rien à
+ * suspendre (DEC-051).
+ */
+export function hasProductAccess(tenant: Pick<TenantListItem, 'accessId'>): boolean {
+  return tenant.accessId !== null;
 }

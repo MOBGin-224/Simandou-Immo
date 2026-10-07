@@ -8,30 +8,38 @@ import { PageHeader } from '@/components/ui/page-header';
 import { getDb } from '@/db/client';
 import { requireAccessContextOrSignIn } from '@/lib/auth/guard';
 import { formatDate, formatMoney } from '@/lib/ui/format';
-import { describePeriod, listLeases } from '@/modules/leases';
-import { describeApartment } from '@/modules/tenants';
+import {
+  describeApartment as describeLeaseApartment,
+  describePeriod,
+  listLeases,
+} from '@/modules/leases';
+import { describeApartment, hasProductAccess } from '@/modules/tenants';
 
 import { loadTenantPage } from '../data';
 
 /**
- * Fiche d'un locataire (MVP-BACKLOG-031, DEC-046 et DEC-047).
+ * Fiche d'un locataire (MVP-BACKLOG-031, DEC-046, DEC-047, DEC-051).
  *
- * Porte l'identité, le statut d'accès, le logement et les dates d'invitation et
- * d'activation. Et les décisions possibles, selon l'état de l'accès :
+ * **Une fiche par PERSONNE** (DEC-051). Elle porte son identité, sa relation avec
+ * l'organisation, son logement et son bail. Au Lot 7 il y avait deux fiches, une
+ * pour l'accès et une pour l'invitation en attente : le locataire étant désormais
+ * une personne, l'invitation n'est plus qu'un état de sa relation, et sa fiche
+ * d'invitation ne sert plus qu'à renvoyer ou révoquer le lien.
+ *
+ * Les décisions possibles, selon l'état du DROIT D'ACCÈS :
  *
  * ```text
- * ACTIVE      suspendre, révoquer l'accès
- * SUSPENDED   réactiver, révoquer l'accès
+ * ACTIVE      suspendre, revoquer l'acces
+ * SUSPENDED   reactiver, revoquer l'acces
  * REVOKED     rien : on invite de nouveau la personne (DEC-043)
+ * INVITED     rien ici : le lien se renvoie ou se revoque sur l'invitation
+ * NO_ACCESS   rien a suspendre : la personne n'utilise pas l'application, et
+ *             l'ecran propose de l'inviter plutot que de le taire
  * ```
  *
- * **Aucune donnée financière, et c'est voulu** (DEC-046) : ni loyer, ni paiement,
- * ni quittance. Ils naissent du bail, au Lot 8, et la fiche l'annonce plutôt que
- * de laisser un emplacement vide.
- *
- * **Aucun bouton de modification du nom** : le nom appartient au locataire
- * (DEC-048), qui le modifie depuis son propre espace. Le téléphone et l'email ne
- * sont modifiables par personne.
+ * **Aucun bouton de modification du nom** : le nom appartient à la personne
+ * (DEC-048, DEC-051), qui le modifie depuis son propre espace. Le téléphone et
+ * l'email ne sont modifiables par personne.
  *
  * Chaque décision grave passe par une page de confirmation qui énonce ses
  * conséquences (parcours 2.5), et la première conséquence à dire est celle que
@@ -40,45 +48,70 @@ import { loadTenantPage } from '../data';
  */
 export async function generateMetadata(props: PageProps<'/locataires/[tenantId]'>) {
   const { tenantId } = await props.params;
-  const tenant = await loadTenantPage(tenantId);
+  const { organisation } = await props.searchParams;
+  const tenant = await loadTenantPage(tenantId, first(organisation));
 
   return { title: tenant.fullName };
 }
 
+/** Premier paramètre d'une adresse, qui peut en porter plusieurs. */
+function first(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
 export default async function TenantPage(props: PageProps<'/locataires/[tenantId]'>) {
   const { tenantId } = await props.params;
-  const tenant = await loadTenantPage(tenantId);
+  const { organisation } = await props.searchParams;
+  const organizationId = first(organisation);
+  const tenant = await loadTenantPage(tenantId, organizationId);
 
   /*
    * Baux de cette personne (BR-020).
    *
    * Le bail est la relation locative : c'est lui qui porte le logement, la date
-   * d'entrée et le loyer, et la fiche du locataire les lit de lui plutôt que de
-   * les annoncer comme à venir.
+   * d'entrée et le loyer, et la fiche du locataire les lit de lui.
    */
   const context = await requireAccessContextOrSignIn();
   const leases = (await listLeases(getDb(), context, { tenantId: tenant.id })).leases;
   const activeLease = leases.find((lease) => lease.status === 'ACTIVE') ?? null;
 
-  const base = `/locataires/${tenant.id}`;
+  /*
+   * L'organisation voyage dans chaque adresse de cette fiche.
+   *
+   * La ressource est le couple personne et organisation (DEC-051) : la porter
+   * évite que les pages de confirmation aient à la redeviner, et rend l'adresse
+   * partageable sans ambiguïté.
+   */
+  const query = `?organisation=${tenant.organizationId}`;
+  const actionHref = (action: string) => `/locataires/${tenant.id}/${action}${query}`;
+
+  const hasAccess = hasProductAccess(tenant);
   const isRevoked = tenant.status === 'REVOKED';
   const isSuspended = tenant.status === 'SUSPENDED';
+  const isActive = tenant.status === 'ACTIVE';
+  const isInvited = tenant.status === 'INVITED' || tenant.status === 'INVITATION_EXPIRED';
+
+  const apartmentLabel = activeLease
+    ? describeLeaseApartment(activeLease.apartment)
+    : describeApartment(tenant.apartment);
 
   const details: { label: string; value: string }[] = [
     { label: 'Téléphone', value: tenant.phone ?? 'Non renseigné' },
     { label: 'Adresse email', value: tenant.email ?? 'Non renseignée' },
-    { label: 'Logement', value: describeApartment(tenant.apartment) },
+    { label: 'Logement', value: apartmentLabel },
     {
       label: 'Invité le',
-      value: tenant.invitedAt ? formatDate(tenant.invitedAt.toISOString()) : 'Non renseigné',
+      value: tenant.invitedAt ? formatDate(tenant.invitedAt.toISOString()) : 'Jamais invité',
     },
     {
       label: 'Espace ouvert le',
-      value: tenant.activatedAt ? formatDate(tenant.activatedAt.toISOString()) : 'Non renseigné',
+      value: tenant.activatedAt
+        ? formatDate(tenant.activatedAt.toISOString())
+        : "Pas d'espace locataire",
     },
   ];
 
-  if (isSuspended) {
+  if (isSuspended && tenant.statusChangedAt) {
     details.push({
       label: 'Suspendu depuis le',
       value: formatDate(tenant.statusChangedAt.toISOString()),
@@ -96,7 +129,7 @@ export default async function TenantPage(props: PageProps<'/locataires/[tenantId
     <div className="flex max-w-2xl flex-col gap-6">
       <PageHeader
         title={tenant.fullName}
-        description={describeApartment(tenant.apartment)}
+        description={apartmentLabel}
         back={{ href: '/locataires', label: 'Locataires' }}
       />
 
@@ -116,6 +149,31 @@ export default async function TenantPage(props: PageProps<'/locataires/[tenantId
           Cette personne n&apos;a plus d&apos;espace locataire. Son historique est conservé.{' '}
           <strong>Aucun bail n&apos;a été terminé</strong> : si elle occupe encore le logement, elle
           en reste la locataire. Pour lui rendre l&apos;accès, invitez-la de nouveau.
+        </Alert>
+      ) : null}
+
+      {/*
+        DEC-051 : ne pas utiliser l'application est un état NORMAL, pas un défaut.
+        L'alerte est donc informative et propose l'invitation, sans la réclamer.
+      */}
+      {tenant.status === 'NO_ACCESS' ? (
+        <Alert tone="info" title="Locataire sans compte">
+          Cette personne est bien locataire, mais elle n&apos;a aucun accès à l&apos;application :
+          elle n&apos;a pas été invitée, ou n&apos;en a pas besoin. Rien ne l&apos;y oblige. Vous
+          pouvez l&apos;inviter si elle souhaite consulter ses loyers elle-même.
+        </Alert>
+      ) : null}
+
+      {isInvited && tenant.invitationId ? (
+        <Alert tone="info" title="Invitation en attente">
+          Cette personne a été invitée et n&apos;a pas encore ouvert son espace.{' '}
+          <Link
+            href={`/locataires/invitations/${tenant.invitationId}`}
+            className="underline underline-offset-4"
+          >
+            Renvoyer ou révoquer le lien
+          </Link>
+          .
         </Alert>
       ) : null}
 
@@ -158,7 +216,7 @@ export default async function TenantPage(props: PageProps<'/locataires/[tenantId
                   href={`/baux/${activeLease.id}`}
                   className="inline-flex min-h-11 items-center text-action underline underline-offset-4 hover:text-brand"
                 >
-                  {describeApartment(activeLease.apartment)}
+                  {describeLeaseApartment(activeLease.apartment)}
                 </Link>
               </dd>
             </div>
@@ -195,7 +253,7 @@ export default async function TenantPage(props: PageProps<'/locataires/[tenantId
                       href={`/baux/${lease.id}`}
                       className="inline-flex min-h-11 items-center break-words text-action underline underline-offset-4 hover:text-brand"
                     >
-                      {describeApartment(lease.apartment)}, {describePeriod(lease, formatDate)}
+                      {describeLeaseApartment(lease.apartment)}, {describePeriod(lease, formatDate)}
                     </Link>
                   </li>
                 ))}
@@ -204,15 +262,20 @@ export default async function TenantPage(props: PageProps<'/locataires/[tenantId
         ) : null}
 
         {activeLease === null ? (
-          <Link href={`/baux/nouveau`} className={buttonClasses('secondary', 'md', true)}>
+          <Link href="/baux/nouveau" className={buttonClasses('secondary', 'md', true)}>
             Créer un bail
           </Link>
         ) : null}
       </Card>
 
-      {isRevoked ? (
+      {/*
+        Les actions d'accès n'apparaissent que s'il y a un accès sur lequel agir.
+        Sans accès, l'invitation est la seule porte, et c'est elle qu'on propose
+        (DEC-051).
+      */}
+      {!hasAccess || isRevoked ? (
         <Link href="/locataires/inviter" className={buttonClasses('primary', 'md', true)}>
-          Inviter de nouveau cette personne
+          {isRevoked ? 'Inviter de nouveau cette personne' : 'Inviter cette personne'}
         </Link>
       ) : (
         <Card className="flex flex-col gap-5">
@@ -223,27 +286,32 @@ export default async function TenantPage(props: PageProps<'/locataires/[tenantId
           {isSuspended ? (
             <div className="flex flex-col gap-2">
               <p className="text-sm text-muted">Lui rendre son espace locataire.</p>
-              <Link href={`${base}/reactiver`} className={buttonClasses('primary', 'md', true)}>
+              <Link href={actionHref('reactiver')} className={buttonClasses('primary', 'md', true)}>
                 Réactiver l&apos;accès
               </Link>
             </div>
-          ) : (
+          ) : null}
+
+          {isActive ? (
             <div className="flex flex-col gap-2">
               <p className="text-sm text-muted">
                 Bloquer son espace pour un temps. Le bail n&apos;est pas touché.
               </p>
-              <Link href={`${base}/suspendre`} className={buttonClasses('secondary', 'md', true)}>
+              <Link
+                href={actionHref('suspendre')}
+                className={buttonClasses('secondary', 'md', true)}
+              >
                 Suspendre l&apos;accès
               </Link>
             </div>
-          )}
+          ) : null}
 
           <div className="flex flex-col gap-2">
             <p className="text-sm text-muted">
               Mettre fin à son accès au produit. L&apos;historique est conservé, et aucun bail
               n&apos;est terminé.
             </p>
-            <Link href={`${base}/revoquer`} className={buttonClasses('secondary', 'md', true)}>
+            <Link href={actionHref('revoquer')} className={buttonClasses('secondary', 'md', true)}>
               Révoquer l&apos;accès
             </Link>
           </div>
