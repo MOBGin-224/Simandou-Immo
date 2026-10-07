@@ -6,9 +6,8 @@ import { redirect } from 'next/navigation';
 import { getDb } from '@/db/client';
 import { requireAccessContextOrSignIn } from '@/lib/auth/guard';
 import { PermissionDeniedError, ResourceOutOfScopeError } from '@/lib/authorization';
+import { InvitationNotOpenError, InvitationTargetUnavailableError } from '@/modules/invitations';
 import {
-  InvitationNotOpenError,
-  InvitationTargetUnavailableError,
   ManagerInvitationConflictError,
   ManagerStateError,
   ManagerValidationError,

@@ -12,7 +12,6 @@
 export type {
   AcceptedInvitation,
   InvitationPreview,
-  InvitationPreviewMode,
   IssuedInvitation,
   ManagerDetailView,
   ManagerInvitationView,
@@ -21,18 +20,17 @@ export type {
 } from './domain';
 export { compareManagerItems } from './domain';
 
+/**
+ * Les erreurs communes à toute invitation ne sont PAS réexportées ici : elles
+ * appartiennent au noyau `invitations` depuis DEC-046, et s'importent de là.
+ */
 export type {
   FieldErrors,
-  InvitationNotOpenReason,
   ManagerAccessStatus,
   ManagerAction,
   ManagerInvitationConflictReason,
 } from './errors';
 export {
-  InvitationInvalidError,
-  InvitationLoginRequiredError,
-  InvitationNotOpenError,
-  InvitationTargetUnavailableError,
   ManagerInvitationConflictError,
   ManagerStateError,
   ManagerValidationError,

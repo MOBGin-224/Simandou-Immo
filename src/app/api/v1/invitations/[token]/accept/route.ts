@@ -1,19 +1,18 @@
-import { getDb } from '@/db/client';
+import { HOME_BY_ROLE, acceptPublicInvitation, type PublicAcceptance } from '@/app/invitation/flow';
 import { getCurrentUser, hashPassword, signInSession } from '@/lib/auth';
 import { redirectWithCookies } from '@/lib/http/redirect';
 import { apiErrorResponse, dataResponse, readJsonBody } from '@/lib/http/responses';
-import { invitationPath } from '@/modules/invitations';
 import {
   InvitationInvalidError,
   InvitationLoginRequiredError,
-  ManagerValidationError,
-  acceptManagerInvitation,
-  type AcceptedInvitation,
-} from '@/modules/managers';
-import { passwordConfirmationError } from '@/modules/managers/form';
+  invitationPath,
+  passwordConfirmationError,
+} from '@/modules/invitations';
+import { ManagerValidationError } from '@/modules/managers';
+import { TenantValidationError } from '@/modules/tenants';
 
 /**
- * Acceptation d'une invitation de gestionnaire (MVP-BACKLOG-025, API section 14).
+ * Acceptation d'une invitation (MVP-BACKLOG-025 et 030, API section 14).
  *
  * ```text
  * POST /api/v1/invitations/:token/accept
@@ -21,9 +20,13 @@ import { passwordConfirmationError } from '@/modules/managers/form';
  *
  * Route PUBLIQUE : le jeton est la seule preuve. Elle sert deux appelants.
  *
- *   JSON      l'enveloppe habituelle, `{ "password": "…" }`
+ *   JSON        l'enveloppe habituelle, `{ "password": "…" }`
  *   formulaire  la page d'activation, qui doit fonctionner SANS JavaScript : la
- *             réponse est une redirection, cookies de session compris
+ *               réponse est une redirection, cookies de session compris
+ *
+ * Elle est ORIENTÉE SELON LE RÔLE porté par l'invitation (DEC-046) : un
+ * gestionnaire part vers ses immeubles, un locataire vers son logement, car il
+ * n'atteint aucun immeuble.
  *
  * La page passe par ici plutôt que par une Server Action pour la même raison que
  * la connexion : une route écrit ses propres en-têtes, donc pose le cookie de
@@ -34,7 +37,7 @@ import { passwordConfirmationError } from '@/modules/managers/form';
  * passe : c'est le cas d'usage qui l'impose, pas cette route.
  *
  * Une session est ouverte après l'activation d'un NOUVEAU compte (parcours 5,
- * étape 6). Un compte déjà actif a déjà la sienne.
+ * étape 6 ; parcours 9 pour un locataire). Un compte déjà actif a déjà la sienne.
  */
 
 /** Code d'erreur porté par l'URL du formulaire, jamais le message brut. */
@@ -77,8 +80,7 @@ export async function POST(
       password = form.get('password');
     }
 
-    const accepted = await acceptManagerInvitation(
-      getDb(),
+    const accepted = await acceptPublicInvitation(
       { hashPassword },
       { token, password, sessionUserId: user?.id ?? null },
     );
@@ -94,14 +96,19 @@ export async function POST(
       return response;
     }
 
-    return redirectWithCookies(request, '/immeubles', cookies);
+    return redirectWithCookies(request, HOME_BY_ROLE[accepted.role], cookies);
   } catch (error) {
     if (wantsJson) return apiErrorResponse(error);
 
     // Lien inutilisable : la page l'affichera elle-même, sans rien en dire de plus.
     if (error instanceof InvitationInvalidError) return backToPage();
     if (error instanceof InvitationLoginRequiredError) return backToPage('connexion');
-    if (error instanceof ManagerValidationError) return backToPage('mot-de-passe');
+
+    // Les deux modules ont leur propre erreur de validation, et le mot de passe est
+    // le seul champ que ce formulaire envoie : les deux conduisent au même message.
+    if (error instanceof ManagerValidationError || error instanceof TenantValidationError) {
+      return backToPage('mot-de-passe');
+    }
 
     return apiErrorResponse(error);
   }
@@ -114,7 +121,7 @@ export async function POST(
  * d'ouverture ne défait pas l'activation, déjà validée : l'invité n'a qu'à se
  * connecter, avec le mot de passe qu'il vient de définir.
  */
-async function openSession(accepted: AcceptedInvitation, password: unknown): Promise<string[]> {
+async function openSession(accepted: PublicAcceptance, password: unknown): Promise<string[]> {
   if (!accepted.activatedAccount || accepted.phone === null || typeof password !== 'string') {
     return [];
   }

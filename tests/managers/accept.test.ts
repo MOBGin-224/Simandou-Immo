@@ -7,8 +7,8 @@ import { can } from '../../src/lib/authorization/service';
 import {
   InvitationInvalidError,
   InvitationLoginRequiredError,
-  ManagerValidationError,
-} from '../../src/modules/managers/errors';
+} from '../../src/modules/invitations/errors';
+import { ManagerValidationError } from '../../src/modules/managers/errors';
 import { claimInvitation } from '../../src/modules/managers/repository';
 import {
   acceptManagerInvitation,

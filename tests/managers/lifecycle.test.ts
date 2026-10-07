@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { SEED_IDS, seed } from '../../src/db/seed';
 import { ResourceOutOfScopeError } from '../../src/lib/authorization/service';
 import { hashInvitationToken } from '../../src/modules/invitations';
-import { InvitationNotOpenError } from '../../src/modules/managers/errors';
+import { InvitationNotOpenError } from '../../src/modules/invitations/errors';
 import {
   acceptManagerInvitation,
   getManagerInvitation,

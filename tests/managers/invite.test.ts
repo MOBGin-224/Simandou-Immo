@@ -5,8 +5,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { SEED_IDS, seed } from '../../src/db/seed';
 import { ResourceOutOfScopeError } from '../../src/lib/authorization/service';
+import { InvitationTargetUnavailableError } from '../../src/modules/invitations/errors';
 import {
-  InvitationTargetUnavailableError,
   ManagerInvitationConflictError,
   ManagerValidationError,
 } from '../../src/modules/managers/errors';

@@ -132,6 +132,11 @@ Lorsqu'une contradiction est détectée, elle doit être corrigée dans le docum
 | DEC-043 | Réinvitation d'un gestionnaire révoqué | VERROUILLÉE | aucun |
 | DEC-044 | Suspension et réactivation d'un gestionnaire | VERROUILLÉE | aucun |
 | DEC-045 | Durée de validité d'une invitation | VERROUILLÉE | aucun |
+| DEC-046 | Modélisation du locataire au MVP | DÉDUITE | aucun |
+| DEC-047 | Suspension et révocation d'un locataire | VERROUILLÉE | aucun |
+| DEC-048 | Données modifiables d'un locataire au MVP | VERROUILLÉE | aucun |
+| DEC-049 | Une seule relation locative active par organisation | VERROUILLÉE | aucun |
+| DEC-050 | Statut d'occupation dérivé de la relation locative | VERROUILLÉE | aucun |
 
 ---
 
@@ -1787,6 +1792,139 @@ Le lien reste à usage unique, révocable, et inutilisable dès son expiration. 
 
 ---
 
+## DEC-046 : Modélisation du locataire au MVP
+
+**Statut** : DÉDUITE
+
+**Date** : 6 octobre 2026
+
+### Les écarts rencontrés
+
+Le Lot 7 rencontre huit écarts ou lacunes que la hiérarchie documentaire permet de résoudre sans le fondateur.
+
+1. **Le parcours 7 fusionne le locataire et son contrat.** Il demande en une étape la date d'entrée et le montant du loyer, puis « complète les informations du contrat », et l'API section 15 reçoit `apartmentId` et `moveInDate` sur `POST /tenants`. Or BR-020 (niveau 4) rattache le locataire au logement **par la relation locative**, la table `leases` exige un loyer, une devise et un jour d'échéance non nuls, le code du Lot 3 a différé ce rattachement « à son bail au lot Contrats », et la fiche d'appartement du Lot 5 annonce « Locataire et bail » au lot Contrats. Les niveaux supérieurs et le code existant séparent donc ce que l'UX réunit.
+2. **`channel: "whatsapp"`** dans `POST /tenant-invitations` contredit DEC-026, niveau 1.
+3. **Routes absentes de l'API** : liste et détail des invitations locataires, renvoi, révocation d'une invitation, suspension, réactivation et révocation d'un accès.
+4. **`GET /tenants` reçoit un paramètre `status`** qu'aucune énumération ne définit nulle part.
+5. **`tenant_profiles` ne porterait que `id` et `user_id`**, et `leases.tenant_user_id` référence `users`, pas elle. Le document l'écrit lui-même au conditionnel.
+6. **La racine du produit redirige vers `/immeubles`**, écran qu'un locataire ne peut pas atteindre, le service d'autorisation du Lot 3 ne lui accordant que ses propres ressources.
+7. **SEC-049 et SEC-050 exigent une vérification** du changement de numéro et d'email, impossible sans canal d'envoi (DEC-008, DEC-026).
+8. **`TenantCard` porte un montant et un statut financier** qui n'existent qu'au Lot 9.
+
+### La décision
+
+```text
+users         l'identite, profil preliminaire en PENDING_ACTIVATION (BR-008)
+user_access   le role TENANT dans l'organisation, cree a l'acceptation
+invitations   le contexte locatif PREVU : property_id et apartment_id
+leases        la relation locative reelle, au Lot 8 (BR-020)
+```
+
+1. **Frontière du Lot 7 et du Lot 8.** Le Lot 7 livre la personne, son invitation liée au logement visé, l'activation, et la vie de son accès. Le Lot 8 livre la relation locative. **Un locataire du Lot 7 est une personne invitée à l'espace locataire d'un logement désigné** ; l'occupant d'un logement, comme fait métier, naît du bail. Aucune date d'entrée ni montant de loyer au Lot 7.
+2. **Aucune table `tenant_profiles`**, confirmé par le fondateur le 6 octobre 2026. La distinction entre la personne et le rôle, seule raison d'être de cette table, est déjà portée par `user_access.role`. Une table vide serait une dette : il faudrait la migrer dès le premier attribut.
+3. **Identifiants.** La ressource locataire a pour identifiant `user_access.id`. Une invitation en attente a le sien, `invitation.id`, sous `/tenant-invitations`. La liste montre les deux, distingués par un type. C'est exactement le double identifiant de DEC-041 point 2.
+4. **Créer un locataire, c'est créer la personne et son invitation.** Le périmètre d'un gestionnaire sur un locataire ne peut se résoudre que par le logement, et au Lot 7 le seul endroit qui le porte est l'invitation. `POST /tenants` disparaît donc au profit de `POST /tenant-invitations`, qui reçoit nom, téléphone, email facultatif et `apartmentId`. MVP-FEAT-023 est tenue par le profil préliminaire de BR-008, créé à l'invitation. **Conséquence à traiter au Lot 8** : la création d'un bail doit pouvoir créer la personne sans invitation, pour le locataire qui n'utilisera jamais l'application.
+5. **Contexte locatif de l'invitation.** `apartment_id` reçoit le logement, `property_id` son immeuble, ce que le schéma réserve explicitement au locataire. BR-014 est ainsi tenue, et le parcours 9 étape 3 peut afficher la résidence et le logement. Le logement doit appartenir à l'organisation de l'inviteur, ne pas être archivé, et son immeuble être dans le périmètre de l'inviteur. Un logement inexistant et un logement hors périmètre reçoivent le même refus, indiscernables (ADR-008).
+6. **Aucun `channel`.** DEC-026 prime : le produit génère un lien de partage, affiché une seule fois, que l'inviteur transmet par son propre moyen.
+7. **Routes** : `POST /tenant-invitations`, `GET /tenants`, `GET /tenants/:id`, `PATCH /tenants/:id`, `GET /tenant-invitations/:id`, `POST /tenant-invitations/:id/resend`, `POST /tenant-invitations/:id/revoke`, `POST /tenants/:id/suspend`, `POST /tenants/:id/reactivate`, `POST /tenants/:id/revoke`.
+8. **Statut dérivé, jamais stocké** : `INVITED`, `INVITATION_EXPIRED`, `ACTIVE`, `SUSPENDED`, `REVOKED`. Mêmes valeurs que la liste des gestionnaires, pour que les deux listes se lisent de la même façon.
+9. **L'aperçu et l'acceptation publics restent génériques.** `GET /invitations/:token` et l'acceptation orientent selon le rôle porté par l'invitation. `InvitationInvalidError` quitte le module Gestionnaires pour le noyau d'invitation, les deux rôles la partageant. Un jeton d'un autre rôle reste indiscernable d'un jeton inconnu.
+10. **L'acceptation d'une invitation locataire ne copie aucun périmètre d'immeubles** : le rôle TENANT n'en a pas, son accès se résolvant par `ownerUserId` comme le Lot 3 l'a écrit. Elle crée l'accès, réactive celui d'un locataire révoqué par symétrie avec DEC-043, écrit le mot de passe et active le compte, dans une transaction unique, selon l'ordre de DEC-041 point 9.
+11. **La racine oriente selon le rôle.** Un locataire arrive dans son espace, un propriétaire et un gestionnaire sur les immeubles. Sans cela, un locataire qui vient d'activer son compte tombe sur un écran qu'il ne peut pas atteindre.
+12. **L'espace locataire du Lot 7 n'affiche aucune donnée financière.** Il porte le logement visé et le profil, et annonce les sections que les Lots 8 à 13 rempliront, comme la fiche d'appartement du Lot 5. `TenantCard` porte donc nom, téléphone, logement et état du compte, sans montant.
+
+**Hors périmètre, assumé** : la date d'entrée, le loyer et le bail (Lot 8), le changement de numéro et d'email (DEC-048), la règle de simultanéité des relations locatives (DEC-049), le statut d'occupation dérivé (DEC-050), le journal d'audit (Lot 20).
+
+**Impact si changé** : aucune règle métier. Le modèle reste `users` plus relation locative, que `database.md` section 15 pose déjà.
+
+---
+
+## DEC-047 : Suspension et révocation d'un locataire
+
+**Statut** : VERROUILLÉE
+
+**Date** : 6 octobre 2026. **Confirmée par le fondateur le 6 octobre 2026.**
+
+La matrice des rôles prévoit « Suspendre un locataire » et « Révoquer l'accès locataire », mais le catalogue écrit au Lot 3 ne porte ni `tenant.suspend` ni `tenant.revoke`. C'est la même lacune que DEC-039 pour l'archivage d'un appartement.
+
+```text
+tenant.update   suspendre et reactiver
+tenant.revoke   revoquer l'acces, permission AJOUTEE au catalogue
+```
+
+1. **`tenant.update` pour suspendre et réactiver**, par symétrie avec DEC-041 point 11, qui place la suspension d'un gestionnaire sous `manager.update`. Aucune permission `tenant.suspend` n'est créée.
+2. **`tenant.revoke` est ajoutée au catalogue**, et à la liste de `database.md` section 11 que le test du Lot 3 confronte au code.
+3. **Propriétaire et gestionnaire, chacun sur son périmètre.** Différence assumée avec le gestionnaire, que seul le propriétaire invite ou révoque (DEC-025) : la matrice accorde ici les deux rôles, et la section 13 des rôles fait du gestionnaire « le principal point d'entrée pour les locataires ».
+4. **Aucun accès pour un autre locataire.** Un locataire qui vise un autre locataire obtient « inexistant ».
+5. **L'absence de droit et la ressource hors périmètre restent indiscernables** (ADR-007, ADR-008).
+6. **Retirer l'accès au produit ne termine jamais le bail.** Le statut du bail et l'accès au produit sont deux concepts distincts. La section 47 de la sécurité décrit la fin d'une relation locative comme retirant l'accès au logement : au MVP, c'est le **bail** qui porte cette conséquence, au Lot 8, et non la révocation d'accès du Lot 7. L'inverse vaut aussi : révoquer l'accès d'un locataire ne clôt aucun bail et ne suspend aucune créance.
+7. **La suspension conserve tout et se restitue exactement**, comme DEC-044 pour le gestionnaire.
+8. **La révocation retire l'accès à la requête suivante**, coupe les sessions seulement si la personne n'a plus aucun accès actif ailleurs, et ne supprime aucune ligne (DEC-013, BR-019).
+
+**Impact si changé** : le catalogue de permissions et la matrice. Aucune donnée.
+
+---
+
+## DEC-048 : Données modifiables d'un locataire au MVP
+
+**Statut** : VERROUILLÉE
+
+**Date** : 6 octobre 2026. **Confirmée par le fondateur le 6 octobre 2026.**
+
+Le Lot 3 a accordé `tenant.update` au locataire « pour ses données de contact », en laissant au module Locataires le soin de restreindre les champs. Or SEC-049 et SEC-050 exigent qu'un changement de numéro et d'email soit vérifié, et aucune vérification n'est possible : DEC-008 et DEC-026 interdisent tout envoi automatique au MVP.
+
+```text
+nom         modifiable
+telephone   NON modifiable, par personne
+email       NON modifiable, par personne
+```
+
+1. **Le locataire modifie son nom, et rien d'autre.**
+2. **Le numéro de téléphone n'est modifiable par personne**, ni par le locataire, ni par le gestionnaire, ni par le propriétaire. Il est l'identifiant de connexion, et le changer sans vérification ouvrirait une prise de contrôle de compte.
+3. **L'email n'est modifiable par personne non plus**, SEC-050 l'exigeant vérifié.
+4. **Un numéro mal saisi se corrige en révoquant l'invitation puis en réinvitant**, exactement comme DEC-041 l'a posé pour le gestionnaire. Et un numéro mal saisi ne peut pas appartenir à un compte activé : le numéro étant l'identifiant de connexion, la personne n'aurait pas pu activer son compte.
+5. **Un email mal saisi reste sans conséquence au MVP**, aucun envoi n'existant. Il se corrige par le même chemin tant que l'invitation est ouverte.
+6. **`PATCH /tenants/:id` ne modifie donc que le nom.** La phrase « les champs modifiables dépendent du rôle » de l'API section 15 se réduit à cela au MVP.
+
+Le changement de numéro et le changement d'email seront introduits lorsque les mécanismes de vérification correspondants existeront réellement, donc au plus tôt avec un canal d'envoi, ce que DEC-008 reporte.
+
+**Impact si changé** : un champ de formulaire et une règle de validation. Aucune donnée.
+
+---
+
+## DEC-049 : Une seule relation locative active par organisation
+
+**Statut** : VERROUILLÉE
+
+**Date** : 6 octobre 2026. **Confirmée par le fondateur le 6 octobre 2026.**
+
+La section 34 des rôles pose qu'un même compte peut être associé à plusieurs logements, mais ses deux exemples sont successifs, « Mamadou quitte A04, il devient locataire de B07 ». BR-028 n'interdit que deux baux actifs sur le **même** appartement, pas un locataire sur deux appartements.
+
+1. **Un locataire ne peut pas avoir deux relations locatives actives simultanément dans la même organisation.** Il peut quitter un logement puis en occuper un autre.
+2. **La règle appartient au domaine des contrats et s'applique au Lot 8**, à la création et à l'activation d'un bail. **Elle n'est pas forcée au niveau de l'invitation** : une invitation n'est pas une relation locative, et poser la règle là où elle n'appartient pas la rendrait fausse dès que le Lot 8 créera un bail sans invitation.
+3. **Ce que l'invitation garantit déjà est une autre règle** : une seule invitation OUVERTE par personne, organisation et rôle, par l'index unique partiel posé au Lot 6a. Deux invitations locataires ouvertes pour la même personne sont donc impossibles, mais c'est une règle d'hygiène des invitations, pas la règle de simultanéité.
+
+**Impact si changé** : une vérification à la création d'un bail. Aucune donnée.
+
+---
+
+## DEC-050 : Statut d'occupation dérivé de la relation locative
+
+**Statut** : VERROUILLÉE
+
+**Date** : 6 octobre 2026. **Confirmée par le fondateur le 6 octobre 2026. Application au Lot 8.**
+
+BR-029 veut qu'un appartement lié à un contrat actif apparaisse occupé. Or le gestionnaire choisit aujourd'hui `VACANT`, `OCCUPIED` ou `MAINTENANCE` à la main, ce qui autorise un logement annoncé vacant alors qu'un bail y court.
+
+**Le statut d'occupation doit progressivement devenir dérivé de la relation locative, plutôt qu'une information contradictoire saisie manuellement.**
+
+1. **Application au Lot 8**, quand la relation locative existera. Rien ne change au Lot 7, aucun bail n'y étant créé.
+2. **`MAINTENANCE` reste une saisie**, n'étant pas une occupation : un logement peut être en travaux qu'il soit loué ou vide.
+3. La transition doit préserver l'historique (DEC-013) et ne pas réécrire les statuts déjà saisis sans trace.
+
+**Impact si changé** : la provenance d'un champ d'affichage. Aucune règle financière.
+
+---
 # 7. Décisions ouvertes
 
 Ces décisions nécessitent une validation explicite du fondateur.
@@ -1906,3 +2044,4 @@ Toute fonctionnalité reste gouvernée par le Master Product Specification et le
 | 2.3 | 2026-10-02 | **Lot 6 cadré : les gestionnaires.** Quatre décisions confirmées par le fondateur : **DEC-042** le périmètre d'un gestionnaire est une liste explicite d'immeubles, « tous les immeubles » n'étant qu'une sélection de ceux qui existent, sans inclusion automatique des futurs ; **DEC-043** un gestionnaire révoqué peut être réinvité, en réactivant sa même ligne d'accès, sans second compte ni modification rétroactive des actions passées ; **DEC-044** la suspension et la réactivation entrent dans le lot, sous `manager.update` ; **DEC-045** un lien d'invitation vit 7 jours par défaut, réglables par `INVITATION_TTL_DAYS`. **DEC-041**, DÉDUITE, consigne les écarts résolus par la hiérarchie documentaire : table `invitation_properties` pour plusieurs immeubles par invitation, six routes ajoutées à l'API, profil préliminaire en `PENDING_ACTIVATION`, un numéro un compte, jeton haché donc lien affiché une seule fois, activation atomique, lien invalide à réponse unique. Aucune décision verrouillée n'est rouverte. |
 | 2.4 | 2026-10-02 | **Lot 6, tranche 6a exécutée : inviter et activer.** Migration 0002 (`invitations`, `invitation_properties`), noyau d'invitation (jeton de 256 bits stocké haché, expiration dérivée), invitation d'un gestionnaire sur un ou plusieurs immeubles, renvoi qui régénère le jeton dans la même ligne, révocation d'une invitation, aperçu et acceptation publics, activation atomique en une transaction. Écrans : liste des gestionnaires, formulaire d'invitation avec « Tout sélectionner » (DEC-042), lien affiché une seule fois avec copie, fiche et révocation d'une invitation, page publique d'activation, écran « aucun accès actif ». La connexion et la déconnexion acceptent une destination limitée à une liste fermée. **Vérifié dans le navigateur, quatre profils indépendants, au toucher, à 360 px** : invitation, renvoi dont l'ancien lien meurt, activation, périmètre borné (l'immeuble non confié est « introuvable », l'autre organisation invisible), refus d'un gestionnaire sur toutes les routes, révocation d'invitation, compte déjà actif qui revient à son invitation par la connexion sans que son mot de passe change. Un défaut trouvé à l'écran et corrigé : le lien était coupé dans son champ à 360 px. Reste au Lot 6, tranche 6b : fiche d'un gestionnaire, modification du périmètre, suspension, réactivation, révocation d'un accès. |
 | 2.5 | 2026-10-02 | **Lot 6, tranche 6b exécutée : gérer les gestionnaires. Le Lot 6 est complet.** Fiche d'un gestionnaire, modification du périmètre (la liste fournie remplace la précédente, au moins un immeuble, un immeuble retiré puis rattribué réactive sa ligne), **suspension et réactivation** (DEC-044, périmètre conservé, restitution exacte), **révocation d'un accès** : accès retiré à la requête suivante, périmètre révoqué avec lui sans supprimer aucune ligne, sessions coupées seulement si la personne n'a plus aucun accès actif ailleurs, historique conservé. Une réinvitation réactive la même ligne sans doublon dans la liste (DEC-043). Six routes d'API, quatre écrans de confirmation ou de saisie, cartes de la liste cliquables. **Les garanties d'atomicité sont éprouvées par une panne simulée entre deux écritures**, et non par la seule validation : un premier test « tout ou rien » passait même sans transaction, parce que le service valide avant d'écrire. **Vérifié dans le navigateur, trois profils, au toucher, à 360 px et mesuré à 390 px** : effet immédiat côté gestionnaire de chaque décision, écran « aucun accès actif », coupure de session après révocation, réinvitation sur la même ligne, et isolation totale pour le propriétaire de l'autre organisation. Aucune décision verrouillée n'est rouverte. |
+| 2.6 | 2026-10-06 | **Lot 7 cadré : les locataires.** Quatre décisions confirmées par le fondateur : **DEC-047** la suspension et la réactivation d'un locataire passent par `tenant.update`, la révocation par `tenant.revoke` ajoutée au catalogue, propriétaire et gestionnaire autorisés chacun sur son périmètre, et retirer l'accès au produit ne termine jamais le bail ; **DEC-048** le locataire modifie son nom, le téléphone et l'email ne sont modifiables par personne tant qu'aucun canal de vérification n'existe ; **DEC-049** un locataire n'a qu'une relation locative active par organisation, règle qui appartient au domaine des contrats et s'applique au Lot 8, pas au niveau de l'invitation ; **DEC-050** le statut d'occupation d'un appartement doit devenir dérivé de la relation locative, application au Lot 8. **DEC-046**, DÉDUITE, consigne les écarts résolus par la hiérarchie : la frontière entre le Lot 7 et le Lot 8, un locataire du Lot 7 étant une personne invitée à l'espace d'un logement désigné et l'occupant naissant du bail ; aucune table `tenant_profiles` ; identifiant `user_access.id` et `invitation.id` pour une invitation en attente, comme DEC-041 ; `POST /tenants` remplacé par `POST /tenant-invitations`, le périmètre d'un gestionnaire sur un locataire ne pouvant se résoudre que par le logement que porte l'invitation ; `channel` supprimé par DEC-026 ; dix routes ; statut dérivé ; aperçu et acceptation publics orientés selon le rôle, `InvitationInvalidError` déplacée dans le noyau d'invitation ; racine orientée selon le rôle, un locataire ne pouvant pas atteindre les immeubles ; aucune donnée financière dans l'espace locataire du Lot 7. Le choix du fondateur est d'enchaîner le Lot 8 dès le Lot 7 validé, en conservant la séparation métier des deux lots. Aucune décision verrouillée n'est rouverte. |

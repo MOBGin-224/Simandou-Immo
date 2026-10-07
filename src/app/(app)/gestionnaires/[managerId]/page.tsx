@@ -1,7 +1,7 @@
 import Link from 'next/link';
 
 import { Alert } from '@/components/ui/alert';
-import { ManagerStatusBadge } from '@/components/ui/badge';
+import { AccessStatusBadge } from '@/components/ui/badge';
 import { buttonClasses } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { PageHeader } from '@/components/ui/page-header';
@@ -78,7 +78,7 @@ export default async function ManagerPage(props: PageProps<'/gestionnaires/[mana
       />
 
       <div>
-        <ManagerStatusBadge status={manager.status} />
+        <AccessStatusBadge status={manager.status} />
       </div>
 
       {isSuspended ? (

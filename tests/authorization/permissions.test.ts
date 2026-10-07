@@ -102,6 +102,7 @@ describe('Association des rôles', () => {
       'lease.create',
       'payment.create',
       'charge.publish',
+      'tenant.revoke',
       'expense.create',
     ] as Permission[]) {
       expect(ROLE_PERMISSIONS.MANAGER.has(permission)).toBe(true);
@@ -129,6 +130,7 @@ describe('Association des rôles', () => {
       'apartment.read',
       'tenant.create',
       'tenant.invite',
+      'tenant.revoke',
       'lease.create',
       'rent.generate',
       'payment.create',

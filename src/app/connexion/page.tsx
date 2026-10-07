@@ -45,7 +45,9 @@ export default async function SignInPage(props: PageProps<'/connexion'>) {
   const next = safeNextPath(first(searchParams.suivant));
 
   // Déjà connecté : rester sur cet écran inviterait à se reconnecter sans raison.
-  if (await getCurrentUser()) redirect(next ?? '/immeubles');
+  // La racine oriente selon le rôle (DEC-046), et elle seule : un locataire
+  // n'atteint aucun immeuble.
+  if (await getCurrentUser()) redirect(next ?? '/');
 
   const code = first(searchParams.erreur);
   const message = code ? MESSAGES[code] : undefined;

@@ -42,6 +42,7 @@ export const PERMISSIONS = [
   'tenant.read',
   'tenant.update',
   'tenant.invite',
+  'tenant.revoke',
 
   'lease.create',
   'lease.read',
@@ -106,6 +107,7 @@ const OWNER_PERMISSIONS: readonly Permission[] = [
   'tenant.read',
   'tenant.update',
   'tenant.invite',
+  'tenant.revoke',
   'lease.create',
   'lease.read',
   'lease.update',
@@ -174,6 +176,7 @@ const MANAGER_PERMISSIONS: readonly Permission[] = [
   'tenant.read',
   'tenant.update',
   'tenant.invite',
+  'tenant.revoke',
   'lease.create',
   'lease.read',
   'lease.update',
@@ -208,10 +211,15 @@ const MANAGER_PERMISSIONS: readonly Permission[] = [
  * charges, déclare et suit ses incidents. Il ne voit ni les autres locataires,
  * ni les finances de l'immeuble.
  *
- * `tenant.update` lui est accordée pour ses données de contact, niveau 4 de la
- * portée. La restriction aux seuls champs modifiables, l'appartement et le loyer
- * contractuel en étant exclus, appartient au module Locataires : une permission
- * décide d'un accès à une ressource, pas d'un champ.
+ * `tenant.update` lui est accordée pour ses propres données, niveau 4 de la
+ * portée. DEC-048 la réduit à son NOM seulement : le téléphone et l'email ne
+ * sont modifiables par personne au MVP, faute du mécanisme de vérification
+ * qu'exigent SEC-049 et SEC-050. Cette restriction de champs appartient au
+ * module Locataires : une permission décide d'un accès à une ressource, pas
+ * d'un champ.
+ *
+ * `tenant.revoke` ne lui est pas accordée : un locataire ne révoque l'accès de
+ * personne, pas même le sien (DEC-047).
  *
  * Aucune permission de paiement en écriture : le paiement numérique dépend de
  * DEC-034, encore OUVERTE. Le catalogue étant exhaustif pour le MVP, aucune

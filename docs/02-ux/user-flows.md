@@ -416,21 +416,35 @@ Le gestionnaire comprend immédiatement ce qu'il doit faire ensuite.
 
 Permettre au gestionnaire d'intégrer progressivement les locataires existants.
 
+## Portée : ce parcours est scindé en deux lots (DEC-046)
+
+Au Lot 7, « ajouter un locataire » veut dire **inviter une personne à l'espace locataire d'un logement désigné**. Rien de plus. La relation locative elle-même, avec sa date d'entrée et son loyer, naît du bail au Lot 8.
+
+| Élément | Lot 7 Locataires | Lot 8 Contrats |
+| --- | --- | --- |
+| Nom, téléphone, email facultatif | Saisis à l'invitation | Repris, non ressaisis |
+| Logement désigné | Saisi à l'invitation | Repris par le bail |
+| Date d'entrée | Hors périmètre | Saisie au bail |
+| Montant du loyer | Hors périmètre | Saisi au bail |
+| Informations du contrat | Hors périmètre | Saisies au bail |
+
+> **Pourquoi cette frontière.** Le périmètre d'un gestionnaire sur un locataire ne peut se résoudre que par le logement : au Lot 7, c'est l'invitation seule qui le porte. Mêler le loyer à l'invitation obligerait à créer un embryon de bail sans en avoir les règles.
+
 ## Déclencheur
 
-Le gestionnaire veut associer une personne à un appartement.
+Le gestionnaire veut donner à une personne l'accès à l'espace locataire d'un de ses logements.
 
-## Étapes
+## Étapes au Lot 7
 
 ### Étape 1
 
-Le gestionnaire sélectionne un appartement vacant.
+Le gestionnaire sélectionne un logement de son périmètre. Le logement n'a pas besoin d'être vacant : ce parcours sert précisément à inscrire des locataires déjà en place.
 
 ### Étape 2
 
 Il sélectionne :
 
-> Ajouter un locataire
+> Inviter un locataire
 
 ### Étape 3
 
@@ -438,29 +452,32 @@ Il renseigne le minimum :
 
 - nom ;
 - numéro de téléphone ;
-- éventuellement email ;
-- date d'entrée ;
-- montant du loyer ou montant issu du contrat.
+- éventuellement email.
+
+Le logement est déjà connu du formulaire, puisque le parcours part de lui.
 
 ### Étape 4
 
-Il complète les informations du contrat si nécessaire.
+Le système crée l'invitation et affiche le lien de partage sécurisé (DEC-026). Sa transmission suit le parcours 8.
 
 ### Étape 5
 
-Le système associe automatiquement :
+Le système rattache l'invitation :
 
-**Locataire → Appartement → Immeuble → Gestionnaire**
+**Invitation → Logement → Immeuble → Organisation**
 
-### Étape 6
+L'invitation **ne change aucun statut d'occupation** : le logement garde le statut qu'il avait, et ce statut ne deviendra dérivé de la relation locative qu'au Lot 8 (DEC-050).
 
-Le système propose :
+## Résultat au Lot 7
 
-> Envoyer l'accès au locataire
+Le locataire figure dans la liste des locataires du logement avant même d'avoir activé son compte, au statut « Invité ». Son espace locataire ne porte aucune donnée financière : celles-ci n'existeront qu'avec le bail.
 
-## Résultat
+## Suite au Lot 8
 
-Le locataire existe dans le système même avant d'avoir activé son compte.
+Créer le bail apporte la date d'entrée, le montant du loyer et les informations du contrat. Deux points y seront traités et ne le sont donc pas ici :
+
+- une seule relation locative active par organisation pour une même personne (DEC-049), règle du bail et non de l'invitation ;
+- créer un bail doit pouvoir créer la personne sans invitation, pour le locataire qui n'utilisera jamais l'application (DEC-046).
 
 ---
 

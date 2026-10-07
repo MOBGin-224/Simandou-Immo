@@ -5,18 +5,29 @@ import { Alert } from '@/components/ui/alert';
 import { Button, buttonClasses } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Field, Input } from '@/components/ui/field';
-import { getDb } from '@/db/client';
 import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH, getCurrentUser } from '@/lib/auth';
 import { formatDate } from '@/lib/ui/format';
-import { invitationPath } from '@/modules/invitations';
-import { InvitationInvalidError, previewInvitation } from '@/modules/managers';
+import { InvitationInvalidError, invitationPath } from '@/modules/invitations';
+
+import {
+  previewMode,
+  previewPhone,
+  previewPublicInvitation,
+  previewSignedInAsOther,
+  type PublicInvitationPreview,
+} from '../flow';
 
 /**
- * Activation d'un compte gestionnaire (parcours 5, MVP-BACKLOG-025).
+ * Activation d'un compte invité, gestionnaire ou locataire (parcours 5 et 9).
  *
- * Page PUBLIQUE : le jeton de l'adresse est la seule preuve. Elle affiche ce que le
- * parcours 5 promet, l'organisation, l'invitant, les immeubles et le rôle, puis
- * propose ce que l'invité doit faire selon l'état de son compte :
+ * Page PUBLIQUE : le jeton de l'adresse est la seule preuve. Elle est ORIENTÉE
+ * SELON LE RÔLE porté par l'invitation (DEC-046) : un gestionnaire voit les
+ * immeubles qu'on lui confie, un locataire voit son logement. Le lien est le
+ * même, et c'est voulu : la personne qui l'a reçu n'a pas à savoir ce qu'il
+ * porte.
+ *
+ * Ce que l'invité doit faire ensuite ne dépend pas du rôle, mais de l'état de son
+ * compte :
  *
  * ```text
  * DEFINE_PASSWORD   pas de compte actif : il choisit son mot de passe
@@ -28,13 +39,13 @@ import { InvitationInvalidError, previewInvitation } from '@/modules/managers';
  * navigateur ou un lecteur de liens ne doit pas la brûler.
  *
  * Un lien inutilisable, quelle qu'en soit la cause, affiche la même page
- * « introuvable » : elle ne dit pas s'il a expiré, été révoqué ou déjà servi
- * (ADR-008).
+ * « introuvable » : elle ne dit pas s'il a expiré, été révoqué, déjà servi, ni
+ * même s'il portait un autre rôle (ADR-008).
  *
- * Le formulaire est un formulaire HTML natif soumis à une route : il fonctionne sans
- * JavaScript, ce qui compte sur un réseau mobile où un script peut ne jamais
- * arriver. La route ouvre la session de l'invité et le conduit à son environnement
- * (parcours 5, étape 6).
+ * Le formulaire est un formulaire HTML natif soumis à une route : il fonctionne
+ * sans JavaScript, ce qui compte sur un réseau mobile où un script peut ne jamais
+ * arriver. La route ouvre la session de l'invité et le conduit à SON
+ * environnement, les immeubles ou son logement.
  *
  * `referrer: no-referrer` : l'adresse contient le secret, elle ne doit jamais
  * partir dans l'en-tête d'une requête vers un autre site.
@@ -47,6 +58,35 @@ const MESSAGES: Record<string, string> = {
   connexion: "Connectez-vous avec le compte invité pour accepter l'invitation.",
 };
 
+/** Ce que l'invitation propose, dit avec les mots du rôle qu'elle porte. */
+function wording(preview: PublicInvitationPreview) {
+  if (preview.role === 'MANAGER') {
+    const several = preview.manager.propertyNames.length > 1;
+
+    return {
+      inviteeName: preview.manager.inviteeName,
+      organizationName: preview.manager.organizationName,
+      roleLabel: 'Gestionnaire',
+      intro: `${preview.manager.inviterName || 'Le propriétaire'} vous confie la gestion de ${
+        several ? 'ces immeubles' : 'cet immeuble'
+      }.`,
+      contextLabel: several ? 'Immeubles confiés' : 'Immeuble confié',
+      contextLines: preview.manager.propertyNames,
+      expiresAt: preview.manager.expiresAt,
+    };
+  }
+
+  return {
+    inviteeName: preview.tenant.inviteeName,
+    organizationName: preview.tenant.organizationName,
+    roleLabel: 'Locataire',
+    intro: `${preview.tenant.inviterName || 'Le gestionnaire'} vous ouvre l'espace locataire de votre logement.`,
+    contextLabel: 'Votre logement',
+    contextLines: [`${preview.tenant.apartmentLabel}, ${preview.tenant.propertyName}`],
+    expiresAt: preview.tenant.expiresAt,
+  };
+}
+
 export default async function InvitationPage(props: PageProps<'/invitation/[token]'>) {
   const { token } = await props.params;
   const searchParams = await props.searchParams;
@@ -55,15 +95,20 @@ export default async function InvitationPage(props: PageProps<'/invitation/[toke
 
   const user = await getCurrentUser();
 
-  let preview;
+  let preview: PublicInvitationPreview;
 
   try {
-    preview = await previewInvitation(getDb(), { token, sessionUserId: user?.id ?? null });
+    preview = await previewPublicInvitation({ token, sessionUserId: user?.id ?? null });
   } catch (error) {
     if (error instanceof InvitationInvalidError) notFound();
 
     throw error;
   }
+
+  const text = wording(preview);
+  const mode = previewMode(preview);
+  const phone = previewPhone(preview);
+  const signedInAsOther = previewSignedInAsOther(preview);
 
   const here = invitationPath(token);
   const acceptAction = `/api/v1/invitations/${token}/accept`;
@@ -74,12 +119,9 @@ export default async function InvitationPage(props: PageProps<'/invitation/[toke
         <div className="flex flex-col gap-2 text-center">
           <p className="font-display text-sm font-bold tracking-widest text-brand">SIMANDOU IMMO</p>
           <h1 className="font-display text-2xl font-semibold text-ink">
-            {preview.inviteeName}, vous êtes invité
+            {text.inviteeName}, vous êtes invité
           </h1>
-          <p className="text-sm text-muted">
-            {preview.inviterName || 'Le propriétaire'} vous confie la gestion de{' '}
-            {preview.propertyNames.length > 1 ? 'ces immeubles' : 'cet immeuble'}.
-          </p>
+          <p className="text-sm text-muted">{text.intro}</p>
         </div>
 
         <Card className="flex flex-col gap-4">
@@ -88,48 +130,48 @@ export default async function InvitationPage(props: PageProps<'/invitation/[toke
               <dt className="text-xs font-medium uppercase tracking-wide text-muted">
                 Organisation
               </dt>
-              <dd className="break-words text-base text-ink">{preview.organizationName}</dd>
+              <dd className="break-words text-base text-ink">{text.organizationName}</dd>
             </div>
 
             <div className="flex flex-col gap-0.5">
               <dt className="text-xs font-medium uppercase tracking-wide text-muted">Rôle</dt>
-              <dd className="text-base text-ink">Gestionnaire</dd>
+              <dd className="text-base text-ink">{text.roleLabel}</dd>
             </div>
 
             <div className="flex flex-col gap-0.5">
               <dt className="text-xs font-medium uppercase tracking-wide text-muted">
-                {preview.propertyNames.length > 1 ? 'Immeubles confiés' : 'Immeuble confié'}
+                {text.contextLabel}
               </dt>
               <dd>
                 <ul className="flex flex-col gap-0.5 text-base text-ink">
-                  {preview.propertyNames.map((name) => (
-                    <li key={name} className="break-words">
-                      {name}
+                  {text.contextLines.map((line) => (
+                    <li key={line} className="break-words">
+                      {line}
                     </li>
                   ))}
                 </ul>
               </dd>
             </div>
 
-            {preview.phone ? (
+            {phone ? (
               <div className="flex flex-col gap-0.5">
                 <dt className="text-xs font-medium uppercase tracking-wide text-muted">
                   Votre identifiant de connexion
                 </dt>
-                <dd className="text-base text-ink">{preview.phone}</dd>
+                <dd className="text-base text-ink">{phone}</dd>
               </div>
             ) : null}
           </dl>
 
           <p className="text-xs text-muted">
             Ce lien ne peut servir qu&apos;une fois et expire le{' '}
-            {formatDate(preview.expiresAt.toISOString())}.
+            {formatDate(text.expiresAt.toISOString())}.
           </p>
         </Card>
 
         {message ? <Alert tone="danger">{message}</Alert> : null}
 
-        {preview.mode === 'DEFINE_PASSWORD' ? (
+        {mode === 'DEFINE_PASSWORD' ? (
           <Card className="flex flex-col gap-5">
             <form method="post" action={acceptAction} className="flex flex-col gap-5">
               <Field
@@ -172,7 +214,7 @@ export default async function InvitationPage(props: PageProps<'/invitation/[toke
           </Card>
         ) : null}
 
-        {preview.mode === 'CONFIRM' ? (
+        {mode === 'CONFIRM' ? (
           <Card className="flex flex-col gap-4">
             <p className="text-sm text-muted">
               Vous êtes connecté avec le compte invité. Il suffit de confirmer : votre mot de passe
@@ -187,17 +229,17 @@ export default async function InvitationPage(props: PageProps<'/invitation/[toke
           </Card>
         ) : null}
 
-        {preview.mode === 'SIGN_IN_REQUIRED' ? (
+        {mode === 'SIGN_IN_REQUIRED' ? (
           <Card className="flex flex-col gap-4">
-            {preview.signedInAsOther ? (
+            {signedInAsOther ? (
               <>
                 <Alert tone="warning">
                   Vous êtes connecté avec un autre compte que celui de cette invitation.
                 </Alert>
 
                 <p className="text-sm text-muted">
-                  Déconnectez-vous, puis connectez-vous avec le numéro {preview.phone ?? 'invité'}{' '}
-                  pour accepter.
+                  Déconnectez-vous, puis connectez-vous avec le numéro {phone ?? 'invité'} pour
+                  accepter.
                 </p>
 
                 {/* Déconnexion par formulaire et non par lien : elle modifie l'état du serveur. */}

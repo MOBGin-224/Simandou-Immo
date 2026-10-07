@@ -1,6 +1,7 @@
 import Link from 'next/link';
 
 import type { Role } from '@/lib/authorization';
+import { homeForRoles } from '@/lib/ui/home';
 import { describeRoles } from '@/lib/ui/labels';
 
 /**
@@ -34,8 +35,13 @@ export function AppHeader({ roles }: AppHeaderProps) {
         hauteur, constaté sur un écran de 390 px.
       */}
       <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-2 px-4 py-3 sm:gap-4">
+        {/*
+          Le logo conduit à l'accueil DE CELUI QUI REGARDE (DEC-046) : un locataire
+          n'atteint aucun immeuble, donc le mener à `/immeubles` lui donnerait un
+          refus depuis le seul élément présent sur tous les écrans.
+        */}
         <Link
-          href="/immeubles"
+          href={homeForRoles(roles)}
           className="inline-flex min-h-11 items-center font-display text-sm font-bold tracking-wide whitespace-nowrap text-brand sm:tracking-widest"
         >
           SIMANDOU IMMO

@@ -47,7 +47,14 @@ export async function POST(request: Request): Promise<Response> {
   try {
     const { cookies } = await signInSession({ phone, password });
 
-    return redirectWithCookies(request, next ?? '/immeubles', cookies);
+    /*
+     * Sans destination demandée : la RACINE, et non `/immeubles` (DEC-046).
+     *
+     * C'est la racine qui oriente selon le rôle, et elle seule : un locataire
+     * n'atteint aucun immeuble, donc l'y envoyer après sa connexion lui donnerait
+     * un refus. Un saut de plus, mais une seule règle, à un seul endroit.
+     */
+    return redirectWithCookies(request, next ?? '/', cookies);
   } catch (error) {
     if (error instanceof InvalidCredentialsError) return refuse('identifiants');
     if (error instanceof AccountNotActiveError) return refuse('compte-inactif');

@@ -1,4 +1,4 @@
-import type { InvitationStatus } from '@/modules/invitations';
+import type { InvitationPreviewMode, InvitationStatus } from '@/modules/invitations';
 
 import type { ManagerListKind, ManagerListStatus } from './constants';
 
@@ -73,18 +73,12 @@ export type IssuedInvitation = {
 };
 
 /**
- * Ce que la page publique d'activation affiche (parcours 5, étape 3).
+ * Ce que la page publique d'activation affiche pour un GESTIONNAIRE (parcours 5,
+ * étape 3).
  *
- * `mode` dit ce que l'invité doit faire :
- *
- * ```text
- * DEFINE_PASSWORD   il n'a pas encore de compte actif : il définit son mot de passe
- * CONFIRM           il a un compte actif et il est connecté avec : il confirme
- * SIGN_IN_REQUIRED  il a un compte actif et n'est pas connecté avec : il se connecte
- * ```
+ * `mode` dit ce que l'invité doit faire ; il vient du noyau `invitations`, l'état
+ * du compte ne dépendant pas du rôle invité (DEC-046).
  */
-export type InvitationPreviewMode = 'DEFINE_PASSWORD' | 'CONFIRM' | 'SIGN_IN_REQUIRED';
-
 export type InvitationPreview = {
   organizationName: string;
   inviterName: string;

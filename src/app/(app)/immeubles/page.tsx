@@ -5,9 +5,11 @@ import { buttonClasses } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/field';
 import { PageHeader } from '@/components/ui/page-header';
+import { notFound } from 'next/navigation';
+
 import { getDb } from '@/db/client';
 import { requireAccessContextOrSignIn } from '@/lib/auth/guard';
-import { organizationsWhereAllowed } from '@/lib/authorization';
+import { organizationsWhereAllowed, readablePropertyScopes } from '@/lib/authorization';
 import { cn } from '@/lib/ui/cn';
 import { pluralize } from '@/lib/ui/format';
 import { listProperties, type PropertyListFilter } from '@/modules/properties';
@@ -21,6 +23,12 @@ import { listProperties, type PropertyListFilter } from '@/modules/properties';
  * Recherche et filtres passent par l'URL et non par un état local. Trois bénéfices
  * concrets : la page est partageable, le bouton retour du navigateur fonctionne, et
  * la recherche marche sans JavaScript.
+ *
+ * **La page n'existe pas pour un locataire** (DEC-046), ce que le Lot 7 a rendu
+ * visible : il n'atteint aucun immeuble, et l'écran lui annonçait pourtant qu'un
+ * patrimoine « apparaîtra ici ». Le contrôle porte sur le RÔLE et non sur le
+ * périmètre : un gestionnaire sans immeuble attribué doit bien voir la page, et y
+ * lire qu'aucun immeuble ne lui a encore été confié.
  */
 export const metadata = { title: 'Immeubles' };
 
@@ -32,6 +40,13 @@ const FILTER_TABS: { value: PropertyListFilter; label: string }[] = [
 
 export default async function PropertiesPage(props: PageProps<'/immeubles'>) {
   const context = await requireAccessContextOrSignIn();
+
+  const manages = context.memberships.some(
+    (membership) => membership.role === 'OWNER' || membership.role === 'MANAGER',
+  );
+
+  if (!manages) notFound();
+
   const searchParams = await props.searchParams;
 
   const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
@@ -44,6 +59,13 @@ export default async function PropertiesPage(props: PageProps<'/immeubles'>) {
 
   const canCreate = organizationsWhereAllowed(context, 'property.create').length > 0;
   const canManageManagers = organizationsWhereAllowed(context, 'manager.read').length > 0;
+  /*
+   * Point d'entrée des locataires, ouvert au gestionnaire comme au propriétaire : le
+   * gestionnaire est le principal point d'entrée pour les locataires (Rôles et
+   * permissions section 13). Le périmètre décide, et non le seul rôle : un
+   * gestionnaire sans immeuble attribué n'a aucun locataire à voir.
+   */
+  const canManageTenants = readablePropertyScopes(context, 'tenant.read').length > 0;
   const activeFilter = (first(searchParams.filtre) ?? 'ACTIVE') as PropertyListFilter;
   const search = first(searchParams.recherche) ?? '';
 
@@ -74,14 +96,21 @@ export default async function PropertiesPage(props: PageProps<'/immeubles'>) {
             : `${pluralize(collection.meta.total, 'immeuble')} dans votre périmètre.`
         }
         actions={
-          canCreate || canManageManagers ? (
+          canCreate || canManageManagers || canManageTenants ? (
             <>
               {/*
-                Point d'entrée de la gestion des gestionnaires, réservé au
-                propriétaire (DEC-025). La barre d'onglets n'existe pas encore : elle
-                prendra son sens aux lots Loyers et Maintenance, et d'ici là un lien
-                depuis l'écran du patrimoine suffit.
+                Points d'entrée des personnes : les gestionnaires, réservés au
+                propriétaire (DEC-025), et les locataires, ouverts aussi au
+                gestionnaire (DEC-047). La barre d'onglets n'existe pas encore : elle
+                prendra son sens aux lots Loyers et Maintenance, et d'ici là des liens
+                depuis l'écran du patrimoine suffisent. Sans eux, les écrans des
+                locataires ne seraient atteignables qu'en tapant leur adresse.
               */}
+              {canManageTenants ? (
+                <Link href="/locataires" className={buttonClasses('secondary', 'md')}>
+                  Locataires
+                </Link>
+              ) : null}
               {canManageManagers ? (
                 <Link href="/gestionnaires" className={buttonClasses('secondary', 'md')}>
                   Gestionnaires

@@ -3,7 +3,7 @@
 import { useActionState } from 'react';
 
 import type { ManagerFormState } from '@/app/(app)/gestionnaires/actions';
-import { InvitationLinkPanel } from '@/components/manager/invitation-link-panel';
+import { InvitationLinkPanel } from '@/components/invitation/invitation-link-panel';
 import { Alert } from '@/components/ui/alert';
 import { SubmitButton } from '@/components/ui/submit-button';
 

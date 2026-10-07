@@ -577,7 +577,9 @@ Le backend doit vérifier que l'appelant possède lui-même les droits nécessai
 GET /api/v1/invitations/:token
 ```
 
-Route publique, utilisée par la page d'activation. Renvoie ce que le parcours 5 affiche : l'organisation, le nom de l'inviteur, les immeubles concernés, le rôle, et si l'invité doit définir un mot de passe ou se connecter.
+Route publique, utilisée par la page d'activation. Elle est **orientée selon le rôle** porté par l'invitation (DEC-046) : la réponse porte un champ `role`, puis la forme correspondante, les immeubles confiés pour un gestionnaire, le logement pour un locataire. Un jeton d'un rôle que l'appelant n'attendait pas reste indiscernable d'un jeton inconnu.
+
+Elle renvoie en outre le nom de l'inviteur, l'organisation, et ce que l'invité doit faire : définir un mot de passe, confirmer, ou se connecter.
 
 **Toute invitation inutilisable reçoit la même réponse `404`** : inconnue, expirée, révoquée, déjà acceptée (ADR-008).
 
@@ -594,7 +596,9 @@ POST /api/v1/invitations/:token/accept
 - Invité **sans compte actif** : le mot de passe est obligatoire (10 caractères au minimum). Le compte est activé et une session est ouverte.
 - Invité **avec un compte déjà actif** : aucun mot de passe n'est lu ni modifié. L'appelant doit être connecté avec ce compte, sinon `401`. **Un lien d'invitation ne change jamais le mot de passe d'un compte actif.**
 
-La page d'activation envoie un formulaire HTML : la route répond alors par une redirection, cookies de session compris. Un appel JSON reçoit l'enveloppe habituelle.
+La page d'activation envoie un formulaire HTML : la route répond alors par une redirection, cookies de session compris. Un appel JSON reçoit l'enveloppe habituelle, à laquelle s'ajoute le `role`.
+
+**La redirection suit le rôle** (DEC-046) : un gestionnaire part vers les immeubles, un locataire vers son logement, car il n'atteint aucun immeuble. Même règle pour la connexion ordinaire, qui renvoie vers la racine plutôt que vers les immeubles : c'est la racine, et elle seule, qui oriente selon le rôle.
 
 ### Processus
 
@@ -615,26 +619,7 @@ La page d'activation envoie un formulaire HTML : la route répond alors par une 
 
 # 15. Routes : locataires
 
-## Créer
-
-```text
-POST /api/v1/tenants
-```
-
-### Input
-
-```json
-{
-  "name": "Mamadou Diallo",
-  "phone": "+224...",
-  "apartmentId": "apt_123",
-  "moveInDate": "2026-09-01"
-}
-```
-
-Le backend doit vérifier que le gestionnaire peut gérer l'appartement.
-
----
+> **DEC-046.** Un locataire du Lot 7 est une personne invitée à l'espace locataire d'un logement désigné. La relation locative, avec sa date d'entrée et son loyer, est portée par le bail (section 17). `POST /tenants` n'existe donc pas : un locataire se crée par son invitation, section 16, qui porte le logement visé.
 
 ## Lister
 
@@ -642,16 +627,22 @@ Le backend doit vérifier que le gestionnaire peut gérer l'appartement.
 GET /api/v1/tenants
 ```
 
+Réunit les invitations en attente et les locataires actifs, distingués par un type, comme la liste des gestionnaires.
+
 Paramètres :
 
 ```text
 propertyId
 apartmentId
-status
+status        INVITED | INVITATION_EXPIRED | ACTIVE | SUSPENDED | REVOKED
 search
 page
 pageSize
 ```
+
+Le `status` est **dérivé**, jamais stocké : il se lit de l'invitation et de l'accès.
+
+Permission : `tenant.read`. Un gestionnaire ne voit que les locataires des logements de son périmètre.
 
 ---
 
@@ -661,6 +652,8 @@ pageSize
 GET /api/v1/tenants/:id
 ```
 
+`:id` est un `user_access.id`. Pour une invitation en attente, voir `GET /tenant-invitations/:id`.
+
 ---
 
 ## Modifier
@@ -669,11 +662,31 @@ GET /api/v1/tenants/:id
 PATCH /api/v1/tenants/:id
 ```
 
-Les champs modifiables dépendent du rôle.
+**Le nom uniquement** (DEC-048). Le téléphone et l'email ne sont modifiables par personne au MVP, faute de mécanisme de vérification (SEC-049, SEC-050).
+
+Permission : `tenant.update`.
+
+**Et le locataire LUI-MÊME, exclusivement.** La section 14 des rôles et permissions écrit « nom modifiable par le locataire lui-même », et la raison est concrète : le nom vit dans `users`, donc le modifier depuis l'écran d'un propriétaire changerait l'identité de la personne partout, y compris chez un autre bailleur. C'est le principe qui protège déjà le nom d'un compte actif à l'invitation (DEC-041). Un propriétaire ou un gestionnaire reçoit donc `403`, avec un message qui dit la correction possible : révoquer l'accès, puis réinviter.
 
 ---
 
-# 16. Route : invitation locataire
+## Suspendre, réactiver, révoquer
+
+```text
+POST /api/v1/tenants/:id/suspend
+POST /api/v1/tenants/:id/reactivate
+POST /api/v1/tenants/:id/revoke
+```
+
+Permissions : `tenant.update` pour la suspension et la réactivation, `tenant.revoke` pour la révocation (DEC-047).
+
+**Révoquer l'accès au produit ne termine aucun bail.** Les deux concepts restent distincts.
+
+---
+
+# 16. Routes : invitation locataire
+
+## Créer
 
 ```text
 POST /api/v1/tenant-invitations
@@ -683,12 +696,30 @@ POST /api/v1/tenant-invitations
 
 ```json
 {
-  "tenantId": "tenant_123",
-  "channel": "whatsapp"
+  "name": "Mamadou Diallo",
+  "phone": "+224620000010",
+  "email": "mamadou@example.com",
+  "apartmentId": "apt_123"
 }
 ```
 
-Le backend génère une invitation liée au contexte locatif.
+`email` est facultatif. **Aucun champ `channel`** : DEC-026 n'offre qu'un lien de partage, que l'inviteur transmet par son propre moyen.
+
+Le backend vérifie que l'appelant peut gérer **le logement visé** : logement de son organisation, non archivé, dont l'immeuble est dans son périmètre. Un logement inexistant et un logement hors périmètre reçoivent le même refus (ADR-008).
+
+L'invitation porte le contexte locatif prévu (BR-014) : `apartment_id` le logement, `property_id` son immeuble.
+
+Le lien est renvoyé **une seule fois**, le jeton étant stocké haché (SEC-INV-002).
+
+Permission : `tenant.invite`.
+
+---
+
+## Consulter
+
+```text
+GET /api/v1/tenant-invitations/:id
+```
 
 ---
 
@@ -697,6 +728,8 @@ Le backend génère une invitation liée au contexte locatif.
 ```text
 POST /api/v1/tenant-invitations/:id/resend
 ```
+
+Régénère le jeton dans la même ligne : même identifiant, ancien lien invalidé aussitôt, durée repartie de zéro (DEC-045).
 
 ---
 
@@ -708,6 +741,9 @@ POST /api/v1/tenant-invitations/:id/revoke
 
 ---
 
+> **Activation.** Elle passe par les routes publiques génériques de la section 14, `GET /api/v1/invitations/:token` et son acceptation, qui orientent selon le rôle porté par l'invitation. Un jeton d'un autre rôle reste indiscernable d'un jeton inconnu.
+
+---
 # 17. Routes : contrats
 
 ## Créer

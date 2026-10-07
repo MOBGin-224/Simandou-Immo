@@ -65,6 +65,14 @@ const BY_ERROR_NAME: Record<string, { status: number; code: ApiErrorCode }> = {
   InvitationTargetUnavailableError: { status: 409, code: 'CONFLICT' },
   InvitationNotOpenError: { status: 409, code: 'CONFLICT' },
   ManagerStateError: { status: 409, code: 'CONFLICT' },
+  TenantValidationError: { status: 422, code: 'VALIDATION_ERROR' },
+  TenantInvitationConflictError: { status: 409, code: 'CONFLICT' },
+  TenantStateError: { status: 409, code: 'CONFLICT' },
+
+  // Le nom d'un locataire n'appartient qu'à lui (DEC-048) : 403 et non 404, car
+  // l'appelant peut bien lire cette fiche. Ce qu'il apprend est une règle du
+  // produit, pas l'existence d'une donnée.
+  TenantNameNotOwnedError: { status: 403, code: 'FORBIDDEN' },
 
   // Lien inutilisable : 404, jamais 410 ni 403. Inconnu, expiré, révoqué et consommé
   // doivent rester indiscernables (ADR-008), et seul 404 ne distingue rien.

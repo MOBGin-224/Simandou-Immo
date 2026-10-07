@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useActionState, useState } from 'react';
 
 import type { ManagerFormState } from '@/app/(app)/gestionnaires/actions';
-import { InvitationLinkPanel } from '@/components/manager/invitation-link-panel';
+import { InvitationLinkPanel } from '@/components/invitation/invitation-link-panel';
 import { PropertyChecklist, type ChecklistGroup } from '@/components/manager/property-checklist';
 import { Alert } from '@/components/ui/alert';
 import { buttonClasses } from '@/components/ui/button';
