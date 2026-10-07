@@ -142,3 +142,29 @@ export function InvitationStatusBadge({ status }: { status: InvitationStatusValu
 
   return <Badge tone={badge.tone}>{badge.label}</Badge>;
 }
+
+/**
+ * Statut d'un bail (DEC-021, BR-030).
+ *
+ * Les tons suivent MVP-UI-011. « En cours » est en vert : c'est un bail qui
+ * produit, et c'est l'objectif d'un bailleur. « Clôturé » est neutre et non
+ * rouge : un bail qui s'achève normalement n'est pas une anomalie, c'est
+ * l'histoire du logement. « Brouillon » et « Annulé » ne sont pas atteints au
+ * MVP, l'énumération ayant été figée d'emblée pour les lots suivants : ils sont
+ * traduits quand même, pour qu'une donnée inattendue s'affiche en français
+ * plutôt qu'en majuscules anglaises.
+ */
+export type LeaseStatusValue = 'DRAFT' | 'ACTIVE' | 'ENDED' | 'CANCELLED';
+
+const LEASE_STATUS_BADGES: Record<LeaseStatusValue, { tone: BadgeTone; label: string }> = {
+  DRAFT: { tone: 'info', label: 'Brouillon' },
+  ACTIVE: { tone: 'success', label: 'En cours' },
+  ENDED: { tone: 'neutral', label: 'Clôturé' },
+  CANCELLED: { tone: 'neutral', label: 'Annulé' },
+};
+
+export function LeaseStatusBadge({ status }: { status: LeaseStatusValue }) {
+  const badge = LEASE_STATUS_BADGES[status];
+
+  return <Badge tone={badge.tone}>{badge.label}</Badge>;
+}

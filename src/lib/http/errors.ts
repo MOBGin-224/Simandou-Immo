@@ -74,6 +74,17 @@ const BY_ERROR_NAME: Record<string, { status: number; code: ApiErrorCode }> = {
   // produit, pas l'existence d'une donnée.
   TenantNameNotOwnedError: { status: 403, code: 'FORBIDDEN' },
 
+  LeaseValidationError: { status: 422, code: 'VALIDATION_ERROR' },
+  LeaseStateError: { status: 409, code: 'CONFLICT' },
+
+  // Un logement déjà loué, ou une personne déjà engagée : 409, et le message dit
+  // lequel des deux, car la correction n'est pas la même (BR-028, DEC-049).
+  LeaseConflictError: { status: 409, code: 'CONFLICT' },
+
+  // La date est bien formée : c'est sa position dans le temps du bail qui la rend
+  // impossible. 422 et non 409 : l'appelant doit corriger sa saisie.
+  LeaseTerminationDateError: { status: 422, code: 'VALIDATION_ERROR' },
+
   // Lien inutilisable : 404, jamais 410 ni 403. Inconnu, expiré, révoqué et consommé
   // doivent rester indiscernables (ADR-008), et seul 404 ne distingue rien.
   InvitationInvalidError: { status: 404, code: 'NOT_FOUND' },

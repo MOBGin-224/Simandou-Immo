@@ -5,7 +5,10 @@ import { AccessStatusBadge } from '@/components/ui/badge';
 import { buttonClasses } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { PageHeader } from '@/components/ui/page-header';
-import { formatDate } from '@/lib/ui/format';
+import { getDb } from '@/db/client';
+import { requireAccessContextOrSignIn } from '@/lib/auth/guard';
+import { formatDate, formatMoney } from '@/lib/ui/format';
+import { describePeriod, listLeases } from '@/modules/leases';
 import { describeApartment } from '@/modules/tenants';
 
 import { loadTenantPage } from '../data';
@@ -45,6 +48,17 @@ export async function generateMetadata(props: PageProps<'/locataires/[tenantId]'
 export default async function TenantPage(props: PageProps<'/locataires/[tenantId]'>) {
   const { tenantId } = await props.params;
   const tenant = await loadTenantPage(tenantId);
+
+  /*
+   * Baux de cette personne (BR-020).
+   *
+   * Le bail est la relation locative : c'est lui qui porte le logement, la date
+   * d'entrée et le loyer, et la fiche du locataire les lit de lui plutôt que de
+   * les annoncer comme à venir.
+   */
+  const context = await requireAccessContextOrSignIn();
+  const leases = (await listLeases(getDb(), context, { tenantId: tenant.id })).leases;
+  const activeLease = leases.find((lease) => lease.status === 'ACTIVE') ?? null;
 
   const base = `/locataires/${tenant.id}`;
   const isRevoked = tenant.status === 'REVOKED';
@@ -130,12 +144,70 @@ export default async function TenantPage(props: PageProps<'/locataires/[tenantId
 
       <Card className="flex flex-col gap-3">
         <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-muted">
-          Loyer et contrat
+          Bail et loyer
         </h2>
-        <p className="text-sm text-muted">
-          Le contrat, la date d&apos;entrée et le loyer n&apos;existent pas encore dans le produit.
-          Ils arriveront avec les contrats, et cette fiche les affichera alors ici.
-        </p>
+
+        {activeLease ? (
+          <dl className="flex flex-col gap-3">
+            <div className="flex flex-col gap-0.5">
+              <dt className="text-xs font-medium uppercase tracking-wide text-muted">
+                Bail en cours
+              </dt>
+              <dd className="break-words text-base text-ink">
+                <Link
+                  href={`/baux/${activeLease.id}`}
+                  className="inline-flex min-h-11 items-center text-action underline underline-offset-4 hover:text-brand"
+                >
+                  {describeApartment(activeLease.apartment)}
+                </Link>
+              </dd>
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <dt className="text-xs font-medium uppercase tracking-wide text-muted">Loyer</dt>
+              <dd className="text-base text-ink">
+                {formatMoney(activeLease.rent.amount, activeLease.rent.currency)} par mois, le{' '}
+                {activeLease.dueDay}
+              </dd>
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <dt className="text-xs font-medium uppercase tracking-wide text-muted">Période</dt>
+              <dd className="text-base text-ink">{describePeriod(activeLease, formatDate)}</dd>
+            </div>
+          </dl>
+        ) : (
+          <p className="text-sm text-muted">
+            Cette personne n&apos;a aucun bail en cours. Créez-en un pour fixer son logement, sa
+            date d&apos;entrée et son loyer.
+          </p>
+        )}
+
+        {leases.length > (activeLease ? 1 : 0) ? (
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium uppercase tracking-wide text-muted">
+              Baux précédents
+            </span>
+            <ul className="flex flex-col gap-0.5 text-sm text-muted">
+              {leases
+                .filter((lease) => lease.status !== 'ACTIVE')
+                .map((lease) => (
+                  <li key={lease.id}>
+                    <Link
+                      href={`/baux/${lease.id}`}
+                      className="inline-flex min-h-11 items-center break-words text-action underline underline-offset-4 hover:text-brand"
+                    >
+                      {describeApartment(lease.apartment)}, {describePeriod(lease, formatDate)}
+                    </Link>
+                  </li>
+                ))}
+            </ul>
+          </div>
+        ) : null}
+
+        {activeLease === null ? (
+          <Link href={`/baux/nouveau`} className={buttonClasses('secondary', 'md', true)}>
+            Créer un bail
+          </Link>
+        ) : null}
       </Card>
 
       {isRevoked ? (

@@ -8,7 +8,8 @@ import { Card } from '@/components/ui/card';
 import { PageHeader } from '@/components/ui/page-header';
 import { getDb } from '@/db/client';
 import { requireAccessContextOrSignIn } from '@/lib/auth/guard';
-import { formatDate } from '@/lib/ui/format';
+import { formatDate, formatMoney } from '@/lib/ui/format';
+import { describePeriod, listMyLeases } from '@/modules/leases';
 import { describeApartment, getMyTenantSpace } from '@/modules/tenants';
 
 /**
@@ -35,6 +36,16 @@ export default async function MyApartmentPage() {
   const tenant = await getMyTenantSpace(getDb(), context);
 
   if (!tenant) notFound();
+
+  /*
+   * SON contrat (BR-021).
+   *
+   * Le locataire consulte son bail : c'est l'une des informations que BR-021 lui
+   * ouvre explicitement. Il ne peut pas le modifier, les données financières de
+   * référence n'étant pas les siennes (BR-022).
+   */
+  const leases = await listMyLeases(getDb(), context);
+  const activeLease = leases.find((lease) => lease.status === 'ACTIVE') ?? null;
 
   const details: { label: string; value: string }[] = [
     { label: 'Logement', value: describeApartment(tenant.apartment) },
@@ -95,12 +106,60 @@ export default async function MyApartmentPage() {
         </Link>
       </Card>
 
+      <Card className="flex flex-col gap-4">
+        <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-muted">
+          Mon contrat
+        </h2>
+
+        {activeLease ? (
+          <dl className="flex flex-col gap-3">
+            <div className="flex flex-col gap-0.5">
+              <dt className="text-xs font-medium uppercase tracking-wide text-muted">Logement</dt>
+              <dd className="break-words text-base text-ink">
+                {describeApartment(activeLease.apartment)}
+              </dd>
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <dt className="text-xs font-medium uppercase tracking-wide text-muted">Période</dt>
+              <dd className="text-base text-ink">{describePeriod(activeLease, formatDate)}</dd>
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <dt className="text-xs font-medium uppercase tracking-wide text-muted">
+                Loyer mensuel
+              </dt>
+              <dd className="text-base text-ink">
+                {formatMoney(activeLease.rent.amount, activeLease.rent.currency)}, dû le{' '}
+                {activeLease.dueDay} de chaque mois
+              </dd>
+            </div>
+            {activeLease.deposit.amount > 0 ? (
+              <div className="flex flex-col gap-0.5">
+                <dt className="text-xs font-medium uppercase tracking-wide text-muted">Caution</dt>
+                <dd className="text-base text-ink">
+                  {formatMoney(activeLease.deposit.amount, activeLease.deposit.currency)}
+                </dd>
+              </div>
+            ) : null}
+          </dl>
+        ) : (
+          <p className="text-sm text-muted">
+            Vous n&apos;avez pas encore de contrat enregistré. La personne qui gère l&apos;immeuble
+            le créera, et il apparaîtra ici.
+          </p>
+        )}
+
+        <p className="text-xs text-muted">
+          Ces informations sont celles du contrat. Pour les corriger, adressez-vous à la personne
+          qui gère l&apos;immeuble.
+        </p>
+      </Card>
+
       <Card className="flex flex-col gap-3">
         <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-muted">
           Prochainement
         </h2>
         <p className="text-sm text-muted">
-          Votre contrat, vos loyers, vos paiements, vos quittances, vos charges et vos incidents
+          Vos loyers à payer, vos paiements, vos quittances, vos charges et vos incidents
           apparaîtront ici. Ils arriveront avec les prochaines étapes du produit, et rien ne vous
           est demandé en attendant.
         </p>

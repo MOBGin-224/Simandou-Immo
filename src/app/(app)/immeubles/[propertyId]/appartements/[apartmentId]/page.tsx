@@ -8,6 +8,7 @@ import { getDb } from '@/db/client';
 import { can } from '@/lib/authorization';
 import { formatArea, formatDate, formatMoney } from '@/lib/ui/format';
 import { describeFloor } from '@/modules/apartments';
+import { describePeriod, listLeases } from '@/modules/leases';
 import { listTenants } from '@/modules/tenants';
 
 import { loadApartmentPage } from '../data';
@@ -96,6 +97,22 @@ export default async function ApartmentDetailPage(
     ? (await listTenants(getDb(), context, { apartmentId: apartment.id })).tenants
     : [];
 
+  /*
+   * Baux de CE logement (BR-027, Database Schema section 18).
+   *
+   * L'historique locatif se reconstruit des baux et n'est pas dupliqué : la liste
+   * des baux du logement EST son historique, le bail en cours en tête.
+   */
+  const leases = can(context, 'lease.read', resource)
+    ? (await listLeases(getDb(), context, { apartmentId: apartment.id })).leases
+    : [];
+  const activeLease = leases.find((lease) => lease.status === 'ACTIVE') ?? null;
+  const canCreateLease =
+    can(context, 'lease.create', resource) &&
+    activeLease === null &&
+    !apartment.archived &&
+    !property.archived;
+
   const base = `/immeubles/${property.id}/appartements`;
 
   const details: { label: string; value: string }[] = [
@@ -166,6 +183,72 @@ export default async function ApartmentDetailPage(
 
       <Card>
         <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-muted">
+          Bail
+        </h2>
+
+        {activeLease ? (
+          <dl className="mt-4 flex flex-col gap-3">
+            <div className="flex flex-col gap-0.5">
+              <dt className="text-xs uppercase tracking-wide text-muted">En cours</dt>
+              <dd className="text-sm text-ink">
+                <Link
+                  href={`/baux/${activeLease.id}`}
+                  className="inline-flex min-h-11 items-center break-words text-action underline underline-offset-4 hover:text-brand"
+                >
+                  {activeLease.tenant.fullName}
+                </Link>
+              </dd>
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <dt className="text-xs uppercase tracking-wide text-muted">Loyer</dt>
+              <dd className="text-sm text-ink">
+                {formatMoney(activeLease.rent.amount, activeLease.rent.currency)} par mois, le{' '}
+                {activeLease.dueDay}
+              </dd>
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <dt className="text-xs uppercase tracking-wide text-muted">Période</dt>
+              <dd className="text-sm text-ink">{describePeriod(activeLease, formatDate)}</dd>
+            </div>
+          </dl>
+        ) : (
+          <p className="mt-3 text-sm text-muted">Aucun bail en cours sur ce logement.</p>
+        )}
+
+        {canCreateLease ? (
+          <Link
+            href={`/baux/nouveau?logement=${apartment.id}`}
+            className={`${buttonClasses('secondary', 'md')} mt-4`}
+          >
+            Créer un bail
+          </Link>
+        ) : null}
+
+        {leases.length > 0 ? (
+          <div className="mt-4 flex flex-col gap-1">
+            <span className="text-xs uppercase tracking-wide text-muted">
+              Historique du logement
+            </span>
+            <ul className="flex flex-col gap-0.5 text-sm text-muted">
+              {leases
+                .filter((lease) => lease.status !== 'ACTIVE')
+                .map((lease) => (
+                  <li key={lease.id}>
+                    <Link
+                      href={`/baux/${lease.id}`}
+                      className="inline-flex min-h-11 items-center break-words text-action underline underline-offset-4 hover:text-brand"
+                    >
+                      {lease.tenant.fullName}, {describePeriod(lease, formatDate)}
+                    </Link>
+                  </li>
+                ))}
+            </ul>
+          </div>
+        ) : null}
+      </Card>
+
+      <Card>
+        <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-muted">
           Locataires
         </h2>
 
@@ -213,8 +296,7 @@ export default async function ApartmentDetailPage(
         ) : null}
 
         <p className="mt-4 text-xs text-muted">
-          Le bail, la date d&apos;entrée et le loyer de ce logement apparaîtront ici, au lot
-          Contrats.
+          Le bail, la date d&apos;entrée et le loyer sont dans la section Bail, ci-dessus.
         </p>
       </Card>
 

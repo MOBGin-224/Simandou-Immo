@@ -66,6 +66,12 @@ export default async function PropertiesPage(props: PageProps<'/immeubles'>) {
    * gestionnaire sans immeuble attribué n'a aucun locataire à voir.
    */
   const canManageTenants = readablePropertyScopes(context, 'tenant.read').length > 0;
+  /*
+   * Point d'entrée des baux. Même raison que les deux précédents : sans lien,
+   * l'écran ne serait atteignable qu'en tapant son adresse, la barre d'onglets
+   * n'arrivant pas avant le Lot 9.
+   */
+  const canManageLeases = readablePropertyScopes(context, 'lease.read').length > 0;
   const activeFilter = (first(searchParams.filtre) ?? 'ACTIVE') as PropertyListFilter;
   const search = first(searchParams.recherche) ?? '';
 
@@ -96,7 +102,7 @@ export default async function PropertiesPage(props: PageProps<'/immeubles'>) {
             : `${pluralize(collection.meta.total, 'immeuble')} dans votre périmètre.`
         }
         actions={
-          canCreate || canManageManagers || canManageTenants ? (
+          canCreate || canManageManagers || canManageTenants || canManageLeases ? (
             <>
               {/*
                 Points d'entrée des personnes : les gestionnaires, réservés au
@@ -106,6 +112,11 @@ export default async function PropertiesPage(props: PageProps<'/immeubles'>) {
                 depuis l'écran du patrimoine suffisent. Sans eux, les écrans des
                 locataires ne seraient atteignables qu'en tapant leur adresse.
               */}
+              {canManageLeases ? (
+                <Link href="/baux" className={buttonClasses('secondary', 'md')}>
+                  Baux
+                </Link>
+              ) : null}
               {canManageTenants ? (
                 <Link href="/locataires" className={buttonClasses('secondary', 'md')}>
                   Locataires
