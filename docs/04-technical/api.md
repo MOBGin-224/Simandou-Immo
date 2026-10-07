@@ -577,7 +577,9 @@ Le backend doit vérifier que l'appelant possède lui-même les droits nécessai
 GET /api/v1/invitations/:token
 ```
 
-Route publique, utilisée par la page d'activation. Renvoie ce que le parcours 5 affiche : l'organisation, le nom de l'inviteur, les immeubles concernés, le rôle, et si l'invité doit définir un mot de passe ou se connecter.
+Route publique, utilisée par la page d'activation. Elle est **orientée selon le rôle** porté par l'invitation (DEC-046) : la réponse porte un champ `role`, puis la forme correspondante, les immeubles confiés pour un gestionnaire, le logement pour un locataire. Un jeton d'un rôle que l'appelant n'attendait pas reste indiscernable d'un jeton inconnu.
+
+Elle renvoie en outre le nom de l'inviteur, l'organisation, et ce que l'invité doit faire : définir un mot de passe, confirmer, ou se connecter.
 
 **Toute invitation inutilisable reçoit la même réponse `404`** : inconnue, expirée, révoquée, déjà acceptée (ADR-008).
 
@@ -594,7 +596,9 @@ POST /api/v1/invitations/:token/accept
 - Invité **sans compte actif** : le mot de passe est obligatoire (10 caractères au minimum). Le compte est activé et une session est ouverte.
 - Invité **avec un compte déjà actif** : aucun mot de passe n'est lu ni modifié. L'appelant doit être connecté avec ce compte, sinon `401`. **Un lien d'invitation ne change jamais le mot de passe d'un compte actif.**
 
-La page d'activation envoie un formulaire HTML : la route répond alors par une redirection, cookies de session compris. Un appel JSON reçoit l'enveloppe habituelle.
+La page d'activation envoie un formulaire HTML : la route répond alors par une redirection, cookies de session compris. Un appel JSON reçoit l'enveloppe habituelle, à laquelle s'ajoute le `role`.
+
+**La redirection suit le rôle** (DEC-046) : un gestionnaire part vers les immeubles, un locataire vers son logement, car il n'atteint aucun immeuble. Même règle pour la connexion ordinaire, qui renvoie vers la racine plutôt que vers les immeubles : c'est la racine, et elle seule, qui oriente selon le rôle.
 
 ### Processus
 
@@ -660,7 +664,9 @@ PATCH /api/v1/tenants/:id
 
 **Le nom uniquement** (DEC-048). Le téléphone et l'email ne sont modifiables par personne au MVP, faute de mécanisme de vérification (SEC-049, SEC-050).
 
-Permission : `tenant.update`. Le locataire la porte pour lui-même.
+Permission : `tenant.update`.
+
+**Et le locataire LUI-MÊME, exclusivement.** La section 14 des rôles et permissions écrit « nom modifiable par le locataire lui-même », et la raison est concrète : le nom vit dans `users`, donc le modifier depuis l'écran d'un propriétaire changerait l'identité de la personne partout, y compris chez un autre bailleur. C'est le principe qui protège déjà le nom d'un compte actif à l'invitation (DEC-041). Un propriétaire ou un gestionnaire reçoit donc `403`, avec un message qui dit la correction possible : révoquer l'accès, puis réinviter.
 
 ---
 

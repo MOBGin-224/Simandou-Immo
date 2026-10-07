@@ -616,6 +616,10 @@ Accueil
 
 Le locataire ne doit pas voir de menus concernant la gestion interne de l'immeuble.
 
+> **Ce que le Lot 7 a établi (DEC-046).** Ne pas montrer un menu ne suffit pas : l'adresse reste tapable. L'écran des immeubles **n'existe donc pas** pour qui n'est ni propriétaire ni gestionnaire, et la racine du produit oriente selon le rôle plutôt que de conduire tout le monde au patrimoine. Le contrôle porte sur le rôle et non sur le périmètre : un gestionnaire sans immeuble attribué doit bien voir la page, et y lire qu'aucun immeuble ne lui a encore été confié.
+>
+> Au Lot 7, l'espace locataire se réduit à **Mon logement** et à son profil, les autres entrées de la liste ci-dessus naissant du bail (Lot 8) et des lots suivants. Elles sont ANNONCÉES sur son écran plutôt que laissées vides : un écran clairsemé doit se lire comme « à venir » et non comme « cassé ».
+
 ---
 
 # 8. Architecture contextuelle
