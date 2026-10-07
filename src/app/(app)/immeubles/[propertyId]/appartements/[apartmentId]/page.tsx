@@ -1,12 +1,14 @@
 import Link from 'next/link';
 
-import { ApartmentStatusBadge, ArchivedBadge } from '@/components/ui/badge';
+import { AccessStatusBadge, ApartmentStatusBadge, ArchivedBadge } from '@/components/ui/badge';
 import { buttonClasses } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { PageHeader } from '@/components/ui/page-header';
+import { getDb } from '@/db/client';
 import { can } from '@/lib/authorization';
 import { formatArea, formatDate, formatMoney } from '@/lib/ui/format';
 import { describeFloor } from '@/modules/apartments';
+import { listTenants } from '@/modules/tenants';
 
 import { loadApartmentPage } from '../data';
 
@@ -41,10 +43,6 @@ export async function generateMetadata(
 
 /** Sections que les lots suivants viendront garnir (MVP-BACKLOG-023). */
 const UPCOMING_SECTIONS = [
-  {
-    title: 'Locataire et bail',
-    description: 'Le locataire en place et son contrat apparaîtront ici, au lot Contrats.',
-  },
   {
     title: 'Loyers et paiements',
     description:
@@ -84,6 +82,19 @@ export default async function ApartmentDetailPage(
    */
   const canArchive =
     can(context, 'apartment.archive', resource) && !apartment.archived && !property.archived;
+
+  /*
+   * Locataires de CE logement (DEC-046, parcours 7).
+   *
+   * L'Information Architecture exige que « Locataires » et « Immeuble, Appartement,
+   * Locataire » conduisent à la même donnée : la liste est donc la même, filtrée
+   * sur ce logement. Un logement archivé n'accueille plus de locataire (BR-025).
+   */
+  const canInviteTenant =
+    can(context, 'tenant.invite', resource) && !apartment.archived && !property.archived;
+  const tenants = can(context, 'tenant.read', resource)
+    ? (await listTenants(getDb(), context, { apartmentId: apartment.id })).tenants
+    : [];
 
   const base = `/immeubles/${property.id}/appartements`;
 
@@ -151,6 +162,60 @@ export default async function ApartmentDetailPage(
             </div>
           ))}
         </dl>
+      </Card>
+
+      <Card>
+        <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-muted">
+          Locataires
+        </h2>
+
+        {tenants.length > 0 ? (
+          <ul className="mt-4 flex flex-col gap-3">
+            {tenants.map((item) => (
+              <li key={`${item.kind}-${item.id}`} className="flex flex-col gap-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  {/*
+                    `min-h-11` : une ligne de texte de 20 px de haut est une cible
+                    trop petite pour un doigt, et la vérification mobile le relève
+                    (MVP-UI-001). La hauteur minimale de 44 px est portée par le lien
+                    lui-même, et non par la ligne, pour que la zone touchable soit
+                    bien celle que l'on voit.
+                  */}
+                  <Link
+                    href={
+                      item.kind === 'INVITATION'
+                        ? `/locataires/invitations/${item.id}`
+                        : `/locataires/${item.id}`
+                    }
+                    className="inline-flex min-h-11 items-center break-words text-sm font-medium text-action underline underline-offset-4 hover:text-brand"
+                  >
+                    {item.fullName}
+                  </Link>
+                  <AccessStatusBadge status={item.status} />
+                </div>
+                {item.phone ? <span className="text-xs text-muted">{item.phone}</span> : null}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-3 text-sm text-muted">
+            Aucun locataire rattaché à ce logement pour le moment.
+          </p>
+        )}
+
+        {canInviteTenant ? (
+          <Link
+            href={`/locataires/inviter?logement=${apartment.id}`}
+            className={`${buttonClasses('secondary', 'md')} mt-4`}
+          >
+            Inviter un locataire
+          </Link>
+        ) : null}
+
+        <p className="mt-4 text-xs text-muted">
+          Le bail, la date d&apos;entrée et le loyer de ce logement apparaîtront ici, au lot
+          Contrats.
+        </p>
       </Card>
 
       {UPCOMING_SECTIONS.map((section) => (
