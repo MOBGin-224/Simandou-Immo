@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import { MANAGER_PROPERTIES_MAX } from '../../src/modules/managers/constants';
+import { passwordConfirmationError } from '../../src/modules/invitations/form';
 import {
   INVITE_FIELD_NAMES,
   inviteFields,
-  passwordConfirmationError,
   submittedInviteValues,
   submittedPropertyIds,
 } from '../../src/modules/managers/form';

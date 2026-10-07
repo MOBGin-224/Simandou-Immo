@@ -87,21 +87,26 @@ export function ArchivedBadge() {
 }
 
 /**
- * Statut d'un élément de la liste des gestionnaires (DEC-041, PRD 10.2).
+ * Statut d'un accès, dans la liste des gestionnaires comme dans celle des
+ * locataires (DEC-041, DEC-046, PRD 10.2).
  *
- * Les trois premiers viennent de `user_access.status`. Les deux premiers de la
- * liste décrivent une INVITATION qui n'a pas encore d'accès : la personne n'est pas
- * encore gestionnaire.
+ * Les trois derniers viennent de `user_access.status`. Les deux premiers
+ * décrivent une INVITATION qui n'a pas encore d'accès : la personne n'est pas
+ * encore gestionnaire, ou pas encore locataire du produit.
+ *
+ * Un seul composant pour les deux rôles, parce que les cinq valeurs sont
+ * exactement les mêmes : deux badges distincts finiraient par ne plus dire la
+ * même chose du même état.
  *
  * Les tons suivent MVP-UI-011. « Actif » est en vert : c'est un accès qui
  * fonctionne. « Suspendu » et « Invitation expirée » sont en orange : ce sont les
- * seuls états qui appellent une action du propriétaire. « Révoqué » est en rouge,
- * un état terminal. Chaque badge porte un texte, jamais la couleur seule.
+ * seuls états qui appellent une action. « Révoqué » est en rouge, un état
+ * terminal. Chaque badge porte un texte, jamais la couleur seule.
  */
-export type ManagerStatusValue =
+export type AccessStatusValue =
   'INVITED' | 'INVITATION_EXPIRED' | 'ACTIVE' | 'SUSPENDED' | 'REVOKED';
 
-const MANAGER_STATUS_BADGES: Record<ManagerStatusValue, { tone: BadgeTone; label: string }> = {
+const ACCESS_STATUS_BADGES: Record<AccessStatusValue, { tone: BadgeTone; label: string }> = {
   INVITED: { tone: 'info', label: 'Invitation en attente' },
   INVITATION_EXPIRED: { tone: 'warning', label: 'Invitation expirée' },
   ACTIVE: { tone: 'success', label: 'Actif' },
@@ -109,8 +114,8 @@ const MANAGER_STATUS_BADGES: Record<ManagerStatusValue, { tone: BadgeTone; label
   REVOKED: { tone: 'danger', label: 'Révoqué' },
 };
 
-export function ManagerStatusBadge({ status }: { status: ManagerStatusValue }) {
-  const badge = MANAGER_STATUS_BADGES[status];
+export function AccessStatusBadge({ status }: { status: AccessStatusValue }) {
+  const badge = ACCESS_STATUS_BADGES[status];
 
   return <Badge tone={badge.tone}>{badge.label}</Badge>;
 }

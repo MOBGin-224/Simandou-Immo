@@ -64,20 +64,3 @@ export function submittedPropertyIds(formData: FormData): string[] {
     .getAll('propertyIds')
     .filter((value): value is string => typeof value === 'string');
 }
-
-/**
- * Message d'erreur si le mot de passe et sa confirmation diffèrent, sinon `null`.
- *
- * La confirmation n'existe que dans le formulaire : elle ne fait pas partie du
- * contrat de l'API, qui reçoit un mot de passe. Elle protège d'une faute de frappe
- * sur un secret qu'on ne voit pas, ce qui coûterait ici un compte inutilisable
- * dès sa première connexion.
- */
-export function passwordConfirmationError(formData: FormData): string | null {
-  const password = formData.get('password');
-  const confirmation = formData.get('passwordConfirmation');
-
-  if (typeof password !== 'string' || typeof confirmation !== 'string') return null;
-
-  return password === confirmation ? null : 'Les deux mots de passe ne sont pas identiques.';
-}

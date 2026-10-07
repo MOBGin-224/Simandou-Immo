@@ -15,13 +15,19 @@ import {
 } from '@/lib/authorization';
 import { getEnv } from '@/lib/env';
 import {
+  InvitationInvalidError,
+  InvitationLoginRequiredError,
+  InvitationNotOpenError,
+  InvitationTargetUnavailableError,
   buildInvitationLink,
   effectiveInvitationStatus,
   generateInvitationToken,
   hashInvitationToken,
   invitationExpiry,
+  invitationPreviewMode,
   isInvitationOpen,
   isWellFormedInvitationToken,
+  type InvitationNotOpenReason,
 } from '@/modules/invitations';
 
 import type { ManagerListStatus } from './constants';
@@ -36,14 +42,9 @@ import {
   type ManagerPropertyRef,
 } from './domain';
 import {
-  InvitationInvalidError,
-  InvitationLoginRequiredError,
-  InvitationNotOpenError,
-  InvitationTargetUnavailableError,
   ManagerInvitationConflictError,
   ManagerStateError,
   ManagerValidationError,
-  type InvitationNotOpenReason,
 } from './errors';
 import {
   OPEN_INVITATION_CONSTRAINT,
@@ -587,12 +588,7 @@ export async function previewInvitation(
   const inviter = await findUserById(db, invitation.invitedBy);
   const sessionUserId = input.sessionUserId ?? null;
 
-  const mode =
-    target.status === 'PENDING_ACTIVATION'
-      ? 'DEFINE_PASSWORD'
-      : sessionUserId === target.id
-        ? 'CONFIRM'
-        : 'SIGN_IN_REQUIRED';
+  const mode = invitationPreviewMode(target, sessionUserId);
 
   return {
     organizationName,

@@ -19,6 +19,8 @@ import {
   InvitationLoginRequiredError,
   InvitationNotOpenError,
   InvitationTargetUnavailableError,
+} from '../../src/modules/invitations/errors';
+import {
   ManagerInvitationConflictError,
   ManagerStateError,
   ManagerValidationError,
@@ -28,6 +30,12 @@ import {
   PropertyNameAlreadyUsedError,
   PropertyValidationError,
 } from '../../src/modules/properties/errors';
+import {
+  TenantInvitationConflictError,
+  TenantNameNotOwnedError,
+  TenantStateError,
+  TenantValidationError,
+} from '../../src/modules/tenants/errors';
 
 /**
  * Ce fichier existe pour une raison précise.
@@ -74,6 +82,14 @@ describe('Traduction des erreurs en réponses HTTP', () => {
     { error: new InvitationTargetUnavailableError(), status: 409, code: 'CONFLICT' },
     { error: new InvitationNotOpenError('accepted'), status: 409, code: 'CONFLICT' },
     { error: new ManagerStateError('suspend', 'SUSPENDED'), status: 409, code: 'CONFLICT' },
+    {
+      error: new TenantValidationError({ apartmentId: ['archivé'] }),
+      status: 422,
+      code: 'VALIDATION_ERROR',
+    },
+    { error: new TenantInvitationConflictError('already-tenant'), status: 409, code: 'CONFLICT' },
+    { error: new TenantStateError('reactivate', 'REVOKED'), status: 409, code: 'CONFLICT' },
+    { error: new TenantNameNotOwnedError(), status: 403, code: 'FORBIDDEN' },
     { error: new InvitationInvalidError(), status: 404, code: 'NOT_FOUND' },
     { error: new InvitationLoginRequiredError(), status: 401, code: 'UNAUTHORIZED' },
     { error: new WeakPasswordError(), status: 422, code: 'VALIDATION_ERROR' },

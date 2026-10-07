@@ -1,6 +1,6 @@
 import Link from 'next/link';
 
-import { ManagerStatusBadge } from '@/components/ui/badge';
+import { AccessStatusBadge } from '@/components/ui/badge';
 import { Card, linkOverlayClasses } from '@/components/ui/card';
 import { formatDate } from '@/lib/ui/format';
 import type { ManagerListItem } from '@/modules/managers';
@@ -48,7 +48,7 @@ export function ManagerCard({ item }: ManagerCardProps) {
           {item.phone ? <span className="text-sm text-muted">{item.phone}</span> : null}
         </div>
 
-        <ManagerStatusBadge status={item.status} />
+        <AccessStatusBadge status={item.status} />
       </div>
 
       <p className="text-sm text-ink">
