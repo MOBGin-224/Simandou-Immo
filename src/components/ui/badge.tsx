@@ -104,9 +104,18 @@ export function ArchivedBadge() {
  * terminal. Chaque badge porte un texte, jamais la couleur seule.
  */
 export type AccessStatusValue =
-  'INVITED' | 'INVITATION_EXPIRED' | 'ACTIVE' | 'SUSPENDED' | 'REVOKED';
+  'NO_ACCESS' | 'INVITED' | 'INVITATION_EXPIRED' | 'ACTIVE' | 'SUSPENDED' | 'REVOKED';
 
 const ACCESS_STATUS_BADGES: Record<AccessStatusValue, { tone: BadgeTone; label: string }> = {
+  /*
+   * `NO_ACCESS` n'arrive QUE pour un locataire (DEC-051) : une personne qui
+   * occupe un logement sans avoir de compte. Un gestionnaire ne l'atteint
+   * jamais, son accès étant la raison même de son existence dans le produit.
+   *
+   * Ton neutre et non rouge : ne pas utiliser l'application n'est pas une
+   * anomalie, c'est le cas courant du locataire qui paie en main propre.
+   */
+  NO_ACCESS: { tone: 'neutral', label: 'Sans accès' },
   INVITED: { tone: 'info', label: 'Invitation en attente' },
   INVITATION_EXPIRED: { tone: 'warning', label: 'Invitation expirée' },
   ACTIVE: { tone: 'success', label: 'Actif' },
@@ -139,6 +148,32 @@ const INVITATION_STATUS_BADGES: Record<InvitationStatusValue, { tone: BadgeTone;
 
 export function InvitationStatusBadge({ status }: { status: InvitationStatusValue }) {
   const badge = INVITATION_STATUS_BADGES[status];
+
+  return <Badge tone={badge.tone}>{badge.label}</Badge>;
+}
+
+/**
+ * Statut d'un bail (DEC-021, BR-030).
+ *
+ * Les tons suivent MVP-UI-011. « En cours » est en vert : c'est un bail qui
+ * produit, et c'est l'objectif d'un bailleur. « Clôturé » est neutre et non
+ * rouge : un bail qui s'achève normalement n'est pas une anomalie, c'est
+ * l'histoire du logement. « Brouillon » et « Annulé » ne sont pas atteints au
+ * MVP, l'énumération ayant été figée d'emblée pour les lots suivants : ils sont
+ * traduits quand même, pour qu'une donnée inattendue s'affiche en français
+ * plutôt qu'en majuscules anglaises.
+ */
+export type LeaseStatusValue = 'DRAFT' | 'ACTIVE' | 'ENDED' | 'CANCELLED';
+
+const LEASE_STATUS_BADGES: Record<LeaseStatusValue, { tone: BadgeTone; label: string }> = {
+  DRAFT: { tone: 'info', label: 'Brouillon' },
+  ACTIVE: { tone: 'success', label: 'En cours' },
+  ENDED: { tone: 'neutral', label: 'Clôturé' },
+  CANCELLED: { tone: 'neutral', label: 'Annulé' },
+};
+
+export function LeaseStatusBadge({ status }: { status: LeaseStatusValue }) {
+  const badge = LEASE_STATUS_BADGES[status];
 
   return <Badge tone={badge.tone}>{badge.label}</Badge>;
 }

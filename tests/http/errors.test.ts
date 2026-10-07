@@ -31,8 +31,16 @@ import {
   PropertyValidationError,
 } from '../../src/modules/properties/errors';
 import {
+  LeaseConflictError,
+  LeaseStateError,
+  LeaseTerminationDateError,
+  LeaseValidationError,
+} from '../../src/modules/leases/errors';
+import {
   TenantInvitationConflictError,
   TenantNameNotOwnedError,
+  TenantNoAccessError,
+  TenantOrganizationRequiredError,
   TenantStateError,
   TenantValidationError,
 } from '../../src/modules/tenants/errors';
@@ -90,6 +98,24 @@ describe('Traduction des erreurs en réponses HTTP', () => {
     { error: new TenantInvitationConflictError('already-tenant'), status: 409, code: 'CONFLICT' },
     { error: new TenantStateError('reactivate', 'REVOKED'), status: 409, code: 'CONFLICT' },
     { error: new TenantNameNotOwnedError(), status: 403, code: 'FORBIDDEN' },
+    { error: new TenantNoAccessError(), status: 409, code: 'CONFLICT' },
+    {
+      error: new TenantOrganizationRequiredError(['a', 'b']),
+      status: 409,
+      code: 'CONFLICT',
+    },
+    {
+      error: new LeaseValidationError({ startDate: ['invalide'] }),
+      status: 422,
+      code: 'VALIDATION_ERROR',
+    },
+    { error: new LeaseConflictError('apartment-occupied'), status: 409, code: 'CONFLICT' },
+    { error: new LeaseStateError('terminate', 'ENDED'), status: 409, code: 'CONFLICT' },
+    {
+      error: new LeaseTerminationDateError('2026-10-01'),
+      status: 422,
+      code: 'VALIDATION_ERROR',
+    },
     { error: new InvitationInvalidError(), status: 404, code: 'NOT_FOUND' },
     { error: new InvitationLoginRequiredError(), status: 401, code: 'UNAUTHORIZED' },
     { error: new WeakPasswordError(), status: 422, code: 'VALIDATION_ERROR' },

@@ -5,7 +5,7 @@
  * dépôt. Un composant client qui importerait `index.ts` entraînerait derrière lui
  * le pilote PostgreSQL, ce qu'un navigateur ne doit jamais recevoir.
  */
-export type { TenantListFilter, TenantListKind, TenantListStatus } from './constants';
+export type { TenantListFilter, TenantListStatus } from './constants';
 export {
   TENANT_EMAIL_MAX_LENGTH,
   TENANT_LIST_FILTERS,

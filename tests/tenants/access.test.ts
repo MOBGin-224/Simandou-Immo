@@ -107,9 +107,9 @@ describe("Vie de l'accès d'un locataire", () => {
   describe('Fiche', () => {
     it('porte l identité, le statut et le logement', async () => {
       const tenant = await addTenant();
-      const view = await getTenant(harness.db, owner, tenant.accessId);
+      const view = await getTenant(harness.db, owner, tenant.userId);
 
-      expect(view.id).toBe(tenant.accessId);
+      expect(view.id).toBe(tenant.userId);
       expect(view.fullName).toBe('Locataire actif');
       expect(view.phone).toBe(tenant.phone);
       expect(view.status).toBe('ACTIVE');
@@ -121,7 +121,7 @@ describe("Vie de l'accès d'un locataire", () => {
     /** DEC-046 : aucune donnée financière dans la fiche du Lot 7. */
     it('ne porte aucune donnée financière', async () => {
       const tenant = await addTenant();
-      const view = await getTenant(harness.db, owner, tenant.accessId);
+      const view = await getTenant(harness.db, owner, tenant.userId);
 
       expect(JSON.stringify(view)).not.toMatch(/amount|currency|rent/i);
     });
@@ -129,8 +129,8 @@ describe("Vie de l'accès d'un locataire", () => {
     it('est accessible au gestionnaire dont le périmètre contient le logement', async () => {
       const tenant = await addTenant();
 
-      await expect(getTenant(harness.db, manager, tenant.accessId)).resolves.toMatchObject({
-        id: tenant.accessId,
+      await expect(getTenant(harness.db, manager, tenant.userId)).resolves.toMatchObject({
+        id: tenant.userId,
       });
     });
 
@@ -138,7 +138,7 @@ describe("Vie de l'accès d'un locataire", () => {
     it('est inaccessible au gestionnaire quand le logement est hors de son périmètre', async () => {
       const tenant = await addTenant(outOfScopeApartment);
 
-      await expect(getTenant(harness.db, manager, tenant.accessId)).rejects.toBeInstanceOf(
+      await expect(getTenant(harness.db, manager, tenant.userId)).rejects.toBeInstanceOf(
         ResourceOutOfScopeError,
       );
     });
@@ -146,7 +146,7 @@ describe("Vie de l'accès d'un locataire", () => {
     it("est inaccessible au propriétaire d'une autre organisation", async () => {
       const tenant = await addTenant();
 
-      await expect(getTenant(harness.db, otherOwner, tenant.accessId)).rejects.toBeInstanceOf(
+      await expect(getTenant(harness.db, otherOwner, tenant.userId)).rejects.toBeInstanceOf(
         ResourceOutOfScopeError,
       );
     });
@@ -154,8 +154,8 @@ describe("Vie de l'accès d'un locataire", () => {
     it('est accessible au locataire lui-même', async () => {
       const tenant = await addTenant();
 
-      await expect(getTenant(harness.db, tenant.context, tenant.accessId)).resolves.toMatchObject({
-        id: tenant.accessId,
+      await expect(getTenant(harness.db, tenant.context, tenant.userId)).resolves.toMatchObject({
+        id: tenant.userId,
       });
     });
 
@@ -164,7 +164,7 @@ describe("Vie de l'accès d'un locataire", () => {
       const first = await addTenant();
       const second = await addTenant();
 
-      const foreign = await failureOf(getTenant(harness.db, second.context, first.accessId));
+      const foreign = await failureOf(getTenant(harness.db, second.context, first.userId));
       const unknown = await failureOf(
         getTenant(harness.db, second.context, '00000000-0000-4000-8000-000000000999'),
       );
@@ -173,8 +173,16 @@ describe("Vie de l'accès d'un locataire", () => {
       expect((foreign as Error).message).toBe((unknown as Error).message);
     });
 
-    it("refuse l'identifiant d'un accès de gestionnaire", async () => {
+    it("refuse l'identifiant d'un ACCES, qui n'est plus celui d'une personne", async () => {
+      // DEC-051 a change l'identifiant de la ressource : un `user_access.id` ne
+      // designe plus rien ici, et doit se comporter comme inconnu.
       await expect(getTenant(harness.db, owner, SEED_IDS.accessManagerA)).rejects.toBeInstanceOf(
+        ResourceOutOfScopeError,
+      );
+    });
+
+    it("refuse la personne d'un GESTIONNAIRE : elle n'est pas locataire", async () => {
+      await expect(getTenant(harness.db, owner, SEED_IDS.managerA)).rejects.toBeInstanceOf(
         ResourceOutOfScopeError,
       );
     });
@@ -191,7 +199,7 @@ describe("Vie de l'accès d'un locataire", () => {
       const tenant = await addTenant();
       const space = await getMyTenantSpace(harness.db, tenant.context);
 
-      expect(space?.id).toBe(tenant.accessId);
+      expect(space?.id).toBe(tenant.userId);
       expect(space?.apartment?.number).toBe('K01');
     });
 
@@ -206,7 +214,7 @@ describe("Vie de l'accès d'un locataire", () => {
       const view = await updateTenant(
         harness.db,
         tenant.context,
-        tenant.accessId,
+        tenant.userId,
         { name: '  Aïssatou   Barry  ' },
         OPTIONS,
       );
@@ -218,7 +226,7 @@ describe("Vie de l'accès d'un locataire", () => {
     it("n'est PAS modifiable par le propriétaire", async () => {
       const tenant = await addTenant();
       const error = await failureOf(
-        updateTenant(harness.db, owner, tenant.accessId, { name: 'Nom imposé' }, OPTIONS),
+        updateTenant(harness.db, owner, tenant.userId, { name: 'Nom imposé' }, OPTIONS),
       );
 
       expect(error).toBeInstanceOf(TenantNameNotOwnedError);
@@ -229,14 +237,14 @@ describe("Vie de l'accès d'un locataire", () => {
       const tenant = await addTenant();
 
       await expect(
-        updateTenant(harness.db, manager, tenant.accessId, { name: 'Nom imposé' }, OPTIONS),
+        updateTenant(harness.db, manager, tenant.userId, { name: 'Nom imposé' }, OPTIONS),
       ).rejects.toBeInstanceOf(TenantNameNotOwnedError);
     });
 
     it('refuse un nom vide', async () => {
       const tenant = await addTenant();
       const error = await failureOf(
-        updateTenant(harness.db, tenant.context, tenant.accessId, { name: '  ' }, OPTIONS),
+        updateTenant(harness.db, tenant.context, tenant.userId, { name: '  ' }, OPTIONS),
       );
 
       expect(error).toBeInstanceOf(TenantValidationError);
@@ -250,12 +258,12 @@ describe("Vie de l'accès d'un locataire", () => {
       await updateTenant(
         harness.db,
         tenant.context,
-        tenant.accessId,
+        tenant.userId,
         { name: 'Nouveau nom', phone: '+224620009999', email: 'change@example.com' },
         OPTIONS,
       );
 
-      const view = await getTenant(harness.db, owner, tenant.accessId);
+      const view = await getTenant(harness.db, owner, tenant.userId);
 
       expect(view.phone).toBe(tenant.phone);
       expect(view.email).toBeNull();
@@ -266,10 +274,10 @@ describe("Vie de l'accès d'un locataire", () => {
     it('suspend puis réactive, par le propriétaire', async () => {
       const tenant = await addTenant();
 
-      expect((await suspendTenant(harness.db, owner, tenant.accessId, OPTIONS)).status).toBe(
+      expect((await suspendTenant(harness.db, owner, tenant.userId, OPTIONS)).status).toBe(
         'SUSPENDED',
       );
-      expect((await reactivateTenant(harness.db, owner, tenant.accessId, OPTIONS)).status).toBe(
+      expect((await reactivateTenant(harness.db, owner, tenant.userId, OPTIONS)).status).toBe(
         'ACTIVE',
       );
     });
@@ -278,10 +286,10 @@ describe("Vie de l'accès d'un locataire", () => {
     it('est permise au GESTIONNAIRE, sur son périmètre', async () => {
       const tenant = await addTenant();
 
-      expect((await suspendTenant(harness.db, manager, tenant.accessId, OPTIONS)).status).toBe(
+      expect((await suspendTenant(harness.db, manager, tenant.userId, OPTIONS)).status).toBe(
         'SUSPENDED',
       );
-      expect((await reactivateTenant(harness.db, manager, tenant.accessId, OPTIONS)).status).toBe(
+      expect((await reactivateTenant(harness.db, manager, tenant.userId, OPTIONS)).status).toBe(
         'ACTIVE',
       );
     });
@@ -289,9 +297,9 @@ describe("Vie de l'accès d'un locataire", () => {
     it('refuse une suspension déjà faite, plutôt que de feindre un succès', async () => {
       const tenant = await addTenant();
 
-      await suspendTenant(harness.db, owner, tenant.accessId, OPTIONS);
+      await suspendTenant(harness.db, owner, tenant.userId, OPTIONS);
 
-      const error = await failureOf(suspendTenant(harness.db, owner, tenant.accessId, OPTIONS));
+      const error = await failureOf(suspendTenant(harness.db, owner, tenant.userId, OPTIONS));
 
       expect(error).toBeInstanceOf(TenantStateError);
       expect((error as TenantStateError).status).toBe('SUSPENDED');
@@ -301,14 +309,14 @@ describe("Vie de l'accès d'un locataire", () => {
       const tenant = await addTenant();
 
       await expect(
-        reactivateTenant(harness.db, owner, tenant.accessId, OPTIONS),
+        reactivateTenant(harness.db, owner, tenant.userId, OPTIONS),
       ).rejects.toBeInstanceOf(TenantStateError);
     });
 
     it('ferme l accès du suspendu dès la relecture du contexte', async () => {
       const tenant = await addTenant();
 
-      await suspendTenant(harness.db, owner, tenant.accessId, OPTIONS);
+      await suspendTenant(harness.db, owner, tenant.userId, OPTIONS);
 
       const context = await contextOf(harness, tenant.userId);
 
@@ -318,7 +326,7 @@ describe("Vie de l'accès d'un locataire", () => {
     it('ne touche pas le compte de la personne', async () => {
       const tenant = await addTenant();
 
-      await suspendTenant(harness.db, owner, tenant.accessId, OPTIONS);
+      await suspendTenant(harness.db, owner, tenant.userId, OPTIONS);
 
       const [user] = await harness.db
         .select({ status: harness.schema.users.status })
@@ -334,12 +342,12 @@ describe("Vie de l'accès d'un locataire", () => {
       const active = await addTenant();
       const suspended = await addTenant();
 
-      await suspendTenant(harness.db, owner, suspended.accessId, OPTIONS);
+      await suspendTenant(harness.db, owner, suspended.userId, OPTIONS);
 
-      expect((await revokeTenant(harness.db, owner, active.accessId, OPTIONS)).status).toBe(
+      expect((await revokeTenant(harness.db, owner, active.userId, OPTIONS)).status).toBe(
         'REVOKED',
       );
-      expect((await revokeTenant(harness.db, owner, suspended.accessId, OPTIONS)).status).toBe(
+      expect((await revokeTenant(harness.db, owner, suspended.userId, OPTIONS)).status).toBe(
         'REVOKED',
       );
     });
@@ -347,7 +355,7 @@ describe("Vie de l'accès d'un locataire", () => {
     it('est permise au gestionnaire, sur son périmètre', async () => {
       const tenant = await addTenant();
 
-      expect((await revokeTenant(harness.db, manager, tenant.accessId, OPTIONS)).status).toBe(
+      expect((await revokeTenant(harness.db, manager, tenant.userId, OPTIONS)).status).toBe(
         'REVOKED',
       );
     });
@@ -355,7 +363,7 @@ describe("Vie de l'accès d'un locataire", () => {
     it('est refusée au locataire, même sur son propre accès', async () => {
       const tenant = await addTenant();
       const error = await failureOf(
-        revokeTenant(harness.db, tenant.context, tenant.accessId, OPTIONS),
+        revokeTenant(harness.db, tenant.context, tenant.userId, OPTIONS),
       );
 
       expect(error).toBeInstanceOf(PermissionDeniedError);
@@ -365,19 +373,19 @@ describe("Vie de l'accès d'un locataire", () => {
     it('refuse une révocation déjà faite', async () => {
       const tenant = await addTenant();
 
-      await revokeTenant(harness.db, owner, tenant.accessId, OPTIONS);
+      await revokeTenant(harness.db, owner, tenant.userId, OPTIONS);
 
-      await expect(
-        revokeTenant(harness.db, owner, tenant.accessId, OPTIONS),
-      ).rejects.toBeInstanceOf(TenantStateError);
+      await expect(revokeTenant(harness.db, owner, tenant.userId, OPTIONS)).rejects.toBeInstanceOf(
+        TenantStateError,
+      );
     });
 
     it('refuse de réactiver un accès révoqué : on réinvite la personne', async () => {
       const tenant = await addTenant();
 
-      await revokeTenant(harness.db, owner, tenant.accessId, OPTIONS);
+      await revokeTenant(harness.db, owner, tenant.userId, OPTIONS);
 
-      const error = await failureOf(reactivateTenant(harness.db, owner, tenant.accessId, OPTIONS));
+      const error = await failureOf(reactivateTenant(harness.db, owner, tenant.userId, OPTIONS));
 
       expect(error).toBeInstanceOf(TenantStateError);
       expect((error as TenantStateError).message).toMatch(/invitez de nouveau/i);
@@ -386,11 +394,11 @@ describe("Vie de l'accès d'un locataire", () => {
     it('conserve la ligne d accès et la personne : rien n est supprimé', async () => {
       const tenant = await addTenant();
 
-      await revokeTenant(harness.db, owner, tenant.accessId, OPTIONS);
+      await revokeTenant(harness.db, owner, tenant.userId, OPTIONS);
 
       const access = await readTenantAccess(harness, tenant.userId);
 
-      expect(access?.id).toBe(tenant.accessId);
+      expect(access?.userId).toBe(tenant.userId);
       expect(access?.revokedAt).not.toBeNull();
       expect(await readFullName(harness, tenant.userId)).toBe('Locataire actif');
     });
@@ -402,7 +410,7 @@ describe("Vie de l'accès d'un locataire", () => {
 
       expect(await countSessions(harness, tenant.userId)).toBe(1);
 
-      await revokeTenant(harness.db, owner, tenant.accessId, OPTIONS);
+      await revokeTenant(harness.db, owner, tenant.userId, OPTIONS);
 
       expect(await countSessions(harness, tenant.userId)).toBe(0);
     });
@@ -422,7 +430,7 @@ describe("Vie de l'accès d'un locataire", () => {
       });
 
       await addSession(harness, tenant.userId);
-      await revokeTenant(harness.db, owner, tenant.accessId, OPTIONS);
+      await revokeTenant(harness.db, owner, tenant.userId, OPTIONS);
 
       expect(await countSessions(harness, tenant.userId)).toBe(1);
     });

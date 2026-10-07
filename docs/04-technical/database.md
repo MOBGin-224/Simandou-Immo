@@ -583,13 +583,29 @@ relation locative
 Le locataire est donc, au MVP :
 
 ```text
-users         l'identite, profil preliminaire en PENDING_ACTIVATION (BR-008)
-user_access   le role TENANT dans l'organisation, cree a l'acceptation
+users         l'IDENTITE METIER du locataire (DEC-051), profil preliminaire
+              en PENDING_ACTIVATION pour qui n'a pas encore de compte (BR-008)
+user_access   le DROIT D'ACCES au produit, role TENANT, cree a l'acceptation
+              d'une invitation. Facultatif : un locataire peut ne pas en avoir
 invitations   le contexte locatif PREVU : property_id et apartment_id
-leases        la relation locative reelle (BR-020)
+leases        la relation locative REELLE (BR-020), celle qui porte le logement
 ```
 
-L'identifiant de la ressource locataire est `user_access.id`. Une invitation en attente a le sien, `invitation.id`.
+L'identifiant de la ressource locataire est **`users.id`**, celui de la PERSONNE (DEC-051).
+
+> **Ce que DEC-051 a changé, et pourquoi.** L'identifiant était `user_access.id` au Lot 7, où un locataire était une personne invitée à l'espace locataire. Au Lot 8, une personne peut être locataire **sans aucun accès** : celle qui n'utilisera jamais l'application. Un identifiant d'accès l'aurait rendue impossible à désigner, et l'aurait fait disparaître de la liste des locataires. L'identité métier est donc la personne, et `user_access` reste un droit d'accès.
+
+La ressource locataire est le couple **personne et organisation** : `users` ne porte pas d'organisation, à dessein, une personne pouvant être locataire chez deux bailleurs. L'organisation se résout dans le périmètre de l'appelant, et n'est jamais devinée.
+
+Une personne est locataire d'une organisation dès que l'une de ces trois traces existe :
+
+```text
+invitations   une invitation locataire, ouverte ou acceptee
+user_access   un acces de role TENANT, de tout statut
+leases        une relation locative, en cours ou terminee
+```
+
+Aucune des trois n'est obligatoire pour les deux autres. C'est ce qui permet les deux situations que DEC-051 veut représenter : une personne invitée qui n'a pas encore de bail, et une personne qui occupe un logement sans avoir jamais eu de compte.
 
 La distinction reste donc propre entre :
 
@@ -622,9 +638,12 @@ Une table dédiée pourra être ajoutée lorsqu'un attribut propre au rôle loca
 | due_day | smallint NOT NULL |
 | deposit_amount | bigint NOT NULL DEFAULT 0 |
 | status | enum `lease_status` NOT NULL |
+| termination_reason | varchar(200) NULL |
 | created_at | timestamptz NOT NULL |
 | updated_at | timestamptz NOT NULL |
 | terminated_at | timestamptz NULL |
+
+`termination_reason` a été AJOUTÉE au Lot 8 : l'API documente une raison de clôture (section 17) et BR-033 demande de la conserver. Texte libre et non énumération, la documentation n'en donnant qu'un exemple, « move_out » : inventer la liste des autres serait décider d'un vocabulaire métier. La convention du projet pour une liste destinée à s'étendre est d'ailleurs le texte sous contrainte, comme `charge_type` ou `incident_category`.
 
 ### Statuts
 
@@ -636,6 +655,8 @@ ACTIVE
 ENDED
 CANCELLED
 ```
+
+> **`DRAFT` et `CANCELLED` ne sont pas atteints au MVP.** L'énumération a été figée d'emblée pour les lots suivants (DEC-021), comme toutes les autres. Mais aucun document ne donne de comportement de brouillon à un bail, contrairement à la charge dont l'API décrit explicitement le `DRAFT`, et les routes documentées sont la création, la consultation, la modification et la clôture. **Un bail naît donc ACTIF**, et c'est le cas d'usage qui l'écrit, le défaut de la colonne restant `DRAFT` pour le jour où un brouillon aura un sens.
 
 ### Notes
 
@@ -663,6 +684,17 @@ Le schéma ou la logique métier doit empêcher deux contrats actifs incompatibl
 PostgreSQL peut utiliser une stratégie d'exclusion ou cette vérification peut être faite dans une transaction métier.
 
 La règle doit être garantie côté backend.
+
+> **Ce que le Lot 8 a retenu.** Deux **index d'unicité partiels**, et non une contrainte d'exclusion : au MVP, un logement n'a jamais plus d'un bail en cours, donc la question du chevauchement de périodes ne se pose pas, et un index partiel est plus simple à lire comme à expliquer.
+>
+> ```text
+> leases_one_active_per_apartment                 (apartment_id) WHERE status = 'ACTIVE'
+> leases_one_active_per_tenant_and_organization   (organization_id, tenant_user_id) WHERE status = 'ACTIVE'
+> ```
+>
+> Le premier porte BR-028, le second DEC-049. Les deux sont doublés d'un pré-contrôle par lecture dans le cas d'usage, qui existe pour une seule raison : donner un message qui ORIENTE, là où la contrainte ne dirait que « violation d'unicité ». C'est l'index qui arbitre, jamais le pré-contrôle, deux créations simultanées passant chacune celui-ci.
+>
+> Les baux `ENDED` et `CANCELLED` sont hors de ces index : un logement compte autant de baux terminés qu'il a eu d'occupants successifs (BR-027), et c'est de là que son historique se reconstruit (section 18).
 
 ---
 

@@ -78,6 +78,16 @@ describe('Liste des locataires', () => {
   const inviteOn = (apartmentId: string, name: string) =>
     inviteTenant(harness.db, owner, { apartmentId, name, phone: freshPhone(), email: '' }, OPTIONS);
 
+  /**
+   * Identifiant de la ressource locataire : celui de la PERSONNE (DEC-051).
+   *
+   * L'invitation le porte des son emission, le profil preliminaire etant cree en
+   * meme temps qu'elle (BR-008). Avant DEC-051 la liste portait un identifiant
+   * d'invitation, puis un identifiant d'acces, qui changeait a l'acceptation.
+   */
+  const personOf = (issued: Awaited<ReturnType<typeof inviteOn>>) =>
+    issued.invitation.userId as string;
+
   const acceptOf = (token: string) =>
     acceptTenantInvitation(
       harness.db,
@@ -109,8 +119,8 @@ describe('Liste des locataires', () => {
 
       const visible = await idsOf(manager);
 
-      expect(visible).toContain(inside.invitation.id);
-      expect(visible).not.toContain(outside.invitation.id);
+      expect(visible).toContain(personOf(inside));
+      expect(visible).not.toContain(personOf(outside));
     });
 
     it('montre au propriétaire les deux, son autorité portant sur toute l organisation', async () => {
@@ -119,8 +129,8 @@ describe('Liste des locataires', () => {
 
       const visible = await idsOf(owner);
 
-      expect(visible).toContain(inside.invitation.id);
-      expect(visible).toContain(outside.invitation.id);
+      expect(visible).toContain(personOf(inside));
+      expect(visible).toContain(personOf(outside));
     });
 
     /** Le périmètre d'un ACCÈS passe par son invitation acceptée (DEC-046). */
@@ -128,8 +138,8 @@ describe('Liste des locataires', () => {
       const issued = await inviteOn(outOfScopeApartment, 'Accepté hors périmètre');
       const accepted = await acceptOf(issued.token);
 
-      expect(await idsOf(manager)).not.toContain(accepted.accessId);
-      expect(await idsOf(owner)).toContain(accepted.accessId);
+      expect(await idsOf(manager)).not.toContain(accepted.userId);
+      expect(await idsOf(owner)).toContain(accepted.userId);
     });
   });
 
@@ -142,20 +152,30 @@ describe('Liste des locataires', () => {
       const collection = await list();
       const byId = new Map(collection.tenants.map((item) => [item.id, item]));
 
-      expect(byId.get(pending.invitation.id)?.kind).toBe('INVITATION');
-      expect(byId.get(pending.invitation.id)?.status).toBe('INVITED');
-      expect(byId.get(accepted.accessId)?.kind).toBe('ACCESS');
-      expect(byId.get(accepted.accessId)?.status).toBe('ACTIVE');
+      expect(byId.get(personOf(pending))?.status).toBe('INVITED');
+      expect(byId.get(personOf(pending))?.invitationId).toBe(pending.invitation.id);
+      expect(byId.get(personOf(pending))?.accessId).toBeNull();
+      expect(byId.get(accepted.userId)?.status).toBe('ACTIVE');
+      expect(byId.get(accepted.userId)?.accessId).toBe(accepted.accessId);
+      expect(byId.get(accepted.userId)?.invitationId).toBeNull();
     });
 
-    it('ne répète pas une invitation acceptée : son accès la remplace', async () => {
-      const issued = await inviteOn(inScopeApartment, 'Remplacée par son accès');
+    it("garde le MÊME identifiant avant et après l'acceptation", async () => {
+      const issued = await inviteOn(inScopeApartment, 'Même personne');
+
+      expect(await idsOf()).toContain(personOf(issued));
+
       const accepted = await acceptOf(issued.token);
+      const after = await idsOf();
 
-      const visible = await idsOf();
-
-      expect(visible).toContain(accepted.accessId);
-      expect(visible).not.toContain(issued.invitation.id);
+      /*
+       * C'est tout l'intérêt de DEC-051 : l'identité ne change pas quand le droit
+       * d'accès apparaît. Avant, l'identifiant de la ressource passait de
+       * l'invitation à l'accès, et la personne semblait changer d'identité en
+       * ouvrant son espace.
+       */
+      expect(accepted.userId).toBe(personOf(issued));
+      expect(after.filter((id) => id === accepted.userId)).toHaveLength(1);
     });
 
     it('ne montre pas une invitation révoquée', async () => {
@@ -163,14 +183,18 @@ describe('Liste des locataires', () => {
 
       await revokeTenantInvitation(harness.db, owner, issued.invitation.id, OPTIONS);
 
-      expect(await idsOf()).not.toContain(issued.invitation.id);
+      // Plus d'invitation ouverte, pas d'acces, pas de bail : plus aucune trace de
+      // relation locative, donc la personne n'est plus locataire de l'organisation.
+      expect(await idsOf()).not.toContain(personOf(issued));
     });
 
     it('porte le logement de chaque élément', async () => {
       const issued = await inviteOn(inScopeApartment, 'Avec logement');
       const collection = await list();
-      const item = collection.tenants.find((entry) => entry.id === issued.invitation.id);
+      const item = collection.tenants.find((entry) => entry.id === personOf(issued));
 
+      // Sans bail, c'est l'invitation qui porte le logement (DEC-046).
+      expect(item?.apartmentSource).toBe('INVITATION');
       expect(item?.apartment?.number).toBe('K01');
       expect(item?.apartment?.propertyName).toBe('Résidence Kipé');
     });
@@ -188,7 +212,7 @@ describe('Liste des locataires', () => {
       const issued = await inviteOn(inScopeApartment, 'Expirée');
 
       const later = await listTenants(harness.db, owner, {}, { ...OPTIONS, now: at(8 * DAY_MS) });
-      const item = later.tenants.find((entry) => entry.id === issued.invitation.id);
+      const item = later.tenants.find((entry) => entry.id === personOf(issued));
 
       expect(item?.status).toBe('INVITATION_EXPIRED');
     });
@@ -199,13 +223,13 @@ describe('Liste des locataires', () => {
       const revokedIssued = await inviteOn(secondInScopeApartment, 'Révoqué');
       const revoked = await acceptOf(revokedIssued.token);
 
-      await suspendTenant(harness.db, owner, suspended.accessId, OPTIONS);
-      await revokeTenant(harness.db, owner, revoked.accessId, OPTIONS);
+      await suspendTenant(harness.db, owner, suspended.userId, OPTIONS);
+      await revokeTenant(harness.db, owner, revoked.userId, OPTIONS);
 
       const byId = new Map((await list()).tenants.map((item) => [item.id, item]));
 
-      expect(byId.get(suspended.accessId)?.status).toBe('SUSPENDED');
-      expect(byId.get(revoked.accessId)?.status).toBe('REVOKED');
+      expect(byId.get(suspended.userId)?.status).toBe('SUSPENDED');
+      expect(byId.get(revoked.userId)?.status).toBe('REVOKED');
     });
   });
 
@@ -216,8 +240,8 @@ describe('Liste des locataires', () => {
 
       const visible = await idsOf(owner, { propertyId: inScopeProperty });
 
-      expect(visible).toContain(inside.invitation.id);
-      expect(visible).not.toContain(outside.invitation.id);
+      expect(visible).toContain(personOf(inside));
+      expect(visible).not.toContain(personOf(outside));
     });
 
     it('filtre par logement', async () => {
@@ -226,8 +250,8 @@ describe('Liste des locataires', () => {
 
       const visible = await idsOf(owner, { apartmentId: inScopeApartment });
 
-      expect(visible).toContain(first.invitation.id);
-      expect(visible).not.toContain(second.invitation.id);
+      expect(visible).toContain(personOf(first));
+      expect(visible).not.toContain(personOf(second));
     });
 
     it('filtre par statut', async () => {
@@ -237,14 +261,14 @@ describe('Liste des locataires', () => {
       const invited = await idsOf(owner, { status: 'INVITED' });
       const active = await idsOf(owner, { status: 'ACTIVE' });
 
-      expect(active).toContain(accepted.accessId);
-      expect(invited).not.toContain(accepted.accessId);
+      expect(active).toContain(accepted.userId);
+      expect(invited).not.toContain(accepted.userId);
     });
 
     it('cherche par nom, sans tenir compte de la casse', async () => {
       const issued = await inviteOn(inScopeApartment, 'Ousmane Sylla');
 
-      expect(await idsOf(owner, { search: 'ousmane' })).toContain(issued.invitation.id);
+      expect(await idsOf(owner, { search: 'ousmane' })).toContain(personOf(issued));
       expect(await idsOf(owner, { search: 'personne-inconnue' })).toHaveLength(0);
     });
 
@@ -257,7 +281,7 @@ describe('Liste des locataires', () => {
         OPTIONS,
       );
 
-      expect(await idsOf(owner, { search: phone })).toContain(issued.invitation.id);
+      expect(await idsOf(owner, { search: phone })).toContain(personOf(issued));
     });
 
     it('pagine, et annonce le total avant pagination', async () => {

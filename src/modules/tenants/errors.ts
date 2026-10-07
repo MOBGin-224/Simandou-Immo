@@ -1,5 +1,5 @@
 /**
- * Erreurs métier du module Locataires (MVP-ENG-029, DEC-046 à DEC-048).
+ * Erreurs métier du module Locataires (MVP-ENG-029, DEC-046 à DEC-048, DEC-051).
  *
  * Mêmes absences volontaires qu'ailleurs : aucune erreur « locataire
  * inexistant » ni « logement inexistant », car un identifiant inconnu et un
@@ -58,6 +58,42 @@ export class TenantInvitationConflictError extends Error {
           : 'Une invitation encore valable existe déjà pour cette personne. Renvoyez-la depuis la liste.',
     );
     this.name = 'TenantInvitationConflictError';
+  }
+}
+
+/**
+ * Opération d'accès demandée sur une personne qui n'a AUCUN accès au produit
+ * (DEC-051).
+ *
+ * Suspendre, réactiver et révoquer agissent sur le droit d'accès, jamais sur
+ * l'identité. Une personne locataire sans compte n'a donc rien à suspendre, et
+ * le lui dire vaut mieux qu'un succès sans effet : c'est la séparation même que
+ * DEC-051 établit entre l'identité métier et le droit d'accès.
+ */
+export class TenantNoAccessError extends Error {
+  constructor() {
+    super(
+      "Cette personne n'a aucun accès à l'application : il n'y a donc rien à suspendre ni à révoquer. Invitez-la si vous voulez lui ouvrir un espace locataire.",
+    );
+    this.name = 'TenantNoAccessError';
+  }
+}
+
+/**
+ * La personne est locataire dans PLUSIEURS organisations de l'appelant, et la
+ * requête ne dit pas laquelle (DEC-051).
+ *
+ * La ressource locataire est le couple personne et organisation. `users.id` ne
+ * porte pas l'organisation, à dessein. Quand une seule organisation de
+ * l'appelant connaît cette personne, elle est déduite ; quand plusieurs la
+ * connaissent, **le produit ne devine pas**, il demande.
+ */
+export class TenantOrganizationRequiredError extends Error {
+  constructor(readonly organizationIds: readonly string[]) {
+    super(
+      'Cette personne est locataire dans plusieurs de vos organisations. Précisez laquelle avec le paramètre `organizationId`.',
+    );
+    this.name = 'TenantOrganizationRequiredError';
   }
 }
 

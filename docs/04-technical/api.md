@@ -619,7 +619,9 @@ La page d'activation envoie un formulaire HTML : la route répond alors par une 
 
 # 15. Routes : locataires
 
-> **DEC-046.** Un locataire du Lot 7 est une personne invitée à l'espace locataire d'un logement désigné. La relation locative, avec sa date d'entrée et son loyer, est portée par le bail (section 17). `POST /tenants` n'existe donc pas : un locataire se crée par son invitation, section 16, qui porte le logement visé.
+> **DEC-051.** Le locataire est une PERSONNE, pas un accès. « Locataires » désigne toutes les personnes qui ont une relation locative avec l'organisation, **qu'elles aient ou non un accès à l'application**. L'identifiant de la ressource est donc `users.id`, et `user_access` reste un droit d'accès.
+>
+> **DEC-046 tient pour le reste.** `POST /tenants` n'existe pas : une personne entre dans le produit par son invitation, section 16, ou par le bail que le lot Contrats lui crée. La relation locative elle-même, avec sa date d'entrée et son loyer, est portée par le bail (section 17).
 
 ## Lister
 
@@ -627,20 +629,22 @@ La page d'activation envoie un formulaire HTML : la route répond alors par une 
 GET /api/v1/tenants
 ```
 
-Réunit les invitations en attente et les locataires actifs, distingués par un type, comme la liste des gestionnaires.
+Réunit, pour chaque organisation du périmètre de l'appelant, **toute personne qui y a une trace de relation locative** : une invitation, un accès, ou un bail. Un élément par couple personne et organisation.
 
 Paramètres :
 
 ```text
 propertyId
 apartmentId
-status        INVITED | INVITATION_EXPIRED | ACTIVE | SUSPENDED | REVOKED
+status        NO_ACCESS | INVITED | INVITATION_EXPIRED | ACTIVE | SUSPENDED | REVOKED
 search
 page
 pageSize
 ```
 
-Le `status` est **dérivé**, jamais stocké : il se lit de l'invitation et de l'accès.
+Le `status` est **dérivé**, jamais stocké : il se lit de l'invitation, de l'accès et du bail. `NO_ACCESS` est celui d'une personne locataire qui n'a aucun accès au produit : il ne faut pas le confondre avec `REVOKED`, qui est celui d'une personne à qui on a retiré un accès qu'elle avait.
+
+Le logement affiché vient du **bail en cours** quand il y en a un, et de l'invitation sinon : au Lot 7 l'invitation le portait faute de bail, et les deux peuvent diverger si l'on invite une personne sur un logement puis qu'on lui en loue un autre.
 
 Permission : `tenant.read`. Un gestionnaire ne voit que les locataires des logements de son périmètre.
 
@@ -652,7 +656,11 @@ Permission : `tenant.read`. Un gestionnaire ne voit que les locataires des logem
 GET /api/v1/tenants/:id
 ```
 
-`:id` est un `user_access.id`. Pour une invitation en attente, voir `GET /tenant-invitations/:id`.
+`:id` est un **`users.id`**, celui de la personne (DEC-051).
+
+La ressource est le couple personne et organisation. Lorsqu'une seule organisation du périmètre de l'appelant connaît cette personne, elle est **déduite**. Lorsque plusieurs la connaissent, la requête doit la désigner par `?organizationId=`, sans quoi elle est refusée : le produit ne devine jamais de quelle relation il s'agit.
+
+Une invitation en attente garde son identifiant propre, `invitation.id`, sous `GET /tenant-invitations/:id` : c'est là qu'on la renvoie ou qu'on la révoque.
 
 ---
 
@@ -666,7 +674,7 @@ PATCH /api/v1/tenants/:id
 
 Permission : `tenant.update`.
 
-**Et le locataire LUI-MÊME, exclusivement.** La section 14 des rôles et permissions écrit « nom modifiable par le locataire lui-même », et la raison est concrète : le nom vit dans `users`, donc le modifier depuis l'écran d'un propriétaire changerait l'identité de la personne partout, y compris chez un autre bailleur. C'est le principe qui protège déjà le nom d'un compte actif à l'invitation (DEC-041). Un propriétaire ou un gestionnaire reçoit donc `403`, avec un message qui dit la correction possible : révoquer l'accès, puis réinviter.
+**Et le locataire LUI-MÊME, exclusivement.** La section 14 des rôles et permissions écrit « nom modifiable par le locataire lui-même », et la raison est concrète : le nom vit dans `users`, qui porte l'IDENTITÉ MÉTIER de la personne (DEC-051). Le modifier depuis l'écran d'un propriétaire changerait donc l'identité de la personne partout, y compris chez un autre bailleur. C'est le principe qui protège déjà le nom d'un compte actif à l'invitation (DEC-041). Un propriétaire ou un gestionnaire reçoit donc `403`, avec un message qui dit la correction possible : révoquer l'accès, puis réinviter.
 
 ---
 
@@ -680,7 +688,11 @@ POST /api/v1/tenants/:id/revoke
 
 Permissions : `tenant.update` pour la suspension et la réactivation, `tenant.revoke` pour la révocation (DEC-047).
 
-**Révoquer l'accès au produit ne termine aucun bail.** Les deux concepts restent distincts.
+Ces trois opérations agissent sur le **droit d'accès** de la personne dans l'organisation, jamais sur son identité. Une personne locataire **sans accès** n'a donc rien à suspendre : la requête est refusée en `409`, avec un message qui le dit. C'est la conséquence directe de DEC-051, qui sépare l'identité métier du droit d'accès.
+
+Comme pour la consultation, l'organisation est déduite lorsqu'une seule la connaît, et doit être désignée par `organizationId` sinon.
+
+**Révoquer l'accès au produit ne termine aucun bail.** Les deux concepts restent distincts, dans les deux sens : clôturer un bail ne retire aucun accès non plus (section 17).
 
 ---
 
@@ -746,6 +758,33 @@ POST /api/v1/tenant-invitations/:id/revoke
 ---
 # 17. Routes : contrats
 
+> **Un bail naît ACTIF.** `DRAFT` et `CANCELLED` restent dans l'énumération pour un lot futur (DEC-021) : aucun document ne leur donne de comportement, contrairement au `DRAFT` d'une charge que la section 41 décrit explicitement. Les routes du MVP sont donc la création, la consultation, la modification et la clôture, et il n'existe ni activation ni annulation.
+
+## Lister
+
+```text
+GET /api/v1/leases
+```
+
+Réunit les baux du périmètre de l'appelant, en cours comme terminés : **c'est de cette liste que se reconstruit l'historique locatif**, qu'aucune table ne duplique (Database Schema section 18).
+
+Paramètres :
+
+```text
+propertyId
+apartmentId
+tenantId      users.id de la personne (DEC-051)
+status        ALL | DRAFT | ACTIVE | ENDED | CANCELLED
+page
+pageSize
+```
+
+L'ordre place le bail en cours avant l'historique, puis va du plus récent au plus ancien.
+
+Permission : `lease.read`. Un gestionnaire ne voit que les baux des logements de son périmètre. Un locataire ne voit pas cette liste : il consulte SON contrat depuis son espace, son rattachement étant lui-même et non un immeuble (BR-021).
+
+---
+
 ## Créer
 
 ```text
@@ -757,14 +796,34 @@ POST /api/v1/leases
 ```json
 {
   "apartmentId": "apt_123",
-  "tenantId": "tenant_123",
+  "tenantId": "usr_123",
   "startDate": "2026-09-01",
+  "endDate": null,
   "rentAmount": 2500000,
   "currency": "GNF",
   "dueDay": 5,
   "depositAmount": 5000000
 }
 ```
+
+`tenantId` est un **`users.id`**, celui de la personne (DEC-051) : le bail rattache une personne à un logement, et cette personne n'a pas forcément d'accès au produit.
+
+La personne doit être **déjà connue de l'organisation**, c'est-à-dire avoir au moins une trace chez elle : un accès, quel que soit son statut, une invitation, quel que soit son sort, ou un bail, même terminé. Aucune de ces traces n'exige un compte utilisable, donc un locataire sans accès reste recevable. Une personne qu'aucune de ces traces ne rattache reçoit **le même `404` qu'un identifiant inexistant** : `users` est une table globale, et sans cette règle un bail suffirait à lire le nom et le téléphone d'une personne d'un autre bailleur, puis à l'attacher à son organisation (ADR-008).
+
+**Ni organisation ni immeuble ne sont demandés** : ils se déduisent du logement et sont recopiés depuis lui. Une dénormalisation n'a de valeur que si elle ne peut pas mentir (ADR-007).
+
+`endDate` est facultative, un bail à durée indéterminée étant le cas courant sur ce marché (BR-030). `depositAmount` vaut zéro par défaut.
+
+Deux refus en `409` lui sont propres, et le message dit lequel car la correction diffère :
+
+```text
+le LOGEMENT a deja un bail en cours          BR-028
+la PERSONNE a deja un bail actif dans l'organisation   DEC-049
+```
+
+**Un locataire dont l'accès au produit est suspendu ou révoqué peut recevoir un bail.** C'est la frontière de DEC-047 vue de l'autre côté : ne pas avoir d'accès n'empêche pas d'occuper un logement.
+
+Permission : `lease.create`.
 
 ---
 
@@ -773,6 +832,8 @@ POST /api/v1/leases
 ```text
 GET /api/v1/leases/:id
 ```
+
+Permission : `lease.read`. Le locataire du bail y a accès, et seulement au sien (BR-021).
 
 ---
 
@@ -783,6 +844,14 @@ PATCH /api/v1/leases/:id
 ```
 
 Les modifications importantes doivent demander une date d'effet.
+
+**Ni le logement ni le locataire ne sont modifiables** : ils DÉFINISSENT la relation locative, et en changer un ferait un autre bail. Pour un changement d'occupant, on clôture et on recrée, ce qui conserve l'historique du logement (BR-027).
+
+Un bail clôturé répond `409` : son contenu décrit ce qui a eu lieu, et le réécrire effacerait l'historique.
+
+**Ce que BR-032 demandera au lot Loyers.** Un changement de loyer ne doit pas modifier les échéances déjà passées. Aucune échéance n'existe au lot Contrats : la règle n'a rien à protéger ici, et c'est la génération des échéances qui devra lire le loyer en vigueur pour la période qu'elle produit.
+
+Permission : `lease.update`. Le locataire ne la porte pas : les données financières de référence ne sont pas les siennes (BR-022).
 
 ---
 
@@ -803,8 +872,17 @@ POST /api/v1/leases/:id/terminate
 
 Le backend doit empêcher la génération de nouvelles échéances après la date de fin.
 
----
+`terminationDate` devient la date de FIN du bail, et ne peut pas précéder son début. `reason` est **facultative et libre**, stockée dans `leases.termination_reason` (BR-033) : la documentation n'en donne qu'un exemple, et inventer la liste des autres serait décider d'un vocabulaire métier.
 
+**La clôture libère le logement et la personne** : un nouveau bail peut être créé aussitôt sur le logement (BR-027), et la personne peut reprendre un autre logement du même bailleur (DEC-049).
+
+**Elle ne touche PAS l'accès au produit du locataire.** Retirer l'accès est une autre opération, section 15, et ni l'une ni l'autre n'entraîne la seconde (DEC-047).
+
+Aucun DELETE : la suppression physique n'est pas une opération du produit (section 65).
+
+Permission : `lease.terminate`. Un bail déjà clôturé répond `409`.
+
+---
 # 18. Routes : créances
 
 Le MVP comporte **deux types de créance** (DEC-005). Chacune a ses routes, et une route d'agrégation fournit le montant total dû.

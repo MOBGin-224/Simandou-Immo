@@ -37,6 +37,7 @@ describe('Migration initiale', () => {
         'apartments',
         'invitation_properties',
         'invitations',
+        'leases',
         'manager_property_access',
         'organizations',
         'properties',

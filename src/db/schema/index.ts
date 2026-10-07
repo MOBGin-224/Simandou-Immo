@@ -13,6 +13,9 @@
  *
  * Périmètre du Lot 6 : invitations et immeubles qu'elles attribuent
  * (MVP-BACKLOG-025).
+ *
+ * Périmètre du Lot 8 : contrats, c'est-à-dire les relations locatives
+ * (MVP-BACKLOG-032).
  */
 export * from './enums';
 export * from './organizations';
@@ -21,3 +24,4 @@ export * from './properties';
 export * from './access';
 export * from './auth';
 export * from './invitations';
+export * from './leases';

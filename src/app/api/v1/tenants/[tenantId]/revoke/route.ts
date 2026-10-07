@@ -15,6 +15,12 @@ import { revokeTenant } from '@/modules/tenants';
  * l'accès au logement. Ici, la personne cesse seulement d'utiliser
  * l'application, et reste le locataire du logement.
  *
+ * `:tenantId` est un `users.id`, celui de la PERSONNE (DEC-051). L'opération
+ * agit sur son DROIT D'ACCÈS dans l'organisation, jamais sur son identité : une
+ * personne locataire sans accès n'a donc rien à suspendre ni à révoquer, et
+ * reçoit 409. L'organisation est déduite quand une seule la connaît, et doit
+ * être désignée par `organizationId` sinon.
+ *
  * Permission `tenant.revoke`, ajoutée au catalogue par DEC-047. Le propriétaire
  * ET le gestionnaire la portent, chacun sur son périmètre. Un locataire ne la
  * porte pas, pas même pour lui-même.
@@ -24,14 +30,15 @@ import { revokeTenant } from '@/modules/tenants';
  * répond 409.
  */
 export async function POST(
-  _request: Request,
+  request: Request,
   context: RouteContext<'/api/v1/tenants/[tenantId]/revoke'>,
 ): Promise<Response> {
   try {
     const accessContext = await requireAccessContext();
     const { tenantId } = await context.params;
+    const organizationId = new URL(request.url).searchParams.get('organizationId') ?? undefined;
 
-    return dataResponse(await revokeTenant(getDb(), accessContext, tenantId));
+    return dataResponse(await revokeTenant(getDb(), accessContext, tenantId, { organizationId }));
   } catch (error) {
     return apiErrorResponse(error);
   }
