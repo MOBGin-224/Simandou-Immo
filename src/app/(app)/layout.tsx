@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 
 import { AppHeader } from '@/components/navigation/app-header';
+import { AppNavigation } from '@/components/navigation/app-navigation';
 import { EmptyState } from '@/components/ui/empty-state';
 import { requireAccessContextOrSignIn } from '@/lib/auth/guard';
 
@@ -18,6 +19,11 @@ import { requireAccessContextOrSignIn } from '@/lib/auth/guard';
  *
  * Le groupe de routes `(app)` ne change aucune URL : il n'existe que pour porter
  * cette enveloppe.
+ *
+ * **Trois couches depuis le Lot 9**, et chacune a un rôle distinct. L'en-tête
+ * IDENTIFIE : la marque et le point de vue. La navigation CONDUIT : les
+ * destinations de premier niveau, en bas sur téléphone là où le pouce les
+ * atteint, en onglets sur écran large. Le contenu, enfin, est la page.
  */
 export default async function AuthenticatedLayout({ children }: { children: ReactNode }) {
   const context = await requireAccessContextOrSignIn();
@@ -33,12 +39,17 @@ export default async function AuthenticatedLayout({ children }: { children: Reac
    *
    * Le message ne distingue pas suspendu de révoqué : dans les deux cas, la
    * démarche est la même, s'adresser au propriétaire.
+   *
+   * La navigation est quand même rendue, et c'est délibéré : elle porte l'accès
+   * au compte, donc à la déconnexion. Sans elle, cette personne resterait
+   * enfermée sur un message, sans aucun moyen de quitter l'application.
    */
   if (context.memberships.length === 0) {
     return (
       <>
         <AppHeader roles={roles} />
-        <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 sm:py-8">
+        <AppNavigation roles={roles} />
+        <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 pb-24 sm:py-8 sm:pb-8">
           <EmptyState
             title="Aucun accès actif"
             description="Votre accès a été suspendu ou retiré. Contactez le propriétaire de l'immeuble pour le rétablir."
@@ -51,7 +62,16 @@ export default async function AuthenticatedLayout({ children }: { children: Reac
   return (
     <>
       <AppHeader roles={roles} />
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 sm:py-8">{children}</main>
+      <AppNavigation roles={roles} />
+      {/*
+        `pb-24` réserve la hauteur de la barre basse, qui est `fixed` et sort donc
+        du flux : sans cette réserve, le dernier bouton d'une page se retrouve
+        SOUS la barre et devient intouchable. La réserve disparaît à partir de
+        640 px, où la barre cède la place aux onglets.
+      */}
+      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 pb-24 sm:py-8 sm:pb-8">
+        {children}
+      </main>
     </>
   );
 }

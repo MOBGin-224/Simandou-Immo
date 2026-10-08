@@ -67,6 +67,52 @@ const envSchema = z.object({
     .min(1, 'INVITATION_TTL_DAYS doit valoir au moins 1 jour')
     .max(30, 'INVITATION_TTL_DAYS ne peut pas dépasser 30 jours')
     .default(7),
+
+  /**
+   * Secret des routes internes `/internal/*` (DEC-028).
+   *
+   * FACULTATIVE en développement et en test, OBLIGATOIRE en production, et les
+   * deux refus qu'elle évite ne sont pas les mêmes. Sans elle, une machine de
+   * développement devrait inventer un secret pour simplement démarrer le
+   * produit, alors qu'aucune plateforme n'y déclenche de job. En production au
+   * contraire, son absence voudrait dire que les échéances de loyer ne sont
+   * jamais générées, ce qui est une panne silencieuse du cœur financier : le
+   * démarrage échoue plutôt que de laisser croire que tout va bien.
+   *
+   * Quand elle est absente, la route interne refuse TOUT, y compris un appel
+   * sans en-tête : une route de job ouverte parce que son secret n'est pas
+   * configuré serait exactement la faille que la décision ferme.
+   *
+   * 32 caractères au minimum, comme le secret de session : un secret court rend
+   * attaquable le seul contrôle qui protège ces routes.
+   *
+   * Une valeur VIDE vaut absence, et ce détail compte : `.env.example` porte la
+   * ligne `INTERNAL_JOB_SECRET=` pour la rendre visible, et un fichier copié tel
+   * quel transmettrait une chaîne vide. Sans cette équivalence, le produit
+   * refuserait de démarrer en développement pour une variable facultative.
+   */
+  INTERNAL_JOB_SECRET: z
+    .string()
+    .transform((value) => (value.trim().length === 0 ? undefined : value))
+    .pipe(z.string().min(32, 'INTERNAL_JOB_SECRET doit faire au moins 32 caractères').optional())
+    .optional(),
+});
+
+/**
+ * Contrôles qui portent sur PLUSIEURS variables à la fois.
+ *
+ * Hors du schéma d'objet parce qu'ils lisent `NODE_ENV` en même temps que la
+ * variable contrôlée : une règle de champ ne voit que son propre champ.
+ */
+const envSchemaWithCrossChecks = envSchema.superRefine((env, ctx) => {
+  if (env.NODE_ENV === 'production' && env.INTERNAL_JOB_SECRET === undefined) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['INTERNAL_JOB_SECRET'],
+      message:
+        'INTERNAL_JOB_SECRET est requise en production : sans elle, les routes /internal/* refusent tout et les échéances de loyer ne sont jamais générées',
+    });
+  }
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -78,7 +124,7 @@ export type Env = z.infer<typeof envSchema>;
  * `process.env` de la machine qui exécute les tests.
  */
 export function parseEnv(source: Record<string, string | undefined>): Env {
-  const result = envSchema.safeParse(source);
+  const result = envSchemaWithCrossChecks.safeParse(source);
 
   if (!result.success) {
     const details = result.error.issues

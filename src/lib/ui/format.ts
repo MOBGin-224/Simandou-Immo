@@ -21,6 +21,27 @@ export function formatDate(isoDate: string): string {
   return DATE_FORMAT.format(new Date(isoDate));
 }
 
+const MONTH_FORMAT = new Intl.DateTimeFormat('fr-FR', {
+  month: 'long',
+  year: 'numeric',
+  timeZone: TIME_ZONE,
+});
+
+/**
+ * Mois lisible, par exemple « septembre 2026 ».
+ *
+ * Sert les PÉRIODES de facturation, qui désignent un mois entier et non un jour :
+ * « Loyer septembre 2026 » (BR-035). Afficher la date complète du premier du mois
+ * laisserait croire que la créance ne porte que sur ce jour-là.
+ *
+ * L'année est toujours écrite, et la règle l'exige : une période doit être NON
+ * AMBIGUË, et « Loyer septembre » devient faux l'année suivante dans un
+ * historique qui en couvre plusieurs.
+ */
+export function formatMonth(isoDate: string): string {
+  return MONTH_FORMAT.format(new Date(isoDate));
+}
+
 /**
  * Accord du pluriel français.
  *

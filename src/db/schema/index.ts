@@ -16,6 +16,9 @@
  *
  * Périmètre du Lot 8 : contrats, c'est-à-dire les relations locatives
  * (MVP-BACKLOG-032).
+ *
+ * Périmètre du Lot 9 : échéances de loyer, première des deux créances du MVP
+ * (MVP-BACKLOG-036).
  */
 export * from './enums';
 export * from './organizations';
@@ -25,3 +28,4 @@ export * from './access';
 export * from './auth';
 export * from './invitations';
 export * from './leases';
+export * from './rents';

@@ -65,7 +65,6 @@ export default async function PropertiesPage(props: PageProps<'/immeubles'>) {
    * permissions section 13). Le périmètre décide, et non le seul rôle : un
    * gestionnaire sans immeuble attribué n'a aucun locataire à voir.
    */
-  const canManageTenants = readablePropertyScopes(context, 'tenant.read').length > 0;
   /*
    * Point d'entrée des baux. Même raison que les deux précédents : sans lien,
    * l'écran ne serait atteignable qu'en tapant son adresse, la barre d'onglets
@@ -102,24 +101,29 @@ export default async function PropertiesPage(props: PageProps<'/immeubles'>) {
             : `${pluralize(collection.meta.total, 'immeuble')} dans votre périmètre.`
         }
         actions={
-          canCreate || canManageManagers || canManageTenants || canManageLeases ? (
+          canCreate || canManageManagers || canManageLeases ? (
             <>
               {/*
-                Points d'entrée des personnes : les gestionnaires, réservés au
-                propriétaire (DEC-025), et les locataires, ouverts aussi au
-                gestionnaire (DEC-047). La barre d'onglets n'existe pas encore : elle
-                prendra son sens aux lots Loyers et Maintenance, et d'ici là des liens
-                depuis l'écran du patrimoine suffisent. Sans eux, les écrans des
-                locataires ne seraient atteignables qu'en tapant leur adresse.
+                Ce qui RESTE ici depuis que la navigation principale existe (Lot 9).
+                Elle porte les immeubles, les locataires, les loyers et le compte,
+                soit les destinations de premier niveau. Deux liens n'y entrent pas
+                et vivent donc ici.
+
+                Les BAUX, parce que l'architecture de l'information ne les place pas
+                au premier niveau : ils se rejoignent depuis un immeuble, un
+                appartement, un locataire ou un loyer.
+
+                Les GESTIONNAIRES, parce qu'ils sont réservés au propriétaire
+                (DEC-025) et que la charte limite la navigation à cinq entrées : une
+                entrée visible d'un seul rôle y aurait coûté la place de « Loyers ».
+
+                Le lien vers les locataires a été RETIRÉ : la navigation l'offre
+                maintenant partout, et le garder ici donnait deux chemins côte à côte
+                vers le même écran.
               */}
               {canManageLeases ? (
                 <Link href="/baux" className={buttonClasses('secondary', 'md')}>
                   Baux
-                </Link>
-              ) : null}
-              {canManageTenants ? (
-                <Link href="/locataires" className={buttonClasses('secondary', 'md')}>
-                  Locataires
                 </Link>
               ) : null}
               {canManageManagers ? (

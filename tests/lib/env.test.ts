@@ -126,4 +126,56 @@ describe('Validation des variables d environnement', () => {
       );
     });
   });
+
+  /**
+   * Le secret des routes internes est le seul contrôle qui protège les jobs
+   * (DEC-028). Son absence n'a pas la même gravité selon l'environnement, et ces
+   * tests figent la différence : tolérée en développement, elle est une panne
+   * silencieuse du cœur financier en production, puisque les échéances de loyer
+   * ne seraient jamais générées.
+   */
+  describe('INTERNAL_JOB_SECRET', () => {
+    const secret = 'secret-interne-de-job-assez-long-pour-passer';
+
+    it('est facultative en développement et en test', () => {
+      expect(parseEnv(valid).INTERNAL_JOB_SECRET).toBeUndefined();
+      expect(parseEnv({ ...valid, NODE_ENV: 'test' }).INTERNAL_JOB_SECRET).toBeUndefined();
+    });
+
+    it('est requise en production', () => {
+      expect(() => parseEnv({ ...valid, NODE_ENV: 'production' })).toThrow(/INTERNAL_JOB_SECRET/);
+    });
+
+    it('accepte un secret suffisamment long, y compris en production', () => {
+      expect(
+        parseEnv({ ...valid, NODE_ENV: 'production', INTERNAL_JOB_SECRET: secret })
+          .INTERNAL_JOB_SECRET,
+      ).toBe(secret);
+    });
+
+    /**
+     * `.env.example` porte la ligne `INTERNAL_JOB_SECRET=` pour la rendre
+     * visible : un fichier copié tel quel transmet une chaîne vide, et sans
+     * cette équivalence le produit refuserait de démarrer en développement pour
+     * une variable facultative.
+     */
+    it('traite une valeur vide comme une absence', () => {
+      expect(parseEnv({ ...valid, INTERNAL_JOB_SECRET: '' }).INTERNAL_JOB_SECRET).toBeUndefined();
+      expect(
+        parseEnv({ ...valid, INTERNAL_JOB_SECRET: '   ' }).INTERNAL_JOB_SECRET,
+      ).toBeUndefined();
+    });
+
+    it('refuse en production une valeur vide, comme une absence', () => {
+      expect(() => parseEnv({ ...valid, NODE_ENV: 'production', INTERNAL_JOB_SECRET: '' })).toThrow(
+        /INTERNAL_JOB_SECRET/,
+      );
+    });
+
+    it('refuse un secret trop court, qui rendrait la route attaquable', () => {
+      expect(() => parseEnv({ ...valid, INTERNAL_JOB_SECRET: 'trop-court' })).toThrow(
+        /INTERNAL_JOB_SECRET/,
+      );
+    });
+  });
 });

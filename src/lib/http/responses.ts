@@ -79,6 +79,30 @@ export async function readJsonBody(request: Request): Promise<unknown> {
   }
 }
 
+/**
+ * Corps FACULTATIF, pour une route dont tous les champs ont un défaut.
+ *
+ * Une requête sans corps n'est pas malformée quand la route n'en exige aucun :
+ * `POST /api/v1/rents/generate` sans rien dire signifie « le mois en cours, tout
+ * mon périmètre », et c'est son usage courant. Passer par `readJsonBody`
+ * répondrait 400 à l'appel le plus normal de la route.
+ *
+ * Un corps PRÉSENT mais illisible reste une requête malformée : l'appelant a
+ * voulu dire quelque chose, et ce quelque chose ne se lit pas. Seul le corps vide
+ * est traité comme une absence.
+ */
+export async function readOptionalJsonBody(request: Request): Promise<unknown> {
+  const raw = await request.text().catch(() => '');
+
+  if (raw.trim().length === 0) return {};
+
+  try {
+    return JSON.parse(raw);
+  } catch {
+    throw new MalformedRequestBodyError();
+  }
+}
+
 /** Corps de requête illisible. Traduite en 400 par `apiErrorResponse`. */
 export class MalformedRequestBodyError extends Error {
   constructor() {

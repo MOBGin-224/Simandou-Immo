@@ -17,6 +17,15 @@ import { cn } from '@/lib/ui/cn';
  * Les fonds viennent des valeurs EXPLICITES de la charte et non d'une opacité :
  * `bg-success/10` donne une autre couleur, donc un autre contraste que les
  * ratios que la charte a mesurés sur ces fonds précis.
+ *
+ * **Un badge ne se replie jamais et ne se comprime pas.** Vu à l'écran au Lot 9,
+ * sur une carte de loyer dont le logement portait un nom long : « En retard »
+ * passait sur deux lignes, et la pastille devenait un rectangle à coins arrondis
+ * de 40 px de haut. La hauteur de 26 px que la charte fixe n'est tenable qu'avec
+ * `whitespace-nowrap`, et `shrink-0` fait céder le TEXTE voisin plutôt que le
+ * badge, ce qui suppose que ce voisin porte `min-w-0`. Aucune mesure
+ * automatique ne voyait ce défaut : ni débordement, ni texte coupé, ni cible
+ * trop petite.
  */
 export type BadgeTone = 'neutral' | 'success' | 'warning' | 'danger' | 'info';
 
@@ -45,7 +54,7 @@ export function Badge({ tone = 'neutral', dot = true, children, className }: Bad
   return (
     <span
       className={cn(
-        'inline-flex min-h-6.5 items-center gap-1.5 rounded-pill border px-2.5 text-xs font-bold',
+        'inline-flex min-h-6.5 shrink-0 items-center gap-1.5 rounded-pill border px-2.5 text-xs font-bold whitespace-nowrap',
         TONES[tone],
         className,
       )}
@@ -206,6 +215,46 @@ const LEASE_STATUS_BADGES: Record<LeaseStatusValue, { tone: BadgeTone; label: st
 
 export function LeaseStatusBadge({ status }: { status: LeaseStatusValue }) {
   const badge = LEASE_STATUS_BADGES[status];
+
+  return <Badge tone={badge.tone}>{badge.label}</Badge>;
+}
+
+/**
+ * Statut d'une créance, « À venir » comprise (BR-037, DEC-015).
+ *
+ * Il prend le statut AFFICHÉ et non le statut stocké : « À venir » n'existe pas
+ * en base, c'est une dérivation que le serveur calcule et transmet. Le badge ne
+ * la recalcule donc pas, et ne lit aucune date : deux endroits qui liraient la
+ * date du jour séparément se contrediraient au passage de minuit.
+ *
+ * Un seul composant pour les DEUX créances du MVP, loyer et charge, puisque
+ * l'énumération leur est commune (DEC-015) : le Lot 10 réutilisera celui-ci
+ * plutôt que d'en écrire un second qui finirait par ne plus dire la même chose
+ * du même état.
+ *
+ * Les tons suivent MVP-UI-011. « Payé » est en vert, c'est l'argent reçu.
+ * « En retard » est en rouge, le seul état vraiment anormal. « Impayé » et
+ * « Partiellement payé » sont en orange : ils appellent une action sans être des
+ * fautes. « À venir » est en bleu d'information, parce qu'il n'appelle
+ * précisément AUCUNE action, et l'afficher en orange ferait de chaque loyer du
+ * mois une alerte. « Annulé » est neutre, non rouge : une créance annulée est
+ * une décision, pas un incident.
+ */
+export type ReceivableStatusValue =
+  'UPCOMING' | 'UNPAID' | 'PARTIALLY_PAID' | 'PAID' | 'OVERDUE' | 'CANCELLED';
+
+const RECEIVABLE_STATUS_BADGES: Record<ReceivableStatusValue, { tone: BadgeTone; label: string }> =
+  {
+    UPCOMING: { tone: 'info', label: 'À venir' },
+    UNPAID: { tone: 'warning', label: 'Impayé' },
+    PARTIALLY_PAID: { tone: 'warning', label: 'Partiellement payé' },
+    PAID: { tone: 'success', label: 'Payé' },
+    OVERDUE: { tone: 'danger', label: 'En retard' },
+    CANCELLED: { tone: 'neutral', label: 'Annulé' },
+  };
+
+export function ReceivableStatusBadge({ status }: { status: ReceivableStatusValue }) {
+  const badge = RECEIVABLE_STATUS_BADGES[status];
 
   return <Badge tone={badge.tone}>{badge.label}</Badge>;
 }
