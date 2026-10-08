@@ -521,19 +521,33 @@ organization 1 → N properties
 | floor | integer |
 | type | varchar |
 | area | numeric |
-| status | enum `apartment_status` NOT NULL |
+| status | enum `apartment_status` NOT NULL, **GELÉE** depuis le Lot 8b |
+| under_maintenance | boolean NOT NULL DEFAULT false |
 | reference_rent_amount | bigint NULL |
 | currency | char(3) NULL |
 | created_at | timestamptz NOT NULL |
 | updated_at | timestamptz NOT NULL |
 | archived_at | timestamptz NULL |
 
-### Statuts
+### Occupation et maintenance, depuis le Lot 8b
 
-Voir DEC-019 :
+**L'occupation d'un logement est DÉRIVÉE de son bail** (DEC-050). Elle n'est plus saisie, et ne se lit plus dans `apartments` :
 
 ```text
-apartment_status
+un bail ACTIVE sur ce logement   OCCUPIED
+aucun bail ACTIVE                VACANT
+```
+
+Deux colonnes en découlent.
+
+`under_maintenance` est **la seule saisie qui reste**, et elle est INDÉPENDANTE de l'occupation : un logement peut être en travaux qu'il soit loué ou vide, et DEC-050 point 2 le dit explicitement. Les fondre dans une valeur unique ferait disparaître « occupé » dès que des travaux sont déclarés, c'est-à-dire cacherait le bail qui court.
+
+`status` est **gelée** : plus rien ne la lit ni ne l'écrit. Elle est conservée, et non supprimée, parce que DEC-050 point 3 demande de préserver l'historique sans réécrire les statuts déjà saisis. Sa suppression est une opération irréversible, qui attend l'accord du fondateur.
+
+L'énumération reste donc en base, inchangée :
+
+```text
+apartment_status   GELEE
 
 VACANT
 OCCUPIED
@@ -544,7 +558,18 @@ MAINTENANCE
 
 `RESERVED` est hors périmètre MVP.
 
-`ARCHIVED` n'est pas une valeur de cet enum : l'archivage est porté par `archived_at` (DEC-020). Un appartement archivé conserve son dernier statut d'occupation.
+`ARCHIVED` n'est pas une valeur de cet enum : l'archivage est porté par `archived_at` (DEC-020). **Archiver ne clôture aucun bail** : un logement archivé qui porte encore un bail en cours reste donc annoncé occupé, parce que c'est la vérité, et que la masquer cacherait une situation qui demande une décision.
+
+### Compteurs d'un immeuble
+
+```text
+apartment_count    logements non archives
+occupied_count     ceux qui portent un bail en cours
+vacant_count       apartment_count - occupied_count
+maintenance_count  ceux dont under_maintenance est vrai
+```
+
+Les deux premiers se répartissent exactement le parc. **`maintenance_count` CHEVAUCHE les deux autres** et n'entre pas dans cette somme : un écran qui l'additionnerait annoncerait plus de logements qu'il n'en existe.
 
 ### Contraintes
 
@@ -1763,7 +1788,7 @@ user_status           PENDING_ACTIVATION | ACTIVE | SUSPENDED
 user_access_status    ACTIVE | SUSPENDED | REVOKED
 role                  OWNER | MANAGER | TENANT
 access_level          MANAGE
-apartment_status      VACANT | OCCUPIED | MAINTENANCE
+apartment_status      VACANT | OCCUPIED | MAINTENANCE   GELEE, voir section 14
 lease_status          DRAFT | ACTIVE | ENDED | CANCELLED
 receivable_status     UNPAID | PARTIALLY_PAID | PAID | OVERDUE | CANCELLED
 payment_status        PENDING | CONFIRMED | FAILED | CANCELLED
@@ -1866,7 +1891,7 @@ La suppression doit être choisie relation par relation.
    - `organizations`
    - `properties`
 5. Les entités dont le statut est orthogonal à l'archivage conservent les deux :
-   - `apartments` : `apartment_status` + `archived_at`
+   - `apartments` : occupation DERIVEE du bail + `under_maintenance` + `archived_at`
    - `users` : `user_status` + `archived_at`
 6. Aucun `DELETE` physique sur une entité métier dans le fonctionnement normal.
 

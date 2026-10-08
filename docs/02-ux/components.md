@@ -453,11 +453,15 @@ InterventionStatus
   COMPLETED        Terminée
   CANCELLED        Annulée
 
-ApartmentStatus
+ApartmentOccupancy   DERIVEE du bail, jamais saisie (DEC-050)
   VACANT           Vacant
   OCCUPIED         Occupé
-  MAINTENANCE      En maintenance
+
+ApartmentMaintenance   SAISIE, et independante de l'occupation
+  under_maintenance   En travaux
 ```
+
+**Un logement porte les DEUX badges**, l'occupation puis les travaux s'ils sont déclarés. Ce n'est pas un détail d'affichage : DEC-050 point 2 dit qu'un logement peut être en travaux qu'il soit loué ou vide, donc un badge unique ferait disparaître « Occupé » dès qu'un chantier est déclaré, et cacherait le bail qui court.
 
 Couleurs de statut, DEC-012 :
 

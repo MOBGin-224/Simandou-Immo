@@ -16,11 +16,22 @@ import type { UpdatePropertyInput } from './schemas';
  * (BR-025, DEC-020).
  */
 
-/** Occupation d'un immeuble, dérivée du statut de ses appartements (DEC-019). */
+/**
+ * Occupation d'un immeuble, dérivée des BAUX de ses appartements (DEC-050).
+ *
+ * `occupiedCount` et `vacantCount` se répartissent exactement `apartmentCount` :
+ * un logement porte un bail en cours, ou il n'en porte pas.
+ *
+ * `maintenanceCount` **chevauche les deux autres** et n'entre pas dans cette
+ * somme. C'est voulu, et c'est ce que DEC-050 dit : un logement peut être en
+ * travaux qu'il soit loué ou vide. Un écran qui l'additionnerait aux deux autres
+ * annoncerait donc plus de logements qu'il n'en existe.
+ */
 export type PropertyOccupancy = {
   apartmentCount: number;
   occupiedCount: number;
   vacantCount: number;
+  /** Chevauche `occupiedCount` et `vacantCount` : ne jamais l'additionner. */
   maintenanceCount: number;
 };
 

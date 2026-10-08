@@ -41,12 +41,18 @@ export function PropertyCard({ property }: { property: PropertyView }) {
         ) : (
           <>
             {pluralize(occupancy.apartmentCount, 'logement')}
+            {/*
+              « dont » se rattache au TOTAL, et c'est essentiel : les travaux
+              chevauchent l'occupation (DEC-050). Écrit à la suite des occupés, le
+              chiffre se lirait comme une troisième catégorie, et « 8 occupés,
+              24 vacants, 2 en travaux » annoncerait 34 logements sur 32.
+            */}
+            {occupancy.maintenanceCount > 0 ? (
+              <span className="text-muted">{`, dont ${occupancy.maintenanceCount} en travaux`}</span>
+            ) : null}
             <span className="text-muted">
               {' · '}
               {occupancy.occupiedCount} occupé{occupancy.occupiedCount > 1 ? 's' : ''}
-              {occupancy.maintenanceCount > 0
-                ? `, ${occupancy.maintenanceCount} en maintenance`
-                : ''}
             </span>
           </>
         )}

@@ -359,9 +359,23 @@ POST /api/v1/properties/:propertyId/apartments
 {
   "number": "A04",
   "floor": 2,
-  "type": "F3"
+  "type": "F3",
+  "underMaintenance": false
 }
 ```
+
+**Aucune occupation n'est acceptée en entrée** (DEC-050) : un logement qui vient d'être déclaré n'a pas de bail, donc il est vacant, et le laisser saisir permettait d'annoncer un logement vacant alors qu'un bail y courait. Un champ `status` envoyé par un client est ignoré en silence, et non refusé : il ne désigne plus rien.
+
+`underMaintenance` est la seule saisie qui reste, et elle est indépendante de l'occupation : un logement peut être en travaux qu'il soit loué ou vide.
+
+### Output
+
+```text
+occupancy         VACANT | OCCUPIED   DERIVEE du bail en cours
+underMaintenance  booleen             SAISIE, independante de l'occupation
+```
+
+Les deux sont présentés séparément, et l'interface affiche les deux badges côte à côte : les fondre ferait disparaître « occupé » dès que des travaux sont déclarés.
 
 ---
 
@@ -397,11 +411,15 @@ GET /api/v1/properties/:propertyId/apartments
 Paramètres possibles :
 
 ```text
-status
+status      ALL | VACANT | OCCUPIED | MAINTENANCE
 search
 page
 pageSize
 ```
+
+`VACANT` et `OCCUPIED` filtrent sur l'occupation DÉRIVÉE du bail. `MAINTENANCE` filtre sur la déclaration de travaux, qui n'est pas une occupation : le gestionnaire cherche « mes chantiers » comme il cherche « mes logements vides », et un logement en travaux peut figurer dans `OCCUPIED` comme dans `VACANT`.
+
+Le filtre s'applique **avant la pagination** : l'appliquer après donnerait des pages incomplètes et un total faux.
 
 ---
 
@@ -418,6 +436,10 @@ GET /api/v1/apartments/:id
 ```text
 PATCH /api/v1/apartments/:id
 ```
+
+**L'occupation n'est pas modifiable** (DEC-050) : pour libérer un logement, on clôture son bail. Une requête qui ne porterait que l'ancien champ `status` est refusée en `422`, comme toute requête sans modification recevable.
+
+`underMaintenance` suit la règle des autres champs : absent, il ne change rien. Un formulaire qui veut décocher la case transmet donc une valeur explicite, par un champ caché, sans quoi un PATCH partiel sur le seul loyer terminerait silencieusement les travaux d'un logement.
 
 ---
 
@@ -806,9 +828,37 @@ POST /api/v1/leases
 }
 ```
 
-`tenantId` est un **`users.id`**, celui de la personne (DEC-051) : le bail rattache une personne à un logement, et cette personne n'a pas forcément d'accès au produit.
+### Deux façons de désigner le locataire, et une seule à la fois
 
-La personne doit être **déjà connue de l'organisation**, c'est-à-dire avoir au moins une trace chez elle : un accès, quel que soit son statut, une invitation, quel que soit son sort, ou un bail, même terminé. Aucune de ces traces n'exige un compte utilisable, donc un locataire sans accès reste recevable. Une personne qu'aucune de ces traces ne rattache reçoit **le même `404` qu'un identifiant inexistant** : `users` est une table globale, et sans cette règle un bail suffirait à lire le nom et le téléphone d'une personne d'un autre bailleur, puis à l'attacher à son organisation (ADR-008).
+```text
+tenantId   une personne que l'organisation connait deja, par son users.id
+tenant     une personne NOUVELLE, decrite par son nom et son numero
+```
+
+Les deux ensemble reçoivent un `422`, plutôt qu'un arbitrage silencieux : départager ferait qu'une erreur de l'appelant créerait une personne qu'il n'a pas voulue, ou en ignorerait une qu'il a décrite. Aucun des deux reçoit également un `422`.
+
+**`tenantId`**, une personne déjà connue. C'est un `users.id`, celui de la personne (DEC-051) : le bail rattache une personne à un logement, et cette personne n'a pas forcément d'accès au produit.
+
+La personne doit avoir au moins une trace dans l'organisation : un accès, quel que soit son statut, une invitation, quel que soit son sort, ou un bail, même terminé. Aucune de ces traces n'exige un compte utilisable, donc un locataire sans accès reste recevable. Une personne qu'aucune de ces traces ne rattache reçoit **le même `404` qu'un identifiant inexistant** : `users` est une table globale, et sans cette règle un bail suffirait à lire le nom et le téléphone d'une personne d'un autre bailleur, puis à l'attacher à son organisation (ADR-008).
+
+**`tenant`**, une personne nouvelle.
+
+```json
+{
+  "apartmentId": "apt_123",
+  "tenant": { "name": "Mariama Camara", "phone": "+224620111222", "email": "" },
+  "startDate": "2026-09-01",
+  "rentAmount": 2500000,
+  "currency": "GNF",
+  "dueDay": 5
+}
+```
+
+C'est le **geste explicite** que DEC-051 point 8 réserve, et c'est ce qui permet de loger quelqu'un qui n'utilisera jamais l'application : la personne est créée, sans invitation, sans compte, sans accès. Elle apparaît aussitôt dans la liste des locataires, au statut `NO_ACCESS`.
+
+La saisie est celle de l'invitation, au caractère près, et la règle d'identité est la même (DEC-041) : **un numéro déjà connu réutilise son compte** au lieu d'en créer un second, et un compte actif garde son nom, qui appartient à la personne et non à celui qui l'inscrit. Sans cette unité, le même numéro finirait par désigner deux personnes.
+
+Tout se passe dans une transaction : une personne créée sans le bail qui la justifie ne doit jamais subsister. Un refus ultérieur, par exemple `tenant-engaged`, annule donc aussi la création ou le renommage de la personne.
 
 **Ni organisation ni immeuble ne sont demandés** : ils se déduisent du logement et sont recopiés depuis lui. Une dénormalisation n'a de valeur que si elle ne peut pas mentir (ADR-007).
 

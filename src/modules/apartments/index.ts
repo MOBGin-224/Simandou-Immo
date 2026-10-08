@@ -26,7 +26,7 @@ export {
  * aussi exposées à l'interface par `client.ts`, qui ne doit rien entraîner de
  * serveur derrière lui.
  */
-export type { ApartmentListFilter, ApartmentStatus } from './constants';
+export type { ApartmentListFilter, ApartmentOccupancy } from './constants';
 export {
   APARTMENT_AREA_MAX,
   APARTMENT_BULK_MAX,
@@ -37,7 +37,7 @@ export {
   APARTMENT_LIST_MAX_PAGE_SIZE,
   APARTMENT_NUMBER_MAX_LENGTH,
   APARTMENT_RENT_MAX,
-  APARTMENT_STATUSES,
+  APARTMENT_OCCUPANCIES,
   APARTMENT_TYPE_MAX_LENGTH,
 } from './constants';
 

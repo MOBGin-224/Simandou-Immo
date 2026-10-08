@@ -72,20 +72,39 @@ describe('Création', () => {
     expect(result.success && result.data.floor).toBe(-1);
   });
 
-  it('retient VACANT par défaut, comme pour un logement sans bail', () => {
+  /**
+   * DEC-050 : l'occupation n'est plus une saisie.
+   *
+   * La donner en entree ne doit RIEN produire : c'est le bail qui l'etablit, et
+   * un champ ignore en silence vaut mieux qu'un champ qui laisserait croire que
+   * le logement a ete declare occupe.
+   */
+  it('ignore une occupation envoyee par un client, qui n a plus cours', () => {
+    const result = create({ status: 'OCCUPIED' });
+
+    expect(result.success).toBe(true);
+    expect(result.success && 'status' in result.data).toBe(false);
+    expect(result.success && 'occupancy' in result.data).toBe(false);
+  });
+
+  it('retient « pas de travaux » par defaut', () => {
     const result = create({});
 
-    expect(result.success && result.data.status).toBe('VACANT');
+    expect(result.success && result.data.underMaintenance).toBe(false);
   });
 
-  it('traite un statut vide comme une absence et non comme une erreur', () => {
-    const result = create({ status: '' });
-
-    expect(result.success && result.data.status).toBe('VACANT');
+  it('declare des travaux quand la case est cochee', () => {
+    expect(create({ underMaintenance: 'on' }).success && true).toBe(true);
+    expect(
+      createApartmentSchema.safeParse({ number: 'A01', underMaintenance: 'on' }).success &&
+        createApartmentSchema.parse({ number: 'A01', underMaintenance: 'on' }).underMaintenance,
+    ).toBe(true);
   });
 
-  it('refuse un statut inconnu', () => {
-    expect(create({ status: 'RESERVED' }).success).toBe(false);
+  it('traite le champ cache « false » comme une case decochee', () => {
+    const result = create({ underMaintenance: 'false' });
+
+    expect(result.success && result.data.underMaintenance).toBe(false);
   });
 });
 

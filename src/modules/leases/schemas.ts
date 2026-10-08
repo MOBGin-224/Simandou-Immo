@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { tenantPersonSchema } from '@/modules/tenants';
+
 import {
   LEASE_AMOUNT_MAX,
   LEASE_DUE_DAY_MAX,
@@ -163,28 +165,57 @@ function currencyRules(missing: string) {
 /**
  * Création d'un bail (API section 17, MVP-BACKLOG-032).
  *
+ * **Deux façons de désigner le locataire, et une seule à la fois.**
+ *
+ * ```text
+ * tenantId   une personne que l'organisation connait deja, par son users.id
+ * tenant     une personne NOUVELLE, decrite par son nom et son numero
+ * ```
+ *
  * `tenantId` est un `users.id`, l'identité métier de la personne (DEC-051) : le
  * bail rattache une PERSONNE à un logement, et cette personne n'a pas forcément
- * d'accès au produit. L'organisation et l'immeuble ne sont PAS demandés : ils se
- * déduisent du logement, et les recevoir de l'appelant ouvrirait la porte à un
- * couple incohérent.
+ * d'accès au produit.
+ *
+ * `tenant` est le geste explicite que DEC-051 point 8 réserve : il crée la
+ * personne, sans invitation, pour le locataire qui n'utilisera jamais
+ * l'application. Sa saisie est celle de l'invitation, au caractère près, parce
+ * que `tenantPersonSchema` est partagé : sinon le bail finirait par accepter un
+ * numéro que l'invitation refuse.
+ *
+ * Les deux ensemble sont REFUSÉS plutôt qu'arbitrés : départager silencieusement
+ * ferait qu'une erreur de l'appelant créerait une personne qu'il n'a pas voulue,
+ * ou en ignorerait une qu'il a décrite.
+ *
+ * L'organisation et l'immeuble ne sont PAS demandés : ils se déduisent du
+ * logement, et les recevoir de l'appelant ouvrirait la porte à un couple
+ * incohérent.
  *
  * `endDate` est facultative : sur ce marché, un bail à durée indéterminée est le
  * cas courant (BR-030). `depositAmount` vaut zéro par défaut, une caution
  * absente étant une caution de zéro.
  */
-export const createLeaseSchema = z.object({
-  apartmentId: z.string('Logement requis.').pipe(z.uuid(UUID_MESSAGE)),
-  tenantId: z.string('Locataire requis.').pipe(z.uuid(UUID_MESSAGE)),
-  startDate: requiredDate('La date de début est requise.'),
-  endDate: creationDate(),
-  rentAmount: requiredAmount('Le loyer', 'Le montant du loyer est requis.'),
-  currency: currencyRules('La devise est requise.'),
-  dueDay: requiredAmount("Le jour d'échéance", "Le jour d'échéance est requis.").pipe(
-    dueDayRules(),
-  ),
-  depositAmount: creationAmount('La caution', 0),
-});
+export const createLeaseSchema = z
+  .object({
+    apartmentId: z.string('Logement requis.').pipe(z.uuid(UUID_MESSAGE)),
+    tenantId: z.string().pipe(z.uuid(UUID_MESSAGE)).optional(),
+    tenant: tenantPersonSchema.optional(),
+    startDate: requiredDate('La date de début est requise.'),
+    endDate: creationDate(),
+    rentAmount: requiredAmount('Le loyer', 'Le montant du loyer est requis.'),
+    currency: currencyRules('La devise est requise.'),
+    dueDay: requiredAmount("Le jour d'échéance", "Le jour d'échéance est requis.").pipe(
+      dueDayRules(),
+    ),
+    depositAmount: creationAmount('La caution', 0),
+  })
+  .refine((value) => value.tenantId !== undefined || value.tenant !== undefined, {
+    error: 'Locataire requis : désignez une personne connue, ou décrivez-en une nouvelle.',
+    path: ['tenantId'],
+  })
+  .refine((value) => value.tenantId === undefined || value.tenant === undefined, {
+    error: 'Choisissez une personne connue OU une nouvelle personne, pas les deux.',
+    path: ['tenantId'],
+  });
 
 export type CreateLeaseInput = z.output<typeof createLeaseSchema>;
 

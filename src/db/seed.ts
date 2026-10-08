@@ -168,6 +168,11 @@ export async function seed(db: SeedTarget) {
     await tx
       .insert(apartments)
       .values([
+        /*
+         * Aucun `status` : la colonne est gelee depuis DEC-050, et l'occupation
+         * se deduit des baux. A03 porte des travaux declares, qui sont la seule
+         * saisie restante, et qui n'empechent pas le logement d'etre loue.
+         */
         {
           id: SEED_IDS.apartmentA01,
           organizationId: SEED_IDS.organizationA,
@@ -176,7 +181,6 @@ export async function seed(db: SeedTarget) {
           floor: 0,
           type: 'T3',
           area: '78.50',
-          status: 'VACANT',
           referenceRentAmount: 2500000,
           currency: GNF,
         },
@@ -188,7 +192,6 @@ export async function seed(db: SeedTarget) {
           floor: 1,
           type: 'T3',
           area: '78.50',
-          status: 'VACANT',
           referenceRentAmount: 2500000,
           currency: GNF,
         },
@@ -200,7 +203,7 @@ export async function seed(db: SeedTarget) {
           floor: 2,
           type: 'T4',
           area: '95.00',
-          status: 'MAINTENANCE',
+          underMaintenance: true,
           referenceRentAmount: 3200000,
           currency: GNF,
         },

@@ -1,6 +1,10 @@
 import Link from 'next/link';
 
-import { ApartmentStatusBadge, ArchivedBadge } from '@/components/ui/badge';
+import {
+  ApartmentMaintenanceBadge,
+  ApartmentOccupancyBadge,
+  ArchivedBadge,
+} from '@/components/ui/badge';
 import { Card, linkOverlayClasses } from '@/components/ui/card';
 import { formatArea, formatMoney } from '@/lib/ui/format';
 import { describeFloor, type ApartmentView } from '@/modules/apartments/client';
@@ -49,7 +53,8 @@ export function ApartmentCard({
 
         <div className="flex flex-wrap items-center justify-end gap-1.5">
           {apartment.archived ? <ArchivedBadge /> : null}
-          <ApartmentStatusBadge status={apartment.status} />
+          <ApartmentOccupancyBadge occupancy={apartment.occupancy} />
+          {apartment.underMaintenance ? <ApartmentMaintenanceBadge /> : null}
         </div>
       </div>
 

@@ -10,7 +10,6 @@ import {
   APARTMENT_LIST_MAX_PAGE_SIZE,
   APARTMENT_NUMBER_MAX_LENGTH,
   APARTMENT_RENT_MAX,
-  APARTMENT_STATUSES,
   APARTMENT_TYPE_MAX_LENGTH,
 } from './constants';
 
@@ -184,15 +183,20 @@ const referenceRentBase = z
   .transform((value) => (value === null || value.amount === null ? null : value));
 
 /**
- * Statut d'occupation (DEC-019).
+ * Logement en travaux (DEC-050).
  *
- * Une chaîne vide vaut absence et non erreur : un `select` non renseigné la
- * transmet, et refuser la saisie pour cette raison serait incompréhensible.
+ * La SEULE saisie qui reste du statut d'occupation, et elle n'en est pas une :
+ * un logement peut être en travaux qu'il soit loué ou vide. L'occupation, elle,
+ * se déduit du bail et n'est plus recevable en entrée.
+ *
+ * Une case à cocher non cochée n'est pas transmise par un formulaire HTML :
+ * l'absence vaut donc faux, et « on » vaut vrai. Refuser l'absence rendrait le
+ * formulaire impossible à décocher.
  */
-const statusBase = z
-  .union([z.string(), z.null()])
-  .transform((value) => emptyToNull(value))
-  .pipe(z.enum(APARTMENT_STATUSES, STATUS_INVALID).nullable());
+const maintenanceBase = z
+  .union([z.string(), z.boolean(), z.null()])
+  .optional()
+  .transform((value) => value === true || value === 'on' || value === 'true' || value === '1');
 
 /**
  * Création d'un appartement (MVP-BACKLOG-021, API section 12, parcours 3).
@@ -203,15 +207,16 @@ const statusBase = z
  * l'immeuble : la déduire est ici sans ambiguïté, contrairement à l'immeuble
  * dont l'organisation était un choix réel.
  *
- * Le statut vaut VACANT par défaut : un logement qui vient d'être déclaré n'a
- * pas de bail, et c'est l'état que BR-028 lui reconnaît.
+ * **Aucune occupation n'est acceptée en entrée** (DEC-050) : un logement qui
+ * vient d'être déclaré n'a pas de bail, donc il est vacant, et le dire serait
+ * donner à l'appelant le pouvoir de mentir. Seuls les travaux se déclarent.
  */
 export const createApartmentSchema = z.object({
   number: requiredText(APARTMENT_NUMBER_MAX_LENGTH, NUMBER_MISSING, NUMBER_TOO_LONG),
   floor: atCreation(floorBase),
   type: creationText(APARTMENT_TYPE_MAX_LENGTH, TYPE_TOO_LONG),
   area: atCreation(areaBase),
-  status: atCreation(statusBase).transform((value) => value ?? 'VACANT'),
+  underMaintenance: maintenanceBase,
   referenceRent: atCreation(referenceRentBase),
 });
 
@@ -227,8 +232,14 @@ export type CreateApartmentInput = z.infer<typeof createApartmentSchema>;
  * `propertyId` est absent à dessein : un appartement appartient à un seul
  * immeuble et n'en change pas (BR-026).
  *
- * Le statut ne peut pas être effacé, seulement changé : c'est une colonne
- * NOT NULL, et « sans statut » ne veut rien dire pour un logement.
+ * L'occupation en est absente (DEC-050) : la changer à la main est précisément
+ * ce que la décision supprime. Pour libérer un logement, on clôture son bail.
+ *
+ * `underMaintenance` suit en revanche la règle des autres champs : absent, il ne
+ * change rien. Un formulaire qui veut décocher la case doit donc transmettre une
+ * valeur explicite, et `form.ts` s'en charge par un champ caché. L'alternative,
+ * « absent vaut faux », aurait fait qu'un PATCH partiel sur le seul loyer
+ * terminerait silencieusement les travaux d'un logement.
  */
 export const updateApartmentSchema = z
   .object({
@@ -236,7 +247,16 @@ export const updateApartmentSchema = z
     floor: floorBase.optional(),
     type: patchText(APARTMENT_TYPE_MAX_LENGTH, TYPE_TOO_LONG),
     area: areaBase.optional(),
-    status: z.enum(APARTMENT_STATUSES, STATUS_INVALID).optional(),
+    /*
+     * `.optional()` est placé APRÈS la conversion, comme pour `patchText` : c'est
+     * ce qui garde la clé facultative dans le type de sortie. Placé avant, Zod 4
+     * la rendrait obligatoire avec une valeur possiblement indéfinie, et chaque
+     * appelant devrait la mentionner pour ne rien changer.
+     */
+    underMaintenance: z
+      .union([z.string(), z.boolean(), z.null()])
+      .transform((value) => value === true || value === 'on' || value === 'true' || value === '1')
+      .optional(),
     referenceRent: referenceRentBase.optional(),
   })
   .refine((value) => Object.values(value).some((field) => field !== undefined), {
@@ -283,10 +303,14 @@ export type CreateApartmentsBulkInput = z.infer<typeof createApartmentsBulkSchem
  * borne supérieure de `pageSize` est imposée par le serveur, un client ne devant
  * pas pouvoir demander un volume arbitraire.
  *
- * Le filtre porte sur le STATUT et non sur l'archivage, contrairement à celui
- * des immeubles : c'est le statut d'occupation qui structure la lecture d'un
- * parc. Les logements archivés sont exclus par défaut et réunis sous leur propre
- * option, l'archive ne se consultant qu'intentionnellement.
+ * Le filtre porte sur l'OCCUPATION et non sur l'archivage, contrairement à celui
+ * des immeubles : c'est elle qui structure la lecture d'un parc. Les logements
+ * archivés sont exclus par défaut et réunis sous leur propre option, l'archive ne
+ * se consultant qu'intentionnellement.
+ *
+ * `MAINTENANCE` reste une valeur de filtre sans être une occupation (DEC-050) :
+ * un logement en travaux peut être occupé, et ce filtre répond à « montre-moi mes
+ * chantiers », pas à « montre-moi mes logements vides ».
  */
 export const listApartmentsQuerySchema = z.object({
   page: z.coerce.number('Numéro de page invalide.').int().min(1).default(1),

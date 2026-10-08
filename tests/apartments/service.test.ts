@@ -71,7 +71,9 @@ describe('Cas d usage du module Appartements', () => {
 
       expect(created.number).toBe('T 01');
       expect(created.area).toBe(45.5);
-      expect(created.status).toBe('VACANT');
+      // Vacant par construction : un logement neuf ne peut porter aucun bail.
+      expect(created.occupancy).toBe('VACANT');
+      expect(created.underMaintenance).toBe(false);
       expect(created.propertyId).toBe(SEED_IDS.propertyA);
 
       const read = await getApartment(harness.db, owner, created.id);
@@ -134,10 +136,10 @@ describe('Cas d usage du module Appartements', () => {
       });
 
       const updated = await updateApartment(harness.db, manager, created.id, {
-        status: 'MAINTENANCE',
+        underMaintenance: true,
       });
 
-      expect(updated.status).toBe('MAINTENANCE');
+      expect(updated.underMaintenance).toBe(true);
     });
 
     /**
@@ -193,7 +195,7 @@ describe('Cas d usage du module Appartements', () => {
       });
 
       expect(created.map((apartment) => apartment.number)).toEqual(['S01', 'S02', 'S03', 'S04']);
-      expect(created.every((apartment) => apartment.status === 'VACANT')).toBe(true);
+      expect(created.every((apartment) => apartment.occupancy === 'VACANT')).toBe(true);
     });
 
     /**
@@ -234,11 +236,33 @@ describe('Cas d usage du module Appartements', () => {
 
       const updated = await updateApartment(harness.db, owner, created.id, {
         type: 'T3',
-        status: 'OCCUPIED',
+        underMaintenance: true,
       });
 
       expect(updated.type).toBe('T3');
-      expect(updated.status).toBe('OCCUPIED');
+      expect(updated.underMaintenance).toBe(true);
+    });
+
+    /**
+     * DEC-050 : l'occupation ne se saisit plus.
+     *
+     * Un client qui l'enverrait quand même ne doit RIEN obtenir, et surtout pas
+     * une erreur qui laisserait croire que le champ existe encore : le logement
+     * reste vacant, faute de bail, et la requête est refusée parce qu'elle ne
+     * contient aucune modification recevable.
+     */
+    it('refuse une requête qui ne porte que l occupation, devenue sans objet', async () => {
+      const created = await createForOwner('U09');
+
+      const failure = await updateApartment(harness.db, owner, created.id, {
+        status: 'OCCUPIED',
+      }).catch((error: unknown) => error);
+
+      expect(failure).toBeInstanceOf(ApartmentValidationError);
+
+      const read = await getApartment(harness.db, owner, created.id);
+
+      expect(read.occupancy).toBe('VACANT');
     });
 
     /**
@@ -310,16 +334,43 @@ describe('Cas d usage du module Appartements', () => {
       ).toBe(true);
     });
 
-    it('filtre sur le statut', async () => {
+    it('filtre sur les travaux déclarés', async () => {
+      await updateApartment(harness.db, owner, (await createForOwner('F01')).id, {
+        underMaintenance: true,
+      });
+
       const collection = await listApartments(harness.db, owner, SEED_IDS.propertyA, {
         status: 'MAINTENANCE',
         pageSize: 100,
       });
 
       expect(collection.apartments.length).toBeGreaterThan(0);
-      expect(collection.apartments.every((apartment) => apartment.status === 'MAINTENANCE')).toBe(
-        true,
-      );
+      expect(collection.apartments.every((apartment) => apartment.underMaintenance)).toBe(true);
+    });
+
+    /**
+     * Le filtre « vacant » s'applique en SQL, AVANT la pagination : l'appliquer
+     * après donnerait des pages incomplètes et un total faux. Sans bail dans cet
+     * immeuble, tout y est vacant, et le total doit donc suivre le nombre réel de
+     * logements plutôt que la taille d'une page.
+     */
+    it('filtre sur l occupation sans fausser le total', async () => {
+      const all = await listApartments(harness.db, owner, SEED_IDS.propertyA, { pageSize: 100 });
+      const vacant = await listApartments(harness.db, owner, SEED_IDS.propertyA, {
+        status: 'VACANT',
+        pageSize: 100,
+      });
+
+      expect(vacant.meta.total).toBe(all.meta.total);
+      expect(vacant.apartments.every((apartment) => apartment.occupancy === 'VACANT')).toBe(true);
+
+      const occupied = await listApartments(harness.db, owner, SEED_IDS.propertyA, {
+        status: 'OCCUPIED',
+        pageSize: 100,
+      });
+
+      expect(occupied.meta.total).toBe(0);
+      expect(occupied.apartments).toEqual([]);
     });
 
     it('cherche sur la référence', async () => {
@@ -487,15 +538,17 @@ describe('Cas d usage du module Appartements', () => {
    * l'exploitation étant un acte patrimonial.
    */
   describe('Archivage', () => {
-    it('archive un logement sans toucher à son statut d occupation', async () => {
-      const created = await createForOwner('K01', { status: 'OCCUPIED' });
+    it('archive un logement sans toucher à sa déclaration de travaux', async () => {
+      const created = await createForOwner('K01', { underMaintenance: 'on' });
 
       const archived = await archiveApartment(harness.db, owner, created.id);
 
       expect(archived.archived).toBe(true);
       expect(archived.archivedAt).not.toBeNull();
-      // Le statut reste la derniere information vraie sur le logement (DEC-019).
-      expect(archived.status).toBe('OCCUPIED');
+      // Les travaux restent la derniere information vraie sur le logement (DEC-019).
+      expect(archived.underMaintenance).toBe(true);
+      // Et l'occupation reste deduite : sans bail, le logement archive est vacant.
+      expect(archived.occupancy).toBe('VACANT');
     });
 
     it('refuse un second archivage plutôt que d annoncer un succès sans effet', async () => {
@@ -525,10 +578,10 @@ describe('Cas d usage du module Appartements', () => {
       const created = await createForOwner('K04');
 
       const updated = await updateApartment(harness.db, manager, created.id, {
-        status: 'MAINTENANCE',
+        underMaintenance: true,
       });
 
-      expect(updated.status).toBe('MAINTENANCE');
+      expect(updated.underMaintenance).toBe(true);
     });
 
     it('refuse toute modification d un logement archivé', async () => {

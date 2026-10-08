@@ -43,12 +43,26 @@ export const APARTMENT_AREA_DECIMALS = 2;
  */
 export const APARTMENT_RENT_MAX = 1_000_000_000_000;
 
-/** Statuts d'occupation (DEC-019). `ARCHIVED` n'en fait pas partie (DEC-020). */
-export const APARTMENT_STATUSES = ['VACANT', 'OCCUPIED', 'MAINTENANCE'] as const;
-export type ApartmentStatus = (typeof APARTMENT_STATUSES)[number];
+/**
+ * Occupation d'un logement, DÉRIVÉE de son bail (DEC-050).
+ *
+ * Deux valeurs seulement, et aucune saisie : un logement avec un bail en cours
+ * est occupé, sans bail en cours il est vacant. `ARCHIVED` n'en fait pas partie
+ * (DEC-020), et `MAINTENANCE` non plus, pour la raison que la décision donne :
+ * un logement peut être en travaux qu'il soit loué ou vide. La maintenance est
+ * donc portée à part, par un indicateur, et s'affiche EN PLUS de l'occupation.
+ */
+export const APARTMENT_OCCUPANCIES = ['VACANT', 'OCCUPIED'] as const;
+export type ApartmentOccupancy = (typeof APARTMENT_OCCUPANCIES)[number];
 
-/** Ce que la liste affiche : un statut précis, ou tous. */
-export const APARTMENT_LIST_FILTERS = ['ALL', ...APARTMENT_STATUSES] as const;
+/**
+ * Ce que la liste permet de filtrer : une occupation, les travaux, ou tout.
+ *
+ * `MAINTENANCE` y reste une valeur de filtre, bien qu'elle ne soit plus une
+ * occupation : le gestionnaire cherche « mes logements en travaux » comme il
+ * cherche « mes logements vacants », et le lui retirer appauvrirait l'écran.
+ */
+export const APARTMENT_LIST_FILTERS = ['ALL', ...APARTMENT_OCCUPANCIES, 'MAINTENANCE'] as const;
 export type ApartmentListFilter = (typeof APARTMENT_LIST_FILTERS)[number];
 
 /** Borne maximale de pagination imposée par le serveur (API section 44). */

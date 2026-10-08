@@ -907,6 +907,64 @@ Tout changement doit être vérifié.
 
 ---
 
+# 49 bis. Le numéro de téléphone comme identifiant : ce que la réutilisation révèle
+
+**Point de sécurité OUVERT, à trancher par le fondateur. Il ne bloque aucun lot.**
+
+DEC-041 pose que le numéro de téléphone est UNIQUE et qu'il identifie une personne dans tout le produit : viser un numéro déjà connu **réutilise son compte** au lieu d'en créer un second. C'est ce qui empêche qu'une même personne existe en double, et c'est la bonne règle.
+
+Elle a une conséquence qui n'avait pas été écrite jusqu'ici, et qui doit l'être.
+
+## Ce qui est révélé
+
+`users` est une table GLOBALE, sans organisation. Quand un bailleur saisit un numéro qui appartient déjà à la locataire d'un AUTRE bailleur, le compte existant est réutilisé, et la réponse porte le **nom enregistré** de cette personne, ainsi que son email s'il existe. Le bailleur apprend donc, pour un numéro qu'il possède, le nom sous lequel cette personne est enregistrée dans le produit.
+
+Deux portes d'entrée ont ce comportement, et exactement le même :
+
+```text
+POST /api/v1/tenant-invitations     Lot 7, DEC-041
+POST /api/v1/leases  avec "tenant"  Lot 8b, DEC-051 point 8
+```
+
+**Ce n'est pas une faille d'isolation des organisations** : aucune donnée locative, financière ni patrimoniale ne traverse. Ce qui traverse est l'association entre un numéro et un nom.
+
+## Pourquoi c'est noté « élevé » et non « moyen »
+
+Un numéro de téléphone est **énumérable**, à la différence d'un UUID. L'espace guinéen des numéros mobiles se parcourt, et une recherche CIBLÉE est triviale : un seul appel suffit pour apprendre le nom enregistré derrière un numéro que l'on détient.
+
+## Pourquoi la correction évidente n'en est pas une
+
+Refuser la réutilisation quand l'organisation ne connaît pas encore la personne a été envisagé, et écarté pour deux raisons :
+
+1. **Cela révélerait davantage.** Un refus distinguerait « ce numéro est inconnu » de « ce numéro existe ailleurs », ce qui est un signal plus net que le nom lui-même.
+2. **Cela briserait un cas métier réel.** Une personne qui loue chez deux bailleurs, ou qui a déjà loué ailleurs, deviendrait impossible à enregistrer. C'est précisément le locataire que DEC-051 veut représenter.
+
+La seule correction sans fuite serait de porter le nom **par organisation**, c'est-à-dire une table de profils locataires. DEC-051 point 3 l'a explicitement refusée, et pour une bonne raison : elle dédoublerait l'identité d'une personne.
+
+## Décision à prendre
+
+Le choix appartient au fondateur, et il est entre :
+
+```text
+A. conserver la reutilisation telle quelle, en l'assumant
+   par ecrit. Coherent avec DEC-041, aucun changement de code.
+
+B. ne plus renvoyer le nom enregistre quand l'organisation ne
+   connaissait pas encore la personne, en affichant le nom SAISI
+   jusqu'a ce qu'une relation existe. Demande de stocker un nom
+   par organisation, donc de rouvrir DEC-051 point 3.
+
+C. exiger une invitation acceptee pour toute personne deja connue
+   ailleurs. Rend impossible le locataire sans compte des qu'il a
+   deja loue ailleurs, donc contredit l'objet de DEC-051.
+```
+
+**En attendant, le produit est en A**, et cette section est ce qui l'assume explicitement plutôt que de le laisser implicite.
+
+Ce qui est en revanche déjà fermé, et doit rester fermé : **DÉSIGNER une personne par son `users.id`** exige qu'une trace la rattache déjà à l'organisation (DEC-051 point 8). Sans cela, un identifiant trouvé n'importe où suffisait à attacher quelqu'un et à lire ses coordonnées, et un identifiant inconnu se distinguait d'un identifiant étranger, contre ADR-008.
+
+---
+
 # 50. Sécurité du changement d'email
 
 Même principe :
@@ -1267,6 +1325,7 @@ Les résultats respectent les permissions.
 
 - exposition de documents ;
 - exposition de données personnelles ;
+- **association numéro vers nom révélée par la réutilisation d'un compte (section 49 bis, OUVERT)** ;
 - révocation inefficace ;
 - webhooks falsifiés.
 

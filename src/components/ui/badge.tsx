@@ -54,31 +54,42 @@ export function PropertyStatusBadge({ archived }: { archived: boolean }) {
 }
 
 /**
- * Statut d'occupation d'un appartement (DEC-019).
+ * Occupation d'un appartement, DÉRIVÉE de son bail (DEC-050).
  *
- * Trois valeurs seulement : Vacant, Occupé, En maintenance. `ARCHIVED` n'en fait
- * pas partie, l'archivage étant porté par `archived_at` (DEC-020) : un logement
- * archivé garde donc son dernier statut d'occupation, et l'archive s'affiche par
- * un badge distinct, à côté.
+ * Deux valeurs seulement : Vacant et Occupé. `ARCHIVED` n'en fait pas partie,
+ * l'archivage étant porté par `archived_at` (DEC-020), et il s'affiche par un
+ * badge distinct, à côté.
+ *
+ * **La maintenance a son propre badge**, et vient EN PLUS de celui-ci. Elle n'est
+ * pas une occupation : un logement peut être en travaux qu'il soit loué ou vide,
+ * et les fondre en un seul badge ferait disparaître « Occupé » dès que des travaux
+ * sont déclarés, c'est-à-dire cacherait le bail qui court.
  *
  * Le choix des tons suit MVP-UI-011. « Occupé » est en vert parce que c'est
  * l'objectif d'un bailleur, un logement loué étant un logement qui produit.
  * « Vacant » est neutre et non rouge : un logement vide n'est pas une anomalie,
- * c'est une situation à traiter. « En maintenance » est en orange, seul état qui
+ * c'est une situation à traiter. « En travaux » est en orange, le seul état qui
  * appelle réellement une action.
  */
-export type ApartmentStatusValue = 'VACANT' | 'OCCUPIED' | 'MAINTENANCE';
+export type ApartmentOccupancyValue = 'VACANT' | 'OCCUPIED';
 
-const APARTMENT_STATUS_BADGES: Record<ApartmentStatusValue, { tone: BadgeTone; label: string }> = {
+const APARTMENT_OCCUPANCY_BADGES: Record<
+  ApartmentOccupancyValue,
+  { tone: BadgeTone; label: string }
+> = {
   VACANT: { tone: 'neutral', label: 'Vacant' },
   OCCUPIED: { tone: 'success', label: 'Occupé' },
-  MAINTENANCE: { tone: 'warning', label: 'En maintenance' },
 };
 
-export function ApartmentStatusBadge({ status }: { status: ApartmentStatusValue }) {
-  const badge = APARTMENT_STATUS_BADGES[status];
+export function ApartmentOccupancyBadge({ occupancy }: { occupancy: ApartmentOccupancyValue }) {
+  const badge = APARTMENT_OCCUPANCY_BADGES[occupancy];
 
   return <Badge tone={badge.tone}>{badge.label}</Badge>;
+}
+
+/** Travaux déclarés sur un logement. S'affiche à côté de son occupation. */
+export function ApartmentMaintenanceBadge() {
+  return <Badge tone="warning">En travaux</Badge>;
 }
 
 /** Badge d'archive, commun à toutes les entités archivables (DEC-020). */

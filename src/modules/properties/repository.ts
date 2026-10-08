@@ -17,7 +17,6 @@ import * as schema from '@/db/schema';
 import { apartments, properties, type Property } from '@/db/schema';
 import type { PropertyScope } from '@/lib/authorization';
 
-import { EMPTY_OCCUPANCY, type PropertyOccupancy } from './domain';
 import type { ListPropertiesQuery } from './schemas';
 
 /**
@@ -234,44 +233,48 @@ export async function listPropertyRows(
 }
 
 /**
- * Occupation de plusieurs immeubles, en UNE requête.
+ * Nombre de logements et de chantiers par immeuble, en UNE requête.
  *
  * Une requête par carte de la liste serait le défaut classique de cet écran :
  * vingt immeubles produiraient vingt et une requêtes. L'agrégation est donc faite
- * par la base, groupée par immeuble et par statut.
+ * par la base, groupée par immeuble et par déclaration de travaux.
+ *
+ * **L'occupation n'est PAS ici** (DEC-050). Elle ne se lit plus dans
+ * `apartments`, elle se déduit des baux, et ce dépôt n'a pas à connaître le
+ * module Contrats : c'est le cas d'usage qui réunit les deux lectures.
  *
  * Les appartements archivés sont exclus : ils ne font plus partie du parc
  * exploité, et les compter gonflerait artificiellement le nombre de logements.
  */
-export async function occupancyByProperty(
+export type ApartmentTally = { apartmentCount: number; maintenanceCount: number };
+
+export async function apartmentTallyByProperty(
   db: PropertiesDatabase,
   propertyIds: readonly string[],
-): Promise<Map<string, PropertyOccupancy>> {
-  const occupancies = new Map<string, PropertyOccupancy>();
+): Promise<Map<string, ApartmentTally>> {
+  const tallies = new Map<string, ApartmentTally>();
 
-  if (propertyIds.length === 0) return occupancies;
+  if (propertyIds.length === 0) return tallies;
 
   const rows = await db
     .select({
       propertyId: apartments.propertyId,
-      status: apartments.status,
+      underMaintenance: apartments.underMaintenance,
       value: count(),
     })
     .from(apartments)
     .where(and(inArray(apartments.propertyId, [...propertyIds]), isNull(apartments.archivedAt)))
-    .groupBy(apartments.propertyId, apartments.status);
+    .groupBy(apartments.propertyId, apartments.underMaintenance);
 
   for (const row of rows) {
-    const current = occupancies.get(row.propertyId) ?? { ...EMPTY_OCCUPANCY };
+    const current = tallies.get(row.propertyId) ?? { apartmentCount: 0, maintenanceCount: 0 };
 
     current.apartmentCount += row.value;
 
-    if (row.status === 'OCCUPIED') current.occupiedCount += row.value;
-    if (row.status === 'VACANT') current.vacantCount += row.value;
-    if (row.status === 'MAINTENANCE') current.maintenanceCount += row.value;
+    if (row.underMaintenance) current.maintenanceCount += row.value;
 
-    occupancies.set(row.propertyId, current);
+    tallies.set(row.propertyId, current);
   }
 
-  return occupancies;
+  return tallies;
 }

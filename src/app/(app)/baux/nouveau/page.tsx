@@ -50,6 +50,10 @@ export default async function NewLeasePage(props: PageProps<'/baux/nouveau'>) {
    * accès au produit (DEC-051) : un accès suspendu, révoqué ou absent n'empêche
    * pas d'occuper un logement. Même une personne encore invitée peut recevoir un
    * bail, l'identité métier existant dès l'invitation.
+   *
+   * Une liste VIDE n'empêche plus de créer un bail depuis le Lot 8b : le
+   * formulaire propose alors de décrire la personne, qu'il crée (DEC-051 point 8).
+   * C'est pourquoi le seul état bloquant restant est l'absence de logement.
    */
   const tenants = await listTenants(getDb(), context, { pageSize: 100 });
   const tenantChoices: TenantChoice[] = tenants.tenants.map((item) => ({
@@ -78,15 +82,7 @@ export default async function NewLeasePage(props: PageProps<'/baux/nouveau'>) {
           href: '/immeubles',
           label: 'Voir mes immeubles',
         }
-      : tenantChoices.length === 0
-        ? {
-            title: 'Aucun locataire à qui louer',
-            description:
-              "Un bail rattache une personne déjà invitée comme locataire. Invitez d'abord la personne, puis revenez créer son bail.",
-            href: '/locataires/inviter',
-            label: 'Inviter un locataire',
-          }
-        : null;
+      : null;
 
   return (
     <div className="flex max-w-2xl flex-col gap-6">

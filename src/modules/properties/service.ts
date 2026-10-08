@@ -6,6 +6,7 @@ import {
   requirePermission,
   type AccessContext,
 } from '@/lib/authorization';
+import { occupiedCountByProperty } from '@/modules/leases';
 
 import {
   assertArchivable,
@@ -13,6 +14,7 @@ import {
   changedFields,
   hasChanges,
   toPropertyView,
+  type PropertyOccupancy,
   type PropertyView,
 } from './domain';
 import {
@@ -27,8 +29,8 @@ import {
   findPropertyByName,
   insertProperty,
   isUniqueViolation,
+  apartmentTallyByProperty,
   listPropertyRows,
-  occupancyByProperty,
   updatePropertyRow,
   type PropertiesDatabase,
 } from './repository';
@@ -104,6 +106,43 @@ async function loadAccessibleProperty(
   return property;
 }
 
+/**
+ * Occupation de plusieurs immeubles, en DEUX lectures (DEC-050).
+ *
+ * Le parc et les chantiers viennent de `apartments`, l'occupation vient des baux.
+ * Les réunir ici, et non dans le dépôt, tient à la règle d'isolation des modules :
+ * un dépôt ne connaît qu'une seule famille de tables, et c'est le cas d'usage qui
+ * a le droit d'interroger un autre module par sa façade publique.
+ *
+ * `vacantCount` est une SOUSTRACTION et non un comptage : un logement porte un
+ * bail en cours ou il n'en porte pas, et compter les deux séparément autoriserait
+ * les deux chiffres à ne pas se rejoindre.
+ */
+async function occupancyOf(
+  db: PropertiesDatabase,
+  propertyIds: readonly string[],
+): Promise<Map<string, PropertyOccupancy>> {
+  const [tallies, occupied] = await Promise.all([
+    apartmentTallyByProperty(db, propertyIds),
+    occupiedCountByProperty(db, propertyIds),
+  ]);
+
+  const occupancies = new Map<string, PropertyOccupancy>();
+
+  for (const [propertyId, tally] of tallies) {
+    const occupiedCount = Math.min(occupied.get(propertyId) ?? 0, tally.apartmentCount);
+
+    occupancies.set(propertyId, {
+      apartmentCount: tally.apartmentCount,
+      occupiedCount,
+      vacantCount: tally.apartmentCount - occupiedCount,
+      maintenanceCount: tally.maintenanceCount,
+    });
+  }
+
+  return occupancies;
+}
+
 /** Vue d'un immeuble, occupation incluse. */
 async function viewOf(
   db: PropertiesDatabase,
@@ -111,7 +150,7 @@ async function viewOf(
 ) {
   if (!property) throw new ResourceOutOfScopeError();
 
-  const occupancies = await occupancyByProperty(db, [property.id]);
+  const occupancies = await occupancyOf(db, [property.id]);
 
   return toPropertyView(property, occupancies.get(property.id));
 }
@@ -191,7 +230,7 @@ export async function listProperties(
   );
 
   const { rows, total } = await listPropertyRows(db, scopes, parsed);
-  const occupancies = await occupancyByProperty(
+  const occupancies = await occupancyOf(
     db,
     rows.map((row) => row.id),
   );
