@@ -139,6 +139,7 @@ Lorsqu'une contradiction est détectée, elle doit être corrigée dans le docum
 | DEC-050 | Statut d'occupation dérivé de la relation locative | VERROUILLÉE | aucun |
 | DEC-051 | Le locataire est une personne, pas un accès | VERROUILLÉE | aucun |
 | DEC-052 | Charte graphique officielle, version 2.0 | VERROUILLÉE | aucun |
+| DEC-053 | Calendrier de génération des loyers | VERROUILLÉE | aucun |
 
 ---
 
@@ -2010,6 +2011,58 @@ Identité visuelle/*.svg                                 logo, symbole, 21 icone
 
 ---
 
+## DEC-053 : Calendrier de génération des loyers
+
+**Statut** : VERROUILLÉE
+
+**Date** : 8 octobre 2026. **Trois questions posées au fondateur avant d'écrire le générateur, et tranchées par lui.**
+
+**Contradiction résolue** : aucune, et c'est précisément le problème. BR-034 demande de générer les échéances « selon les paramètres du contrat », BR-035 veut une période « non ambiguë » et BR-036 un montant « déterminé selon le contrat ». Aucun document ne dit en revanche jusqu'où remonter, ce que doit payer un mois partiel, ni quelle date retenir quand le jour convenu n'existe pas dans le mois. Le commentaire de `LEASE_DUE_DAY_MAX`, écrit au Lot 8, renvoyait d'ailleurs explicitement la question au Lot 9. Trois règles étaient donc à décider, et aucune ne pouvait être déduite.
+
+**Décision** :
+
+### 1. Horizon : la période en cours, et elle seule
+
+Le job planifié ne crée QUE l'échéance du mois courant. Il ne remonte jamais dans le temps.
+
+```text
+Job mensuel          periode en cours uniquement
+Génération manuelle  periode au choix, passée comprise
+```
+
+**Pourquoi.** Au premier lancement sur un parc existant, un rattrapage depuis le début de chaque bail ferait apparaître des mois de loyers DÉJÀ ENCAISSÉS hors de l'application comme autant d'impayés. Le bailleur verrait une dette qui n'existe pas, et la seule façon de la corriger serait d'annuler des créances une par une.
+
+Réclamer un mois écoulé reste possible, mais devient une décision humaine, prise mois par mois, par `POST /api/v1/rents/generate` avec une période explicite. La route interne du job n'accepte pas de paramètre de période : une erreur de configuration de la plateforme ne doit pas pouvoir créer de dette rétroactive.
+
+### 2. Aucun prorata
+
+Le montant attendu est le loyer du contrat, EN ENTIER, y compris le premier et le dernier mois.
+
+```text
+Bail du 20 octobre   échéance d'octobre, montant plein
+Bail clos le 10      échéance d'octobre, montant plein
+```
+
+**Pourquoi.** BR-036 détermine le montant « selon le contrat », et le contrat ne porte qu'un seul montant : un montant réduit n'aurait aucune colonne pour se justifier, et personne ne pourrait reconstituer son calcul six mois plus tard. Un mois partiel se règle par un paiement partiel, que le produit sait déjà représenter, `PARTIALLY_PAID` étant un statut de l'énumération.
+
+Conséquence directe : un bail doit l'échéance d'une période dès qu'il la RECOUVRE, même d'un seul jour. Sans cette règle de recouvrement, les onze premiers jours d'un bail commencé le 20 ne seraient facturés nulle part.
+
+### 3. Mois courts : la date d'échéance est rabattue
+
+```text
+due_day = 31  ->  28 février, 29 en année bissextile, 30 en avril
+```
+
+**Pourquoi.** « Dû le 31 » se lit comme « dû en fin de mois ». Reporter au 1er mars ferait sortir la date d'échéance de la période qu'elle couvre, et un « Loyer février 2026 » dû en mars se lirait mal partout : sur l'écran, dans un rappel, sur une quittance. Le rabattement garde l'échéance dans son mois, ce qu'un test vérifie sur toutes les combinaisons de mois et de jours convenus.
+
+**Ce que la décision NE change pas.** Ni le modèle, ni les statuts, ni les routes : la table `rent_installments` est celle de la section 19, l'énumération celle de DEC-015, les routes celles des sections 18 et 19. Les trois règles portent sur le CALCUL, et sur lui seul.
+
+**Impact si changé** : la règle 1 se rouvre sans migration, la génération manuelle couvrant déjà le rattrapage. La règle 3 se rouvre sans migration également, les échéances déjà nées gardant leur date. La règle 2, en revanche, demanderait une colonne pour justifier un montant réduit, et les échéances déjà générées resteraient au montant plein.
+
+**Appliqué dans** : `src/modules/rents/period.ts`, entièrement pur, qui porte les trois règles et rien d'autre. `tests/rents/period.test.ts` les vérifie sans base de données, sur des dates choisies.
+
+---
+
 # 7. Décisions ouvertes
 
 Ces décisions nécessitent une validation explicite du fondateur.
@@ -2133,3 +2186,4 @@ Toute fonctionnalité reste gouvernée par le Master Product Specification et le
 | 2.6 | 2026-10-06 | **Lot 7 cadré : les locataires.** Quatre décisions confirmées par le fondateur : **DEC-047** la suspension et la réactivation d'un locataire passent par `tenant.update`, la révocation par `tenant.revoke` ajoutée au catalogue, propriétaire et gestionnaire autorisés chacun sur son périmètre, et retirer l'accès au produit ne termine jamais le bail ; **DEC-048** le locataire modifie son nom, le téléphone et l'email ne sont modifiables par personne tant qu'aucun canal de vérification n'existe ; **DEC-049** un locataire n'a qu'une relation locative active par organisation, règle qui appartient au domaine des contrats et s'applique au Lot 8, pas au niveau de l'invitation ; **DEC-050** le statut d'occupation d'un appartement doit devenir dérivé de la relation locative, application au Lot 8. **DEC-046**, DÉDUITE, consigne les écarts résolus par la hiérarchie : la frontière entre le Lot 7 et le Lot 8, un locataire du Lot 7 étant une personne invitée à l'espace d'un logement désigné et l'occupant naissant du bail ; aucune table `tenant_profiles` ; identifiant `user_access.id` et `invitation.id` pour une invitation en attente, comme DEC-041 ; `POST /tenants` remplacé par `POST /tenant-invitations`, le périmètre d'un gestionnaire sur un locataire ne pouvant se résoudre que par le logement que porte l'invitation ; `channel` supprimé par DEC-026 ; dix routes ; statut dérivé ; aperçu et acceptation publics orientés selon le rôle, `InvitationInvalidError` déplacée dans le noyau d'invitation ; racine orientée selon le rôle, un locataire ne pouvant pas atteindre les immeubles ; aucune donnée financière dans l'espace locataire du Lot 7. Le choix du fondateur est d'enchaîner le Lot 8 dès le Lot 7 validé, en conservant la séparation métier des deux lots. Aucune décision verrouillée n'est rouverte. |
 | 2.7 | 2026-10-07 | **Lot 8 : les contrats, et l'identité du locataire.** **DEC-051** tranchée par le fondateur : « Locataires » désigne toutes les personnes qui ont une relation locative avec l'organisation, qu'elles aient ou non un accès à l'application. L'identité métier du locataire est donc la PERSONNE, portée par `users` et identifiée par `users.id` ; `user_access` reste un droit d'accès et ne devient jamais cette identité ; aucune table `tenant_profiles` n'est créée, `users` étant déjà l'entité d'identité, volontairement sans organisation ; l'absence d'accès ne fait pas disparaître une personne de la liste, et le statut distingue « sans accès » d'un accès révoqué ; la sémantique de `/tenants/:id` évolue en conséquence, le produit étant en développement et cette API n'étant consommée par aucun client. La ressource locataire est le couple personne et organisation, celle-ci se résolvant dans le périmètre de l'appelant sans jamais être devinée. DEC-046 est amendée sur ce seul point, son identifiant `user_access.id` ayant été choisi quand un locataire était encore un accès ; tout le reste de DEC-046 tient. Aucune autre décision verrouillée n'est rouverte, et aucune migration n'est nécessaire. |
 | 2.8 | 2026-10-07 | **Lot 8b : l'occupation dérivée, et la personne créée par le bail.** **DEC-050 appliquée**, avec trois conséquences enregistrées. L'occupation d'un logement devient `VACANT` ou `OCCUPIED`, dérivée du bail en cours, et n'est plus saisissable : changer un statut à la main permettait d'annoncer vacant un logement loué, ce que BR-029 interdit. Les travaux restent une saisie et sont portés SÉPARÉMENT, par `apartments.under_maintenance` : le point 2 de DEC-050 dit qu'un logement peut être en travaux qu'il soit loué ou vide, donc une colonne unique ferait disparaître « occupé » dès qu'un chantier est déclaré. `apartments.status` est gelée et conservée, le point 3 interdisant de réécrire les statuts déjà saisis et sa suppression étant irréversible. Le compteur de travaux chevauche ceux d'occupation et ne s'additionne pas. « Occupé » n'a qu'une définition, portée par le module Contrats et exposée aux modules Appartements et Immeubles. **DEC-051 point 8 appliqué** : créer un bail peut créer la personne, par son nom et son numéro, sans invitation ni compte ni accès, ce qui débloque le locataire qui n'utilisera jamais l'application ; la règle d'identité reste celle de DEC-041, partagée avec l'invitation, et tout se passe en transaction. Migration `0004_occupation`, non destructrice. Aucune décision verrouillée n'est rouverte. |
+| 3.0 | 2026-10-08 | **Lot 9, tranche 9a exécutée : les loyers, côté données et API.** **DEC-053** tranchée par le fondateur avant d'écrire une ligne du générateur, sur trois questions qu'aucun document ne couvrait : le job ne crée que la période EN COURS et ne rattrape jamais l'historique, faute de quoi un parc existant verrait apparaître en impayés des loyers déjà encaissés hors de l'application ; AUCUN prorata, le montant attendu étant celui du contrat même pour un mois partiel, qu'un paiement partiel sait déjà représenter ; la date d'échéance est RABATTUE sur le dernier jour des mois courts, ce qui la garde dans la période qu'elle couvre. Migration `0005_loyers`, non destructrice : la table `rent_installments` de la section 19, dont `UNIQUE (lease_id, period_start)` porte à elle seule l'idempotence exigée par DEC-028, et sept contraintes qui refusent en base un solde qui ne serait pas la différence des deux montants, une période qui ne commencerait pas un premier du mois, et deux états de statut impossibles. Module `rents` avec `period.ts` entièrement pur, où vivent les trois règles de DEC-053 et rien d'autre. Sept routes : la liste filtrable, la fiche, la génération manuelle qui seule accepte une période passée, le total dû d'un locataire et le sien, et DEUX routes internes protégées par un secret, `generate-rents` et `mark-overdue-receivables`. Le garde de `/internal/*` est fermé par défaut, refuse en 404 plutôt qu'en 401 pour ne pas confirmer l'adresse, et compare le secret à temps constant ; `INTERNAL_JOB_SECRET` est facultative en développement et OBLIGATOIRE en production, son absence y signifiant que les loyers ne seraient jamais générés. Deux points de fond tenus : « À venir » n'est jamais stocké, c'est une dérivation calculée par le serveur et transmise à côté du statut réel (BR-037), et le passage à `OVERDUE` est le fait d'un job idempotent, la lecture n'écrivant rien, ce qu'un test vérifie en relisant la colonne après avoir affiché la liste. Le total dû est autorisé créance par créance et non par personne : une même personne pouvant louer dans deux immeubles dont un seul relève du gestionnaire, un total partiel serait faux et servirait à réclamer de l'argent. 1225 tests, 54 fichiers. Aucune décision verrouillée n'est rouverte. **Reste au Lot 9, tranche 9b : les écrans, et la BottomNavigation.** |

@@ -94,6 +94,13 @@ const BY_ERROR_NAME: Record<string, { status: number; code: ApiErrorCode }> = {
   // impossible. 422 et non 409 : l'appelant doit corriger sa saisie.
   LeaseTerminationDateError: { status: 422, code: 'VALIDATION_ERROR' },
 
+  RentValidationError: { status: 422, code: 'VALIDATION_ERROR' },
+
+  // Génération refusée pour cause de volume : 409, l'état du périmètre demandé
+  // empêche l'opération, et l'appelant la corrige en la restreignant. Aucun
+  // conflit de doublon n'existe ici, la génération étant idempotente (DEC-028).
+  RentGenerationLimitError: { status: 409, code: 'CONFLICT' },
+
   // Lien inutilisable : 404, jamais 410 ni 403. Inconnu, expiré, révoqué et consommé
   // doivent rester indiscernables (ADR-008), et seul 404 ne distingue rien.
   InvitationInvalidError: { status: 404, code: 'NOT_FOUND' },

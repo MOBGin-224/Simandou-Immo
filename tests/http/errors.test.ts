@@ -36,6 +36,7 @@ import {
   LeaseTerminationDateError,
   LeaseValidationError,
 } from '../../src/modules/leases/errors';
+import { RentGenerationLimitError, RentValidationError } from '../../src/modules/rents/errors';
 import {
   TenantInvitationConflictError,
   TenantNameNotOwnedError,
@@ -116,6 +117,12 @@ describe('Traduction des erreurs en réponses HTTP', () => {
       status: 422,
       code: 'VALIDATION_ERROR',
     },
+    {
+      error: new RentValidationError({ period: ['invalide'] }),
+      status: 422,
+      code: 'VALIDATION_ERROR',
+    },
+    { error: new RentGenerationLimitError(501, 500), status: 409, code: 'CONFLICT' },
     { error: new InvitationInvalidError(), status: 404, code: 'NOT_FOUND' },
     { error: new InvitationLoginRequiredError(), status: 401, code: 'UNAUTHORIZED' },
     { error: new WeakPasswordError(), status: 422, code: 'VALIDATION_ERROR' },
