@@ -27,70 +27,133 @@ Les interfaces sont ensuite adaptées à la tablette et au desktop.
 
 # 2. Statut de la charte visuelle
 
-> **VALIDÉE : DEC-012.**
+> **VALIDÉE : DEC-012. COMPLÉTÉE par la charte officielle : DEC-052.**
 >
 > La direction visuelle **« Property Infrastructure »** est arrêtée. Elle ne constitue plus une décision ouverte.
+>
+> **La source de vérité visuelle est désormais la charte graphique officielle**, version 2.0 d'octobre 2026 : `Identité visuelle/SIMANDOU IMMO - Charte complète.pdf`. Cette section n'en est qu'un résumé d'orientation ; en cas d'écart, **la charte fait foi**.
+>
+> Rien n'est rouvert : ce document laissait explicitement les rayons, les ombres, l'échelle d'espacement et les tailles typographiques à l'état d'« exemple conceptuel », et annonçait le logo, le monogramme et le favicon comme « restant à produire ». La charte fournit ces valeurs et ces fichiers.
 
 ## 2.1 Palette validée
 
-| Token | Valeur | Usage |
+Quatre couleurs de marque et un blanc. **Le Bright Blue et le Structural Blue sont des ACCENTS**, pas la base de l'interface.
+
+| Charte | Token du code | Valeur | Usage |
+|---|---|---|---|
+| Deep Navy | `brand` | `#123B4A` | Identité, navigation, titres forts, structure |
+| Digital Teal | `action` | `#138A8A` | Interaction : actions, liens importants |
+| Teal profond | `action-strong` | `#0F7373` | Le même rôle, pour le PETIT texte |
+| Bright Blue | `accent` | `#3B8DFF` | Symbole, anneau de focus, CTA de marque |
+| Structural Blue | `accent-deep` | `#2A67B1` | États informatifs, 3e série de données |
+| Teal secondaire | `teal-secondary` | `#2B9A8F` | **Réservé** aux états et aux visualisations à deux teals |
+| White | `surface` | `#FFFFFF` | Surfaces, fonds, texte sur navy |
+
+**Hiérarchie, et c'est une règle** : navy, puis les neutres, puis le teal, puis le bleu, puis les fonctionnelles.
+
+**Pourquoi deux teals.** La charte mesure le teal `#138A8A` à 4,2:1 sur blanc, ce qui ne passe le seuil AA que pour le grand texte, et le dit : « le Bright Blue et le teal ne servent pas de texte courant sur fond clair ». Le Teal profond `#0F7373`, à 5,6:1, porte donc tout le petit texte interactif et le fond des boutons primaires.
+
+**Le dégradé officiel** `#3B8DFF → #138A8A`, de haut gauche vers bas droite, est **réservé aux éléments de marque** : symbole, icône d'application, couvertures. Jamais un composant d'interface.
+
+## 2.2 Neutres
+
+| Charte | Token | Valeur |
 |---|---|---|
-| `color.brand.navy` | `#123B4A` | Identité, navigation, titres forts |
-| `color.action.primary` | `#138A8A` | Action principale |
-| `color.action.secondary` | `#2B9A8F` | Accent secondaire |
-| `color.background` | `#F7F9F8` | Fond d'application |
-| `color.surface` | `#FFFFFF` | Cartes, feuilles, panneaux |
-| `color.text.primary` | `#172126` | Texte principal |
-| `color.text.muted` | `#66747A` | Texte secondaire |
-| `color.border.default` | `#DCE4E5` | Bordures et séparateurs |
+| Background | `canvas` | `#F7F9F8` |
+| Surface subtle | `surface-subtle` | `#EEF2F1` |
+| Border | `line` | `#DCE4E5` |
+| Border strong | `line-strong` | `#CBD5D7` |
+| Gray 400 | `gray-400` | `#9AA9AE` |
+| Muted | `muted` | `#66747A` |
+| Gray 700 / 800 / 900 | `gray-700` / `gray-800` / `gray-900` | `#4A5A60` / `#34444A` / `#243238` |
+| Ink | `ink` | `#172126` |
 
-## 2.2 États fonctionnels validés
+## 2.3 États fonctionnels validés
 
-| Token | Valeur | Signification métier |
-|---|---|---|
-| `color.status.success` | `#18794E` | Payé, résolu, confirmé |
-| `color.status.warning` | `#A15C00` | En attente, à traiter |
-| `color.status.danger` | `#B42318` | En retard, échec, critique |
-| `color.status.info` | `#1769AA` | Information neutre |
+Chaque couleur va avec **son fond**, qui est une valeur du document et non une opacité : c'est sur ces couples que les contrastes sont mesurés.
 
-## 2.3 Typographie validée
+| Token | Couleur | Fond | Contraste | Signification métier |
+|---|---|---|---|---|
+| `success` | `#18794E` | `#E8F5EE` | 4,8:1 | Payé, résolu, confirmé |
+| `warning` | `#A15C00` | `#FFF4DE` | 4,8:1 | En attente, à traiter |
+| `danger` | `#B42318` | `#FDECEA` | 5,7:1 | En retard, échec, critique |
+| `info` | `#1769AA` | `#E8F2FA` | 5,1:1 | Information neutre |
+
+## 2.4 Typographie validée
 
 | Famille | Usage |
 |---|---|
-| **Manrope** | Identité, titres, chiffres importants, marque |
-| **Inter** | Contenu, formulaires, boutons, tableaux, navigation |
+| **Manrope** | Identité, logotype, titres, **grands nombres**, hero |
+| **Inter** | Corps, formulaires, boutons, **tableaux**, **données**, navigation |
 
-Les montants financiers utilisent **Manrope** afin d'être immédiatement identifiables.
+**Correction par rapport à la version antérieure de ce document**, qui plaçait tous les montants en Manrope : la charte répartit les deux familles sur la TAILLE et le RÔLE, non sur la nature financière de la donnée. Un chiffre clé de tableau de bord est un grand nombre, donc Manrope ; un loyer dans une colonne est une donnée, donc Inter. Le composant `Amount` porte ce choix, par son `scale`.
 
-## 2.4 Autres décisions validées
+Neuf niveaux, taille sur interligne :
 
 ```text
-Icônes                 Lucide
-Touch target minimum   44 × 44 px
-Mobile first           obligatoire
+Manrope   Display 48/56   H1 36/44   H2 30/38   H3 24/32   H4 20/28
+Inter     Body large 18/28   Body 16/24   Small 14/20   Caption 12/16
 ```
 
-## 2.5 Marque
+Règles d'usage : longueur de ligne de 60 à 75 caractères, alignement à gauche jamais justifié, **chiffres tabulaires pour les données et les montants**, surtitres en capitales avec un interlettrage de **+16 %**, corps à 16 px et jamais sous 12 px.
 
-Le nom du produit est **SIMANDOU IMMO** (DEC-031, VERROUILLÉE).
+## 2.5 Grille, formes et mouvement
 
-C'est le nom affiché dans l'application, les en-têtes et les notifications.
+```text
+Module         4 px. Echelle 4 8 12 16 20 24 28 32 40 48 64 80
+Mobile         360 / 390 : 4 colonnes, marge 16 px, gouttiere 16 px
+Tablette       768 : 8 colonnes, marge 32 px
+Desktop        1280 : 12 colonnes, contenu 1200 px au maximum
+
+Rayons         8 px controles, 12 px cartes, 16 px feuilles, pill badges
+Bordures       1 px par defaut, 2 px au focus, toujours visible
+Elevation      surface, bordure, ombre discrete, superposition
+
+Mouvement      120 ms micro, 180 ms standard, 250 ms important
+Courbes        entree cubic-bezier(.2 0 0 1), sortie cubic-bezier(.4 0 1 1)
+Limites        opacite, translation <= 8 px, echelle <= 1,02
+```
+
+Le mouvement est **réduit ou supprimé** si l'utilisateur le demande.
+
+## 2.6 Autres décisions validées
+
+```text
+Icônes                 style Lucide, grille 24, trait 2 px, couleur heritee du texte
+Touch target minimum   44 px de hauteur pour tout element interactif
+Focus                  anneau de 2 px en Bright Blue, avec 2 px de vide
+Mobile first           obligatoire, conception d'abord a 360 et 390 px
+Action principale      une seule par ecran
+```
+
+## 2.7 Marque
+
+Le nom du produit est **SIMANDOU IMMO** (DEC-031, VERROUILLÉE). Le logotype s'écrit **toujours en capitales**.
 
 SIMANDOU IMMO est un produit **distinct de SIMANDOU SEJOUR**.
 
-Restent à produire, sans nouvelle décision produit :
+Les fichiers officiels vivent dans `Identité visuelle/` et ne se redessinent pas :
 
-- logo ;
-- monogramme ;
-- favicon.
+```text
+symbole           trois volumes, une inclinaison proche de 25 degres
+boite             127,5 x 130,8, environ 1 : 1
+zone de protection  un quart de la hauteur du symbole, sur les quatre cotes
+minimum           120 px logo complet, 24 px symbole seul
+fond clair        volumes navy et Bright Blue, IMMO en Structural Blue
+fond navy         volumes blancs et Bright Blue, IMMO en Bright Blue
+```
 
-Ces éléments graphiques ne bloquent pas l'implémentation des composants.
+Dix usages sont interdits : déformer, étirer, changer les couleurs, ombre lourde, contour, rotation, fond insuffisamment contrasté, autre typographie, dégradés concurrents, effets 3D ou métalliques.
 
-## 2.6 Règle d'implémentation
+**Le symbole est porté par le composant `BrandMark`**, qui recopie la géométrie du fichier officiel. Les couleurs du logo y sont écrites en dur, et c'est la seule exception à la règle 2.8 : la charte interdit d'en changer les couleurs, donc elles ne doivent pas suivre un token qu'un thème pourrait redéfinir.
+
+## 2.8 Règle d'implémentation
 
 Toute valeur visuelle ci-dessus doit être exposée comme **design token** et jamais recopiée en dur dans un composant.
 
-La couleur ne doit jamais être le seul porteur d'une information (DEC-012, Accessibility).
+La couleur ne doit jamais être le seul porteur d'une information. Un statut associe **toujours** une couleur, un point et un libellé.
+
+`tests/ui/charter.test.ts` confronte les tokens du code aux valeurs de la charte, et la géométrie du symbole au fichier officiel : une dérive échoue en test plutôt que de passer inaperçue.
 
 ---
 

@@ -195,7 +195,7 @@ export default async function ApartmentsPage(
 
           <Link
             href={hrefWith({ archives: includeArchived ? '' : '1', page: '' })}
-            className="min-h-11 self-start text-sm text-action underline underline-offset-4 hover:text-brand sm:self-auto"
+            className="min-h-11 self-start text-sm text-action-strong underline underline-offset-4 hover:text-brand sm:self-auto"
           >
             {includeArchived ? 'Masquer les archivés' : 'Afficher les archivés'}
           </Link>

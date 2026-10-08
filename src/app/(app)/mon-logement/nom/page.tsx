@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 
 import { TenantNameForm } from '@/components/tenant/tenant-name-form';
 import { Card } from '@/components/ui/card';
+import { Overline } from '@/components/ui/overline';
 import { PageHeader } from '@/components/ui/page-header';
 import { getDb } from '@/db/client';
 import { requireAccessContextOrSignIn } from '@/lib/auth/guard';
@@ -44,20 +45,14 @@ export default async function MyNamePage() {
       />
 
       <Card className="flex flex-col gap-2">
-        <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-muted">
-          Ce qui n&apos;est pas modifiable
-        </h2>
+        <Overline>Ce qui n&apos;est pas modifiable</Overline>
         <dl className="flex flex-col gap-3">
           <div className="flex flex-col gap-0.5">
-            <dt className="text-xs font-medium uppercase tracking-wide text-muted">
-              Numéro de téléphone
-            </dt>
+            <Overline as="dt">Numéro de téléphone</Overline>
             <dd className="text-base text-ink">{tenant.phone ?? 'Non renseigné'}</dd>
           </div>
           <div className="flex flex-col gap-0.5">
-            <dt className="text-xs font-medium uppercase tracking-wide text-muted">
-              Adresse email
-            </dt>
+            <Overline as="dt">Adresse email</Overline>
             <dd className="break-words text-base text-ink">{tenant.email ?? 'Non renseignée'}</dd>
           </div>
         </dl>

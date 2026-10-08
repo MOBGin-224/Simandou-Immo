@@ -3,37 +3,58 @@ import type { ReactNode } from 'react';
 import { cn } from '@/lib/ui/cn';
 
 /**
- * Badge et badge de statut (Component Specification sections 19 et 20).
+ * Badge et badge de statut (charte chapitre 06, Component Specification 19 et 20).
  *
- * Les tons reprennent les états fonctionnels de la charte (DEC-012). Chaque badge
- * porte un TEXTE en plus de sa couleur : un utilisateur daltonien doit lire le
- * statut, pas le deviner, et c'est une règle explicite de la charte.
+ * **Anatomie fixée par la charte** : hauteur 26 px, forme pill, point de 7 px,
+ * libellé de 12 px gras, fond teinté, texte ET point dans la couleur
+ * fonctionnelle.
+ *
+ * Le POINT n'est pas un ornement : « jamais la couleur seule, un statut associe
+ * toujours une couleur, un point et un libellé ». Il donne une seconde marque
+ * visuelle, qui subsiste quand la couleur ne se distingue pas, et il fait tenir
+ * la règle même si quelqu'un copie le badge sans son texte.
+ *
+ * Les fonds viennent des valeurs EXPLICITES de la charte et non d'une opacité :
+ * `bg-success/10` donne une autre couleur, donc un autre contraste que les
+ * ratios que la charte a mesurés sur ces fonds précis.
  */
 export type BadgeTone = 'neutral' | 'success' | 'warning' | 'danger' | 'info';
 
 const TONES: Record<BadgeTone, string> = {
-  neutral: 'border-line bg-canvas text-muted',
-  success: 'border-success/20 bg-success/10 text-success',
-  warning: 'border-warning/20 bg-warning/10 text-warning',
-  danger: 'border-danger/20 bg-danger/10 text-danger',
-  info: 'border-info/20 bg-info/10 text-info',
+  neutral: 'border-line bg-surface-subtle text-muted',
+  success: 'border-success/20 bg-success-surface text-success',
+  warning: 'border-warning/20 bg-warning-surface text-warning',
+  danger: 'border-danger/20 bg-danger-surface text-danger',
+  info: 'border-info/20 bg-info-surface text-info',
 };
 
 export type BadgeProps = {
   tone?: BadgeTone;
+  /**
+   * Afficher le point. Vrai par défaut : la charte le veut sur un STATUT.
+   *
+   * Un badge qui ne porte pas un statut, un simple compteur par exemple, s'en
+   * passe : le point y annoncerait un état qui n'existe pas.
+   */
+  dot?: boolean;
   children: ReactNode;
   className?: string;
 };
 
-export function Badge({ tone = 'neutral', children, className }: BadgeProps) {
+export function Badge({ tone = 'neutral', dot = true, children, className }: BadgeProps) {
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium',
+        'inline-flex min-h-6.5 items-center gap-1.5 rounded-pill border px-2.5 text-xs font-bold',
         TONES[tone],
         className,
       )}
     >
+      {dot ? (
+        // `bg-current` reprend la couleur du texte : le point suit donc le ton
+        // sans qu'une seconde table de couleurs puisse diverger de la première.
+        <span aria-hidden="true" className="size-1.75 shrink-0 rounded-pill bg-current" />
+      ) : null}
       {children}
     </span>
   );

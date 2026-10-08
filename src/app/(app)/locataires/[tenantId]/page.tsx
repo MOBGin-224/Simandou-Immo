@@ -4,6 +4,7 @@ import { Alert } from '@/components/ui/alert';
 import { AccessStatusBadge } from '@/components/ui/badge';
 import { buttonClasses } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Overline } from '@/components/ui/overline';
 import { PageHeader } from '@/components/ui/page-header';
 import { getDb } from '@/db/client';
 import { requireAccessContextOrSignIn } from '@/lib/auth/guard';
@@ -178,16 +179,12 @@ export default async function TenantPage(props: PageProps<'/locataires/[tenantId
       ) : null}
 
       <Card className="flex flex-col gap-4">
-        <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-muted">
-          Détails
-        </h2>
+        <Overline>Détails</Overline>
 
         <dl className="flex flex-col gap-3">
           {details.map((detail) => (
             <div key={detail.label} className="flex flex-col gap-0.5">
-              <dt className="text-xs font-medium uppercase tracking-wide text-muted">
-                {detail.label}
-              </dt>
+              <Overline as="dt">{detail.label}</Overline>
               <dd className="break-words text-base text-ink">{detail.value}</dd>
             </div>
           ))}
@@ -201,34 +198,30 @@ export default async function TenantPage(props: PageProps<'/locataires/[tenantId
       </Card>
 
       <Card className="flex flex-col gap-3">
-        <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-muted">
-          Bail et loyer
-        </h2>
+        <Overline>Bail et loyer</Overline>
 
         {activeLease ? (
           <dl className="flex flex-col gap-3">
             <div className="flex flex-col gap-0.5">
-              <dt className="text-xs font-medium uppercase tracking-wide text-muted">
-                Bail en cours
-              </dt>
+              <Overline as="dt">Bail en cours</Overline>
               <dd className="break-words text-base text-ink">
                 <Link
                   href={`/baux/${activeLease.id}`}
-                  className="inline-flex min-h-11 items-center text-action underline underline-offset-4 hover:text-brand"
+                  className="inline-flex min-h-11 items-center text-action-strong underline underline-offset-4 hover:text-brand"
                 >
                   {describeLeaseApartment(activeLease.apartment)}
                 </Link>
               </dd>
             </div>
             <div className="flex flex-col gap-0.5">
-              <dt className="text-xs font-medium uppercase tracking-wide text-muted">Loyer</dt>
+              <Overline as="dt">Loyer</Overline>
               <dd className="text-base text-ink">
                 {formatMoney(activeLease.rent.amount, activeLease.rent.currency)} par mois, le{' '}
                 {activeLease.dueDay}
               </dd>
             </div>
             <div className="flex flex-col gap-0.5">
-              <dt className="text-xs font-medium uppercase tracking-wide text-muted">Période</dt>
+              <Overline as="dt">Période</Overline>
               <dd className="text-base text-ink">{describePeriod(activeLease, formatDate)}</dd>
             </div>
           </dl>
@@ -241,9 +234,7 @@ export default async function TenantPage(props: PageProps<'/locataires/[tenantId
 
         {leases.length > (activeLease ? 1 : 0) ? (
           <div className="flex flex-col gap-1">
-            <span className="text-xs font-medium uppercase tracking-wide text-muted">
-              Baux précédents
-            </span>
+            <Overline as="span">Baux précédents</Overline>
             <ul className="flex flex-col gap-0.5 text-sm text-muted">
               {leases
                 .filter((lease) => lease.status !== 'ACTIVE')
@@ -251,7 +242,7 @@ export default async function TenantPage(props: PageProps<'/locataires/[tenantId
                   <li key={lease.id}>
                     <Link
                       href={`/baux/${lease.id}`}
-                      className="inline-flex min-h-11 items-center break-words text-action underline underline-offset-4 hover:text-brand"
+                      className="inline-flex min-h-11 items-center break-words text-action-strong underline underline-offset-4 hover:text-brand"
                     >
                       {describeLeaseApartment(lease.apartment)}, {describePeriod(lease, formatDate)}
                     </Link>
@@ -279,9 +270,7 @@ export default async function TenantPage(props: PageProps<'/locataires/[tenantId
         </Link>
       ) : (
         <Card className="flex flex-col gap-5">
-          <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-muted">
-            Gérer cet accès
-          </h2>
+          <Overline>Gérer cet accès</Overline>
 
           {isSuspended ? (
             <div className="flex flex-col gap-2">

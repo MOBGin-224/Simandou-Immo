@@ -5,6 +5,7 @@ import { Alert } from '@/components/ui/alert';
 import { Button, buttonClasses } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Field, Input } from '@/components/ui/field';
+import { Overline } from '@/components/ui/overline';
 import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH, getCurrentUser } from '@/lib/auth';
 import { formatDate } from '@/lib/ui/format';
 import { InvitationInvalidError, invitationPath } from '@/modules/invitations';
@@ -127,21 +128,17 @@ export default async function InvitationPage(props: PageProps<'/invitation/[toke
         <Card className="flex flex-col gap-4">
           <dl className="flex flex-col gap-3">
             <div className="flex flex-col gap-0.5">
-              <dt className="text-xs font-medium uppercase tracking-wide text-muted">
-                Organisation
-              </dt>
+              <Overline as="dt">Organisation</Overline>
               <dd className="break-words text-base text-ink">{text.organizationName}</dd>
             </div>
 
             <div className="flex flex-col gap-0.5">
-              <dt className="text-xs font-medium uppercase tracking-wide text-muted">Rôle</dt>
+              <Overline as="dt">Rôle</Overline>
               <dd className="text-base text-ink">{text.roleLabel}</dd>
             </div>
 
             <div className="flex flex-col gap-0.5">
-              <dt className="text-xs font-medium uppercase tracking-wide text-muted">
-                {text.contextLabel}
-              </dt>
+              <Overline as="dt">{text.contextLabel}</Overline>
               <dd>
                 <ul className="flex flex-col gap-0.5 text-base text-ink">
                   {text.contextLines.map((line) => (
@@ -155,9 +152,7 @@ export default async function InvitationPage(props: PageProps<'/invitation/[toke
 
             {phone ? (
               <div className="flex flex-col gap-0.5">
-                <dt className="text-xs font-medium uppercase tracking-wide text-muted">
-                  Votre identifiant de connexion
-                </dt>
+                <Overline as="dt">Votre identifiant de connexion</Overline>
                 <dd className="text-base text-ink">{phone}</dd>
               </div>
             ) : null}

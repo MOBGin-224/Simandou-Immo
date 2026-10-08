@@ -1,6 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
+import { Overline } from '@/components/ui/overline';
 
 /**
  * Liste d'immeubles à cocher : le périmètre d'un gestionnaire (DEC-042).
@@ -86,11 +87,7 @@ export function PropertyChecklist({ groups, selected, onChange, errors }: Proper
 
       {groups.map((group) => (
         <div key={group.organization.id} className="flex flex-col gap-2">
-          {groups.length > 1 ? (
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted">
-              {group.organization.name}
-            </p>
-          ) : null}
+          {groups.length > 1 ? <Overline as="p">{group.organization.name}</Overline> : null}
 
           <ul className="flex flex-col gap-2">
             {group.properties.map((property) => (

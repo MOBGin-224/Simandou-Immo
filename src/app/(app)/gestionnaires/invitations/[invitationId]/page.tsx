@@ -6,6 +6,7 @@ import { Alert } from '@/components/ui/alert';
 import { InvitationStatusBadge } from '@/components/ui/badge';
 import { buttonClasses } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Overline } from '@/components/ui/overline';
 import { PageHeader } from '@/components/ui/page-header';
 import { getDb } from '@/db/client';
 import { requireAccessContextOrSignIn } from '@/lib/auth/guard';
@@ -86,24 +87,18 @@ export default async function InvitationPage(
       </div>
 
       <Card className="flex flex-col gap-4">
-        <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-muted">
-          Détails
-        </h2>
+        <Overline>Détails</Overline>
 
         <dl className="flex flex-col gap-3">
           {details.map((detail) => (
             <div key={detail.label} className="flex flex-col gap-0.5">
-              <dt className="text-xs font-medium uppercase tracking-wide text-muted">
-                {detail.label}
-              </dt>
+              <Overline as="dt">{detail.label}</Overline>
               <dd className="break-words text-base text-ink">{detail.value}</dd>
             </div>
           ))}
 
           <div className="flex flex-col gap-0.5">
-            <dt className="text-xs font-medium uppercase tracking-wide text-muted">
-              Immeubles confiés
-            </dt>
+            <Overline as="dt">Immeubles confiés</Overline>
             <dd>
               <ul className="flex flex-col gap-0.5 text-base text-ink">
                 {invitation.properties.map((property) => (
@@ -134,9 +129,9 @@ export default async function InvitationPage(
 
       {actionable ? (
         <Card className="flex flex-col gap-5">
-          <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-muted">
+          <Overline>
             {invitation.status === 'EXPIRED' ? 'Le lien a expiré' : 'Lien perdu ou à renouveler'}
-          </h2>
+          </Overline>
 
           <ResendInvitationForm
             action={resendInvitationAction.bind(null, invitation.id)}

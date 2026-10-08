@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/badge';
 import { buttonClasses } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Overline } from '@/components/ui/overline';
 import { PageHeader } from '@/components/ui/page-header';
 import { getDb } from '@/db/client';
 import { can } from '@/lib/authorization';
@@ -174,13 +175,11 @@ export default async function ApartmentDetailPage(
       ) : null}
 
       <Card>
-        <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-muted">
-          Caractéristiques
-        </h2>
+        <Overline>Caractéristiques</Overline>
         <dl className="mt-4 grid gap-4 sm:grid-cols-2">
           {details.map((detail) => (
             <div key={detail.label} className="flex flex-col gap-0.5">
-              <dt className="text-xs uppercase tracking-wide text-muted">{detail.label}</dt>
+              <Overline as="dt">{detail.label}</Overline>
               <dd className="text-sm text-ink">{detail.value}</dd>
             </div>
           ))}
@@ -188,32 +187,30 @@ export default async function ApartmentDetailPage(
       </Card>
 
       <Card>
-        <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-muted">
-          Bail
-        </h2>
+        <Overline>Bail</Overline>
 
         {activeLease ? (
           <dl className="mt-4 flex flex-col gap-3">
             <div className="flex flex-col gap-0.5">
-              <dt className="text-xs uppercase tracking-wide text-muted">En cours</dt>
+              <Overline as="dt">En cours</Overline>
               <dd className="text-sm text-ink">
                 <Link
                   href={`/baux/${activeLease.id}`}
-                  className="inline-flex min-h-11 items-center break-words text-action underline underline-offset-4 hover:text-brand"
+                  className="inline-flex min-h-11 items-center break-words text-action-strong underline underline-offset-4 hover:text-brand"
                 >
                   {activeLease.tenant.fullName}
                 </Link>
               </dd>
             </div>
             <div className="flex flex-col gap-0.5">
-              <dt className="text-xs uppercase tracking-wide text-muted">Loyer</dt>
+              <Overline as="dt">Loyer</Overline>
               <dd className="text-sm text-ink">
                 {formatMoney(activeLease.rent.amount, activeLease.rent.currency)} par mois, le{' '}
                 {activeLease.dueDay}
               </dd>
             </div>
             <div className="flex flex-col gap-0.5">
-              <dt className="text-xs uppercase tracking-wide text-muted">Période</dt>
+              <Overline as="dt">Période</Overline>
               <dd className="text-sm text-ink">{describePeriod(activeLease, formatDate)}</dd>
             </div>
           </dl>
@@ -232,9 +229,7 @@ export default async function ApartmentDetailPage(
 
         {leases.length > 0 ? (
           <div className="mt-4 flex flex-col gap-1">
-            <span className="text-xs uppercase tracking-wide text-muted">
-              Historique du logement
-            </span>
+            <Overline as="span">Historique du logement</Overline>
             <ul className="flex flex-col gap-0.5 text-sm text-muted">
               {leases
                 .filter((lease) => lease.status !== 'ACTIVE')
@@ -242,7 +237,7 @@ export default async function ApartmentDetailPage(
                   <li key={lease.id}>
                     <Link
                       href={`/baux/${lease.id}`}
-                      className="inline-flex min-h-11 items-center break-words text-action underline underline-offset-4 hover:text-brand"
+                      className="inline-flex min-h-11 items-center break-words text-action-strong underline underline-offset-4 hover:text-brand"
                     >
                       {lease.tenant.fullName}, {describePeriod(lease, formatDate)}
                     </Link>
@@ -254,9 +249,7 @@ export default async function ApartmentDetailPage(
       </Card>
 
       <Card>
-        <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-muted">
-          Locataires
-        </h2>
+        <Overline>Locataires</Overline>
 
         {tenants.length > 0 ? (
           <ul className="mt-4 flex flex-col gap-3">
@@ -274,7 +267,7 @@ export default async function ApartmentDetailPage(
                       attente n'est plus un élément à part, c'est un état. */}
                   <Link
                     href={`/locataires/${item.id}`}
-                    className="inline-flex min-h-11 items-center break-words text-sm font-medium text-action underline underline-offset-4 hover:text-brand"
+                    className="inline-flex min-h-11 items-center break-words text-sm font-medium text-action-strong underline underline-offset-4 hover:text-brand"
                   >
                     {item.fullName}
                   </Link>
@@ -306,18 +299,14 @@ export default async function ApartmentDetailPage(
 
       {UPCOMING_SECTIONS.map((section) => (
         <Card key={section.title}>
-          <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-muted">
-            {section.title}
-          </h2>
+          <Overline>{section.title}</Overline>
           <p className="mt-3 text-sm text-muted">{section.description}</p>
         </Card>
       ))}
 
       {canArchive ? (
         <Card>
-          <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-muted">
-            Retirer de l&apos;exploitation
-          </h2>
+          <Overline>Retirer de l&apos;exploitation</Overline>
           <p className="mt-2 text-sm text-muted">
             L&apos;archivage conserve tout l&apos;historique du logement et bloque ses opérations
             futures.

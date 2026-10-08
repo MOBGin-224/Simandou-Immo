@@ -4,6 +4,7 @@ import { Alert } from '@/components/ui/alert';
 import { AccessStatusBadge } from '@/components/ui/badge';
 import { buttonClasses } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Overline } from '@/components/ui/overline';
 import { PageHeader } from '@/components/ui/page-header';
 import { formatDate } from '@/lib/ui/format';
 
@@ -96,16 +97,12 @@ export default async function ManagerPage(props: PageProps<'/gestionnaires/[mana
       ) : null}
 
       <Card className="flex flex-col gap-4">
-        <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-muted">
-          Détails
-        </h2>
+        <Overline>Détails</Overline>
 
         <dl className="flex flex-col gap-3">
           {details.map((detail) => (
             <div key={detail.label} className="flex flex-col gap-0.5">
-              <dt className="text-xs font-medium uppercase tracking-wide text-muted">
-                {detail.label}
-              </dt>
+              <Overline as="dt">{detail.label}</Overline>
               <dd className="break-words text-base text-ink">{detail.value}</dd>
             </div>
           ))}
@@ -113,9 +110,7 @@ export default async function ManagerPage(props: PageProps<'/gestionnaires/[mana
       </Card>
 
       <Card className="flex flex-col gap-4">
-        <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-muted">
-          Immeubles confiés
-        </h2>
+        <Overline>Immeubles confiés</Overline>
 
         {manager.properties.length > 0 ? (
           <ul className="flex flex-col gap-1 text-base text-ink">
@@ -139,9 +134,7 @@ export default async function ManagerPage(props: PageProps<'/gestionnaires/[mana
         </Link>
       ) : (
         <Card className="flex flex-col gap-5">
-          <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-muted">
-            Gérer cet accès
-          </h2>
+          <Overline>Gérer cet accès</Overline>
 
           {isSuspended ? (
             <div className="flex flex-col gap-2">

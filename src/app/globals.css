@@ -1,63 +1,204 @@
 @import 'tailwindcss';
 
 /*
- * Design tokens de SIMANDOU IMMO (DEC-012, Design System section 2).
+ * Design tokens de SIMANDOU IMMO.
  *
- * La charte visuelle est verrouillée : ces valeurs viennent du document et ne se
- * recopient JAMAIS en dur dans un composant (règle d'implémentation 2.6). Un
- * composant écrit `bg-action`, jamais `bg-[#138A8A]`.
+ * **Source de vérité : la charte graphique officielle, version 2.0, octobre 2026**
+ * (`Identité visuelle/SIMANDOU IMMO - Charte complète.pdf`, DEC-012 et DEC-052).
+ * Chaque valeur ci-dessous vient de la charte et ne se recopie JAMAIS en dur dans
+ * un composant : un composant écrit `bg-action`, jamais `bg-[#138A8A]`.
  *
- * Correspondance avec les noms du document :
+ * La charte nomme ses tokens `--color-navy`, `--color-teal` et ainsi de suite.
+ * Les noms ci-dessous sont SÉMANTIQUES, `brand` et `action`, parce qu'ils sont
+ * antérieurs et déjà employés dans tout le produit. La table de correspondance
+ * garde la traçabilité, et c'est elle qu'il faut lire en relisant la charte.
  *
- *   color.brand.navy      -> brand
- *   color.action.primary  -> action
- *   color.action.secondary-> action-soft
- *   color.background      -> canvas
- *   color.surface         -> surface
- *   color.text.primary    -> ink
- *   color.text.muted      -> muted
- *   color.border.default  -> line
- *   color.status.*        -> success, warning, danger, info
+ *   charte                  ici
+ *   --color-navy            brand
+ *   --color-teal            action
+ *   --color-teal-deep       action-strong
+ *   --color-blue            accent          (Bright Blue)
+ *   --color-blue-structural accent-deep     (Structural Blue)
+ *   --color-bg              canvas
+ *   --color-surface         surface
+ *   --color-surface-subtle  surface-subtle
+ *   --color-text            ink
+ *   --color-text-muted      muted
+ *   --color-border          line
+ *   --color-border-strong   line-strong
+ *   --color-success|...     success, warning, danger, info
  *
- * Les points des noms du document sont impossibles en Tailwind : un nom plat par
- * token est le seul choix, et cette table garde la traçabilité.
+ * **Hiérarchie des couleurs, et c'est une règle, pas un goût** : navy, puis les
+ * neutres, puis le teal, puis le bleu, puis les fonctionnelles. Le Bright Blue
+ * et le Structural Blue sont des ACCENTS : ils ne portent jamais la base de
+ * l'interface, et jamais de texte courant sur fond clair.
  *
  * Aucun thème sombre. La charte n'en définit pas, et en inventer un anticiperait
  * le Design System final (Lot 23) avec des valeurs que personne n'a validées.
  */
 @theme {
+  /* --- Marque -------------------------------------------------------------- */
+
+  /** Deep Navy. Structure : titres importants, navigation, logo. */
   --color-brand: #123b4a;
+
+  /** Digital Teal. Interaction : actions, liens importants, éléments interactifs. */
   --color-action: #138a8a;
-  --color-action-soft: #2b9a8f;
+
+  /**
+   * Teal profond. Le MÊME rôle que `action`, pour le PETIT texte.
+   *
+   * La charte mesure le teal à 4,2:1 sur blanc, ce qui ne passe le seuil AA que
+   * pour le grand texte. Un libellé de 14 px en teal n'est donc pas conforme :
+   * il prend ce ton, mesuré à 5,6:1.
+   */
+  --color-action-strong: #0f7373;
+
+  /** Bright Blue. Accent graphique : symbole, anneau de focus, CTA de marque. */
+  --color-accent: #3b8dff;
+
+  /** Structural Blue. Variantes du symbole, états informatifs, 3e série de données. */
+  --color-accent-deep: #2a67b1;
+
+  /**
+   * Teal secondaire.
+   *
+   * RÉSERVÉ aux états et aux visualisations qui exigent deux teals, dit la
+   * charte. Ce n'est pas une couleur d'action, et ce n'est pas un survol : s'en
+   * servir pour le survol d'un bouton primaire détournerait une couleur
+   * réservée. Pour un survol, assombrir vers `brand`.
+   */
+  --color-teal-secondary: #2b9a8f;
+
+  /* --- Neutres ------------------------------------------------------------- */
+
   --color-canvas: #f7f9f8;
   --color-surface: #ffffff;
-  --color-ink: #172126;
-  --color-muted: #66747a;
+  --color-surface-subtle: #eef2f1;
   --color-line: #dce4e5;
+  --color-line-strong: #cbd5d7;
+  /** Gris 400. Série de RÉFÉRENCE dans un graphique, et rien d'autre. */
+  --color-gray-400: #9aa9ae;
+  --color-muted: #66747a;
+  --color-gray-700: #4a5a60;
+  --color-gray-800: #34444a;
+  --color-gray-900: #243238;
+  --color-ink: #172126;
 
+  /* --- Fonctionnelles, avec leur fond teinté ------------------------------- */
+
+  /*
+   * Les fonds viennent de la charte et ne se calculent PAS par opacité. Un
+   * `bg-success/10` donne une autre couleur, donc un autre contraste que les
+   * ratios que la charte a mesurés : 4,8:1 pour le succès et l'alerte, 5,7:1
+   * pour le danger, 5,1:1 pour l'information, sur leur fond propre.
+   */
   --color-success: #18794e;
+  --color-success-surface: #e8f5ee;
   --color-warning: #a15c00;
+  --color-warning-surface: #fff4de;
   --color-danger: #b42318;
+  --color-danger-surface: #fdecea;
   --color-info: #1769aa;
+  --color-info-surface: #e8f2fa;
 
-  /* Inter pour le contenu, Manrope pour l'identité, les titres et les montants. */
+  /* --- Typographie --------------------------------------------------------- */
+
+  /* Manrope dit la marque, Inter fait fonctionner le produit. */
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-manrope), var(--font-inter), ui-sans-serif, sans-serif;
 
-  /* Formes contemporaines, légèrement arrondies, jamais enfantines (MVP-UI-013). */
+  /*
+   * Les neuf niveaux de la charte, taille et interligne.
+   *
+   * Les trois niveaux d'interface, 16/24, 14/20 et 12/16, sont déjà ceux de
+   * Tailwind : `text-base`, `text-sm` et `text-xs` les portent, inutile de les
+   * redéfinir. Les titres, en revanche, diffèrent sur l'INTERLIGNE, que la
+   * charte veut plus serré que les défauts, et c'est ce qui fait un titre tenu.
+   */
+  --text-display: 3rem;
+  --text-display--line-height: 3.5rem;
+  --text-h1: 2.25rem;
+  --text-h1--line-height: 2.75rem;
+  --text-h2: 1.875rem;
+  --text-h2--line-height: 2.375rem;
+  --text-h3: 1.5rem;
+  --text-h3--line-height: 2rem;
+  --text-h4: 1.25rem;
+  --text-h4--line-height: 1.75rem;
+
+  /** Surtitre : capitales, interlettrage +16 % (charte, règles d'usage). */
+  --tracking-overline: 0.16em;
+
+  /* --- Formes -------------------------------------------------------------- */
+
+  /*
+   * Rayons de la charte : 8 px pour les contrôles, 12 px pour les cartes, 16 px
+   * pour les feuilles et panneaux, pill pour les badges. `sm` reste à 4 px pour
+   * les détails minuscules, un filet ou une puce, où 8 px se verrait trop.
+   */
   --radius-sm: 0.25rem;
   --radius-md: 0.5rem;
   --radius-lg: 0.75rem;
   --radius-xl: 1rem;
+  --radius-pill: 999px;
 
-  /* Élévation au service de la hiérarchie, pas de la décoration (MVP-UI-015). */
+  /*
+   * Élévation au service de la hiérarchie, jamais de la décoration. La charte
+   * préfère d'ailleurs la séparation par couleur et la bordure légère : ces
+   * ombres restent discrètes, et `lg` ne sert qu'aux superpositions.
+   */
   --shadow-sm: 0 1px 2px 0 rgb(23 33 38 / 0.05);
   --shadow-md: 0 2px 8px -2px rgb(23 33 38 / 0.08);
   --shadow-lg: 0 8px 24px -8px rgb(23 33 38 / 0.12);
+
+  /* --- Mouvement ----------------------------------------------------------- */
+
+  /*
+   * Trois durées, deux courbes. Chaque mouvement répond à une question, où
+   * suis-je, qu'est-ce qui a changé : sans réponse, pas d'animation.
+   */
+  --duration-fast: 120ms;
+  --duration-base: 180ms;
+  --duration-slow: 250ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+}
+
+/*
+ * Durées de mouvement en utilitaires.
+ *
+ * Tailwind 4 n'a pas d'espace de noms `--duration-*` : `duration-fast` n'existe
+ * donc pas de lui-même, et une classe inconnue est silencieusement ignorée, ce
+ * qui laisserait croire la charte appliquée sans qu'elle le soit. Vérifié dans
+ * le CSS produit, pas supposé.
+ *
+ * Les déclarer ici garde la valeur à UN seul endroit, plutôt que d'écrire
+ * `duration-120` dans chaque composant, ce qui est exactement ce que la règle
+ * d'implémentation des tokens interdit.
+ */
+@utility duration-fast {
+  transition-duration: var(--duration-fast);
+}
+
+@utility duration-base {
+  transition-duration: var(--duration-base);
+}
+
+@utility duration-slow {
+  transition-duration: var(--duration-slow);
 }
 
 :root {
   color-scheme: light;
+
+  /**
+   * Anneau de focus de la charte : 2 px de vide puis 2 px de Bright Blue.
+   *
+   * Le vide est ce qui rend l'anneau lisible sur un bouton plein : collé au
+   * bord, il se confond avec la bordure du contrôle.
+   */
+  --focus-ring: 0 0 0 2px var(--color-surface), 0 0 0 4px var(--color-accent);
 }
 
 body {
@@ -65,11 +206,11 @@ body {
   color: var(--color-ink);
 }
 
-/*
- * Cible tactile minimale de 44 px (Design System 2.4), appliquée aux commandes
- * plutôt que laissée à la vigilance de chaque écran.
- */
 @layer base {
+  /*
+   * Cible tactile minimale de 44 px, appliquée aux commandes plutôt que laissée
+   * à la vigilance de chaque écran.
+   */
   button,
   a[role='button'],
   input[type='submit'] {
@@ -77,12 +218,50 @@ body {
   }
 
   /*
-   * Anneau de focus visible partout. L'accessibilité minimale n'est pas
-   * négociable (UI-007), et le retirer pour « faire propre » casse la navigation
-   * au clavier.
+   * Anneau de focus visible partout, en Bright Blue comme la charte le fixe.
+   * L'accessibilité minimale n'est pas négociable : le retirer pour « faire
+   * propre » casse la navigation au clavier.
+   *
+   * `box-shadow` plutôt qu'`outline` : il suit le rayon du contrôle, là où un
+   * `outline` dessine un rectangle qui déborde des coins arrondis. L'`outline`
+   * transparent reste là pour le mode contraste élevé de Windows, qui ignore les
+   * ombres et n'afficherait alors plus aucun focus.
    */
   :focus-visible {
-    outline: 2px solid var(--color-action);
+    box-shadow: var(--focus-ring);
+    outline: 2px solid transparent;
     outline-offset: 2px;
+  }
+
+  /*
+   * Chiffres tabulaires pour les données et les montants (charte, règles
+   * d'usage). Dans une colonne de loyers, des chiffres de largeurs différentes
+   * désalignent les unités et rendent deux montants incomparables d'un coup
+   * d'oeil, ce qui est précisément ce qu'on demande à cet écran.
+   *
+   * Posé sur un attribut et non sur une classe : une donnée reste une donnée
+   * quel que soit le composant qui l'affiche, et `<time>` comme `<td>` en
+   * bénéficient sans que personne ait à y penser.
+   */
+  [data-numeric],
+  td[data-numeric],
+  th[data-numeric] {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /*
+   * Mouvement réduit : la charte demande de le réduire ou de le supprimer si
+   * l'utilisateur le demande. Le réglage vient du système, et l'ignorer peut
+   * déclencher un malaise chez une personne sensible au mouvement.
+   */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }

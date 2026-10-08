@@ -5,6 +5,7 @@ import { useActionState, useState } from 'react';
 import type { ApartmentFormState } from '@/app/(app)/immeubles/[propertyId]/appartements/actions';
 import { Alert } from '@/components/ui/alert';
 import { Field, Input } from '@/components/ui/field';
+import { Overline } from '@/components/ui/overline';
 import { SubmitButton } from '@/components/ui/submit-button';
 import {
   APARTMENT_BULK_MAX,
@@ -116,7 +117,7 @@ export function BulkApartmentForm({ action }: BulkApartmentFormProps) {
 
       {preview.length > 0 ? (
         <div className="rounded-md border border-line bg-canvas p-3">
-          <p className="text-xs uppercase tracking-wide text-muted">Références qui seront créées</p>
+          <Overline as="p">Références qui seront créées</Overline>
           <p className="mt-1.5 text-sm text-ink">
             {preview.join(', ')}
             {numbers.length > preview.length

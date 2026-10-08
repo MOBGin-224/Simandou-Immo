@@ -4,6 +4,7 @@ import { Alert } from '@/components/ui/alert';
 import { LeaseStatusBadge } from '@/components/ui/badge';
 import { buttonClasses } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Overline } from '@/components/ui/overline';
 import { PageHeader } from '@/components/ui/page-header';
 import { formatDate, formatMoney } from '@/lib/ui/format';
 import { describeApartment, describePeriod, isEditable } from '@/modules/leases';
@@ -93,18 +94,16 @@ export default async function LeasePage(props: PageProps<'/baux/[leaseId]'>) {
       ) : null}
 
       <Card className="flex flex-col gap-4">
-        <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-muted">
-          La relation locative
-        </h2>
+        <Overline>La relation locative</Overline>
 
         <dl className="flex flex-col gap-3">
           <div className="flex flex-col gap-0.5">
-            <dt className="text-xs font-medium uppercase tracking-wide text-muted">Locataire</dt>
+            <Overline as="dt">Locataire</Overline>
             <dd className="break-words text-base text-ink">
               {lease.tenant.accessId ? (
                 <Link
                   href={`/locataires/${lease.tenant.accessId}`}
-                  className="inline-flex min-h-11 items-center text-action underline underline-offset-4 hover:text-brand"
+                  className="inline-flex min-h-11 items-center text-action-strong underline underline-offset-4 hover:text-brand"
                 >
                   {lease.tenant.fullName}
                 </Link>
@@ -118,11 +117,11 @@ export default async function LeasePage(props: PageProps<'/baux/[leaseId]'>) {
           </div>
 
           <div className="flex flex-col gap-0.5">
-            <dt className="text-xs font-medium uppercase tracking-wide text-muted">Logement</dt>
+            <Overline as="dt">Logement</Overline>
             <dd className="break-words text-base text-ink">
               <Link
                 href={`/immeubles/${lease.apartment.propertyId}/appartements/${lease.apartment.id}`}
-                className="inline-flex min-h-11 items-center text-action underline underline-offset-4 hover:text-brand"
+                className="inline-flex min-h-11 items-center text-action-strong underline underline-offset-4 hover:text-brand"
               >
                 {describeApartment(lease.apartment)}
               </Link>
@@ -135,16 +134,12 @@ export default async function LeasePage(props: PageProps<'/baux/[leaseId]'>) {
       </Card>
 
       <Card className="flex flex-col gap-4">
-        <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-muted">
-          Conditions
-        </h2>
+        <Overline>Conditions</Overline>
 
         <dl className="flex flex-col gap-3">
           {details.map((detail) => (
             <div key={detail.label} className="flex flex-col gap-0.5">
-              <dt className="text-xs font-medium uppercase tracking-wide text-muted">
-                {detail.label}
-              </dt>
+              <Overline as="dt">{detail.label}</Overline>
               <dd className="break-words text-base text-ink">{detail.value}</dd>
             </div>
           ))}
@@ -152,9 +147,7 @@ export default async function LeasePage(props: PageProps<'/baux/[leaseId]'>) {
       </Card>
 
       <Card className="flex flex-col gap-3">
-        <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-muted">
-          Loyers et paiements
-        </h2>
+        <Overline>Loyers et paiements</Overline>
         <p className="text-sm text-muted">
           Les échéances de loyer naîtront de ce bail, puis les paiements reçus s&apos;y
           rattacheront. Elles apparaîtront ici, aux lots Loyers et Paiements.
@@ -163,9 +156,7 @@ export default async function LeasePage(props: PageProps<'/baux/[leaseId]'>) {
 
       {editable ? (
         <Card className="flex flex-col gap-5">
-          <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-muted">
-            Mettre fin au bail
-          </h2>
+          <Overline>Mettre fin au bail</Overline>
 
           <div className="flex flex-col gap-2">
             <p className="text-sm text-muted">
