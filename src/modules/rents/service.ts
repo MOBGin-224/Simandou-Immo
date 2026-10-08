@@ -8,6 +8,7 @@ import {
   type AccessContext,
   type Permission,
 } from '@/lib/authorization';
+import { formatMonth } from '@/lib/ui/format';
 
 import { RENT_GENERATION_MAX_INSTALLMENTS, type ReceivableStatus } from './constants';
 import {
@@ -340,6 +341,19 @@ export async function listMyRents(
 
 // --- Total dû -----------------------------------------------------------------------
 
+/**
+ * Libellé de créance, celui que l'API transmet.
+ *
+ * L'API renvoie un libellé déjà composé, « Loyer septembre 2026 » : la section 18
+ * le montre dans sa réponse. C'est l'exception à la règle qui veut que le
+ * formatage reste au frontend, et elle est assumée ici parce que le champ est un
+ * LIBELLÉ de créance, destiné à être repris tel quel dans une quittance comme
+ * dans un rappel, où il doit être identique à celui de l'écran.
+ *
+ * D'où l'emploi de `formatMonth` plutôt qu'un second formateur local : deux
+ * sources finiraient par écrire le même mois de deux façons, et c'est
+ * exactement ce que ce champ doit éviter.
+ */
 function toOutstandingReceivable(view: RentView, monthLabel: (iso: string) => string) {
   return {
     kind: 'RENT' as const,
@@ -352,25 +366,6 @@ function toOutstandingReceivable(view: RentView, monthLabel: (iso: string) => st
     balance: view.balance,
     status: view.status,
   } satisfies OutstandingReceivable;
-}
-
-/**
- * Libellé de période par défaut, celui que l'API transmet.
- *
- * L'API renvoie un libellé déjà composé, « Loyer septembre 2026 » : la section 18
- * le montre dans sa réponse. C'est l'exception à la règle qui veut que le
- * formatage soit au frontend, et elle est assumée là parce que le champ est un
- * LIBELLÉ de créance, destiné à être repris tel quel dans une quittance comme
- * dans un rappel, où il doit être identique à celui de l'écran.
- */
-const MONTH_LABEL = new Intl.DateTimeFormat('fr-FR', {
-  month: 'long',
-  year: 'numeric',
-  timeZone: 'Africa/Conakry',
-});
-
-function monthLabelOf(isoDate: string): string {
-  return MONTH_LABEL.format(new Date(`${isoDate}T00:00:00.000Z`));
 }
 
 /**
@@ -437,7 +432,7 @@ export async function getTenantOutstanding(
   const views = await toViews(db, rows, day);
   const receivables = views
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
-    .map((view) => toOutstandingReceivable(view, monthLabelOf));
+    .map((view) => toOutstandingReceivable(view, formatMonth));
 
   return {
     /*

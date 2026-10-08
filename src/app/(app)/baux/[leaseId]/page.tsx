@@ -100,16 +100,24 @@ export default async function LeasePage(props: PageProps<'/baux/[leaseId]'>) {
           <div className="flex flex-col gap-0.5">
             <Overline as="dt">Locataire</Overline>
             <dd className="break-words text-base text-ink">
-              {lease.tenant.accessId ? (
-                <Link
-                  href={`/locataires/${lease.tenant.accessId}`}
-                  className="inline-flex min-h-11 items-center text-action-strong underline underline-offset-4 hover:text-brand"
-                >
-                  {lease.tenant.fullName}
-                </Link>
-              ) : (
-                lease.tenant.fullName
-              )}
+              {/*
+                Le lien part du `userId` et NON de `accessId`.
+                `/locataires/:id` attend l'identité métier de la personne, c'est-à-dire
+                un `users.id` (DEC-051) : passer l'identifiant de son droit d'accès
+                donnait un UUID valide mais inconnu de `users`, donc « introuvable ».
+                L'organisation est nommée, le bail la connaissant, ce qui évite le refus
+                en 409 lorsque plusieurs organisations connaissent la même personne.
+
+                Et le lien ne dépend PLUS de l'existence d'un accès : depuis DEC-051 une
+                personne sans compte a bien une fiche locataire, et la masquer privait
+                d'un chemin vers la seule personne qu'on veut justement joindre.
+              */}
+              <Link
+                href={`/locataires/${lease.tenant.userId}?organisation=${lease.organizationId}`}
+                className="inline-flex min-h-11 items-center text-action-strong underline underline-offset-4 hover:text-brand"
+              >
+                {lease.tenant.fullName}
+              </Link>
               {lease.tenant.phone ? (
                 <span className="block text-sm text-muted">{lease.tenant.phone}</span>
               ) : null}

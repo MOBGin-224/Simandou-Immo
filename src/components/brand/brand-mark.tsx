@@ -46,16 +46,18 @@ export type BrandMarkProps = {
   /**
    * Quand afficher le logotype à côté du symbole.
    *
-   * `sm-and-up` existe pour une raison MESURÉE, pas par goût. Le symbole, le
-   * logotype, le rôle et la déconnexion sur une seule ligne débordent de 23 px à
-   * 360 px, et d'un pixel à 390 px : un palier à 390 a été essayé puis retiré
-   * pour cela. La charte autorise explicitement le symbole SEUL, « favicon,
-   * application, avatar », et son minimum de 24 px est respecté ; le nom du
-   * produit reste porté par le titre de la page et par l'onglet du navigateur.
+   * `sm-and-up` est né d'une mesure, pas d'un goût. Le symbole, le logotype, le
+   * rôle et la déconnexion sur une seule ligne débordaient de 23 px à 360 px, et
+   * d'un pixel à 390 px : un palier à 390 a été essayé puis retiré pour cela.
    *
-   * Ce compromis est TEMPORAIRE et disparaîtra avec la navigation basse : la
-   * charte y place les actions, « la zone du pouce porte les actions », donc la
-   * déconnexion quittera l'en-tête et libérera la place du logotype.
+   * **Ce compromis a disparu au Lot 9**, comme annoncé : la déconnexion a rejoint
+   * l'écran de compte, que la navigation basse rend atteignable d'un geste, et
+   * l'en-tête n'a plus que deux éléments. Il emploie donc `always`, et le
+   * logotype s'affiche sur téléphone.
+   *
+   * La variante reste disponible pour un contexte réellement étroit à venir, la
+   * charte autorisant explicitement le symbole SEUL, « favicon, application,
+   * avatar », avec son minimum de 24 px.
    */
   wordmark?: 'always' | 'sm-and-up' | 'never';
   className?: string;
