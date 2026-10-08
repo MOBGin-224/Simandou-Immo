@@ -475,6 +475,20 @@ Neutral  muted     CANCELLED, CLOSED
 
 Le composant ne doit pas dépendre uniquement de la couleur : un libellé textuel est toujours présent, et une icône peut le compléter.
 
+## Anatomie du badge (charte chapitre 06)
+
+```text
+hauteur    26 px
+forme      pill
+point      7 px, dans la couleur fonctionnelle
+libelle    12 px gras
+fond       teinte, valeur explicite de la charte
+```
+
+**Jamais la couleur seule.** Un statut associe toujours une couleur, un POINT et un libellé. Le point n'est pas un ornement : il donne une seconde marque visuelle, qui subsiste quand la couleur ne se distingue pas, et il fait tenir la règle même si le badge est copié sans son texte.
+
+Un badge qui ne porte pas un statut, un simple compteur par exemple, se passe du point : il y annoncerait un état qui n'existe pas. C'est ce que règle la propriété `dot` du composant.
+
 ---
 
 # 21. Avatar

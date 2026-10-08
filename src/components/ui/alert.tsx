@@ -13,11 +13,16 @@ import { cn } from '@/lib/ui/cn';
  */
 export type AlertTone = 'danger' | 'warning' | 'info' | 'success';
 
+/*
+ * Fonds EXPLICITES de la charte, et non calculés par opacité : c'est sur ces
+ * fonds précis qu'elle a mesuré les contrastes, 4,8:1 pour le succès et l'alerte,
+ * 5,7:1 pour le danger, 5,1:1 pour l'information.
+ */
 const TONES: Record<AlertTone, string> = {
-  danger: 'border-danger/30 bg-danger/5 text-danger',
-  warning: 'border-warning/30 bg-warning/5 text-warning',
-  info: 'border-info/30 bg-info/5 text-info',
-  success: 'border-success/30 bg-success/5 text-success',
+  danger: 'border-danger/30 bg-danger-surface text-danger',
+  warning: 'border-warning/30 bg-warning-surface text-warning',
+  info: 'border-info/30 bg-info-surface text-info',
+  success: 'border-success/30 bg-success-surface text-success',
 };
 
 export type AlertProps = {

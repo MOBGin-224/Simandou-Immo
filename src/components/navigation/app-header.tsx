@@ -1,8 +1,10 @@
 import Link from 'next/link';
 
+import { BrandMark } from '@/components/brand/brand-mark';
 import type { Role } from '@/lib/authorization';
 import { homeForRoles } from '@/lib/ui/home';
 import { describeRoles } from '@/lib/ui/labels';
+import { Overline } from '@/components/ui/overline';
 
 /**
  * En-tête de l'application (Component Specification section 60).
@@ -12,12 +14,9 @@ import { describeRoles } from '@/lib/ui/labels';
  * c'est lui qui commande le périmètre visible. Bénéfice secondaire réel : une
  * capture d'écran qui circule ne divulgue pas l'identité d'un utilisateur.
  *
- * La navigation principale par onglets (BottomNavigation, section 58) n'existe
- * toujours pas après le lot Appartements, et ce n'est pas un oubli. La section 58
- * la compose d'Accueil, Immeubles, Loyers, Maintenance et Profil : l'appartement
- * est un niveau 3 sous l'immeuble, donc il n'ajoute aucune destination de premier
- * niveau. Une barre d'onglets à une entrée resterait un ornement. Elle prendra
- * son sens aux lots Loyers et Maintenance.
+ * La marque est portée par `BrandMark`, qui compose le SYMBOLE officiel de la
+ * charte et le logotype. L'en-tête ne la redessine pas : le symbole appartient à
+ * la charte, et sa géométrie n'a qu'une source.
  */
 export type AppHeaderProps = {
   roles: readonly Role[];
@@ -42,15 +41,22 @@ export function AppHeader({ roles }: AppHeaderProps) {
         */}
         <Link
           href={homeForRoles(roles)}
-          className="inline-flex min-h-11 items-center font-display text-sm font-bold tracking-wide whitespace-nowrap text-brand sm:tracking-widest"
+          aria-label="SIMANDOU IMMO, accueil"
+          /*
+            Le remplissage élargit la CIBLE à 44 px sans décaler le symbole : la
+            marge négative compense, donc le symbole reste aligné sur les 16 px
+            de marge de l'écran. Mesuré à 28 px de large sans cela, pour
+            l'élément le plus souvent touché du produit.
+          */
+          className="-ml-2 inline-flex min-h-11 items-center px-2"
         >
-          SIMANDOU IMMO
+          <BrandMark wordmark="sm-and-up" />
         </Link>
 
         <div className="flex items-center gap-2 sm:gap-3">
-          <span className="text-xs font-medium whitespace-nowrap uppercase tracking-wide text-muted">
+          <Overline as="span" className="whitespace-nowrap">
             {describeRoles(roles)}
-          </span>
+          </Overline>
 
           {/*
             Déconnexion par formulaire, et non par lien : une déconnexion modifie
@@ -60,7 +66,7 @@ export function AppHeader({ roles }: AppHeaderProps) {
           <form method="post" action="/api/v1/sessions/revoke">
             <button
               type="submit"
-              className="min-h-11 text-xs whitespace-nowrap text-action underline underline-offset-4 hover:text-brand sm:text-sm"
+              className="min-h-11 text-xs whitespace-nowrap text-action-strong underline underline-offset-4 hover:text-brand sm:text-sm"
             >
               Se déconnecter
             </button>

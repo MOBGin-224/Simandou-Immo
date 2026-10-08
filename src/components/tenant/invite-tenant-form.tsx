@@ -8,6 +8,7 @@ import { InvitationLinkPanel } from '@/components/invitation/invitation-link-pan
 import { Alert } from '@/components/ui/alert';
 import { buttonClasses } from '@/components/ui/button';
 import { Field, Input } from '@/components/ui/field';
+import { Overline } from '@/components/ui/overline';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { TENANT_EMAIL_MAX_LENGTH, TENANT_NAME_MAX_LENGTH } from '@/modules/tenants/client';
 
@@ -80,7 +81,7 @@ export function InviteTenantForm({
           <input type="hidden" name="apartmentId" value={fixed} />
 
           <div className="flex flex-col gap-1">
-            <span className="text-xs font-medium uppercase tracking-wide text-muted">Logement</span>
+            <Overline as="span">Logement</Overline>
             <span className="break-words text-base text-ink">{fixedLabel ?? fixed}</span>
           </div>
         </>

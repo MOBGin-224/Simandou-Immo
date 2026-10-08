@@ -5,6 +5,7 @@ import { Alert } from '@/components/ui/alert';
 import { AccessStatusBadge } from '@/components/ui/badge';
 import { buttonClasses } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Overline } from '@/components/ui/overline';
 import { PageHeader } from '@/components/ui/page-header';
 import { getDb } from '@/db/client';
 import { requireAccessContextOrSignIn } from '@/lib/auth/guard';
@@ -96,16 +97,12 @@ export default async function MyApartmentPage() {
       ) : null}
 
       <Card className="flex flex-col gap-4">
-        <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-muted">
-          Mon logement
-        </h2>
+        <Overline>Mon logement</Overline>
 
         <dl className="flex flex-col gap-3">
           {details.map((detail) => (
             <div key={detail.label} className="flex flex-col gap-0.5">
-              <dt className="text-xs font-medium uppercase tracking-wide text-muted">
-                {detail.label}
-              </dt>
+              <Overline as="dt">{detail.label}</Overline>
               <dd className="break-words text-base text-ink">{detail.value}</dd>
             </div>
           ))}
@@ -113,9 +110,7 @@ export default async function MyApartmentPage() {
       </Card>
 
       <Card className="flex flex-col gap-4">
-        <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-muted">
-          Mon profil
-        </h2>
+        <Overline>Mon profil</Overline>
 
         <p className="text-sm text-muted">
           Vous pouvez corriger votre nom. Votre numéro de téléphone sert à vous connecter, et ni lui
@@ -129,21 +124,17 @@ export default async function MyApartmentPage() {
       </Card>
 
       <Card className="flex flex-col gap-4">
-        <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-muted">
-          Mon contrat
-        </h2>
+        <Overline>Mon contrat</Overline>
 
         {activeLease ? (
           <dl className="flex flex-col gap-3">
             {/* Le logement est déjà en tête de page : le répéter ici n'ajouterait rien. */}
             <div className="flex flex-col gap-0.5">
-              <dt className="text-xs font-medium uppercase tracking-wide text-muted">Période</dt>
+              <Overline as="dt">Période</Overline>
               <dd className="text-base text-ink">{describePeriod(activeLease, formatDate)}</dd>
             </div>
             <div className="flex flex-col gap-0.5">
-              <dt className="text-xs font-medium uppercase tracking-wide text-muted">
-                Loyer mensuel
-              </dt>
+              <Overline as="dt">Loyer mensuel</Overline>
               <dd className="text-base text-ink">
                 {formatMoney(activeLease.rent.amount, activeLease.rent.currency)}, dû le{' '}
                 {activeLease.dueDay} de chaque mois
@@ -151,7 +142,7 @@ export default async function MyApartmentPage() {
             </div>
             {activeLease.deposit.amount > 0 ? (
               <div className="flex flex-col gap-0.5">
-                <dt className="text-xs font-medium uppercase tracking-wide text-muted">Caution</dt>
+                <Overline as="dt">Caution</Overline>
                 <dd className="text-base text-ink">
                   {formatMoney(activeLease.deposit.amount, activeLease.deposit.currency)}
                 </dd>
@@ -172,9 +163,7 @@ export default async function MyApartmentPage() {
       </Card>
 
       <Card className="flex flex-col gap-3">
-        <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-muted">
-          Prochainement
-        </h2>
+        <Overline>Prochainement</Overline>
         <p className="text-sm text-muted">
           Vos loyers à payer, vos paiements, vos quittances, vos charges et vos incidents
           apparaîtront ici. Ils arriveront avec les prochaines étapes du produit, et rien ne vous

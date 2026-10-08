@@ -19,7 +19,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
-    "db:seed": "tsx scripts/seed.ts"
+    "db:seed": "tsx scripts/seed.ts",
+    "icons": "tsx scripts/generate-icons.ts && prettier --write src/components/ui/icon.tsx"
   },
   "dependencies": {
     "better-auth": "^1.7.6",

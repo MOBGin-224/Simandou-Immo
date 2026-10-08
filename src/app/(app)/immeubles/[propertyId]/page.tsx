@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { PropertyStatusBadge } from '@/components/ui/badge';
 import { buttonClasses } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Overline } from '@/components/ui/overline';
 import { PageHeader } from '@/components/ui/page-header';
 import { can } from '@/lib/authorization';
 import { formatDate, pluralize } from '@/lib/ui/format';
@@ -88,13 +89,11 @@ export default async function PropertyDetailPage(props: PageProps<'/immeubles/[p
       ) : null}
 
       <Card>
-        <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-muted">
-          Informations générales
-        </h2>
+        <Overline>Informations générales</Overline>
         <dl className="mt-4 grid gap-4 sm:grid-cols-2">
           {details.map((detail) => (
             <div key={detail.label} className="flex flex-col gap-0.5">
-              <dt className="text-xs uppercase tracking-wide text-muted">{detail.label}</dt>
+              <Overline as="dt">{detail.label}</Overline>
               <dd className="text-sm text-ink">{detail.value}</dd>
             </div>
           ))}
@@ -102,7 +101,7 @@ export default async function PropertyDetailPage(props: PageProps<'/immeubles/[p
 
         {property.description ? (
           <div className="mt-4 flex flex-col gap-0.5">
-            <p className="text-xs uppercase tracking-wide text-muted">Description</p>
+            <Overline as="p">Description</Overline>
             <p className="whitespace-pre-line text-sm text-ink">{property.description}</p>
           </div>
         ) : null}
@@ -110,13 +109,11 @@ export default async function PropertyDetailPage(props: PageProps<'/immeubles/[p
 
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-muted">
-            Appartements
-          </h2>
+          <Overline>Appartements</Overline>
 
           <Link
             href={`/immeubles/${property.id}/appartements`}
-            className="min-h-11 text-sm text-action underline underline-offset-4 hover:text-brand"
+            className="min-h-11 text-sm text-action-strong underline underline-offset-4 hover:text-brand"
           >
             {property.occupancy.apartmentCount === 0
               ? 'Ajouter des logements'
@@ -147,9 +144,7 @@ export default async function PropertyDetailPage(props: PageProps<'/immeubles/[p
 
       {canArchive ? (
         <Card>
-          <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-muted">
-            Retirer de l&apos;exploitation
-          </h2>
+          <Overline>Retirer de l&apos;exploitation</Overline>
           <p className="mt-2 text-sm text-muted">
             L&apos;archivage conserve tout l&apos;historique de l&apos;immeuble et bloque ses
             opérations futures.

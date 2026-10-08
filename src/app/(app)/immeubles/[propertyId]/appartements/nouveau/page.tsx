@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { ApartmentForm } from '@/components/apartment/apartment-form';
 import { BulkApartmentForm } from '@/components/apartment/bulk-apartment-form';
 import { Card } from '@/components/ui/card';
+import { Overline } from '@/components/ui/overline';
 import { PageHeader } from '@/components/ui/page-header';
 import { getDb } from '@/db/client';
 import { can } from '@/lib/authorization';
@@ -58,9 +59,7 @@ export default async function NewApartmentPage(
       />
 
       <Card>
-        <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-muted">
-          Créer une série
-        </h2>
+        <Overline>Créer une série</Overline>
         <p className="mt-2 mb-5 text-sm text-muted">
           Pour construire la structure d&apos;un immeuble d&apos;un seul geste. Les détails de
           chaque logement se complètent ensuite.
@@ -70,9 +69,7 @@ export default async function NewApartmentPage(
       </Card>
 
       <Card>
-        <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-muted">
-          Créer un logement
-        </h2>
+        <Overline>Créer un logement</Overline>
         <p className="mt-2 mb-5 text-sm text-muted">
           Pour ajouter un seul appartement, avec ses caractéristiques.
         </p>

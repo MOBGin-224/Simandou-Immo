@@ -24,7 +24,7 @@ export function PageHeader({ title, description, back, actions }: PageHeaderProp
       {back ? (
         <Link
           href={back.href}
-          className="inline-flex min-h-11 items-center gap-1 self-start text-sm text-action hover:text-brand"
+          className="inline-flex min-h-11 items-center gap-1 self-start text-sm text-action-strong hover:text-brand"
         >
           <span aria-hidden="true">&larr;</span>
           {back.label}

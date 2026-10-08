@@ -7,6 +7,7 @@ import type { LeaseFormState } from '@/app/(app)/baux/actions';
 import { Alert } from '@/components/ui/alert';
 import { buttonClasses } from '@/components/ui/button';
 import { Field, Input } from '@/components/ui/field';
+import { Overline } from '@/components/ui/overline';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { LEASE_DUE_DAY_MAX, LEASE_DUE_DAY_MIN } from '@/modules/leases/client';
 
@@ -113,9 +114,7 @@ export function LeaseForm({
             <>
               <input type="hidden" name="apartmentId" value={fixed} />
               <div className="flex flex-col gap-1">
-                <span className="text-xs font-medium uppercase tracking-wide text-muted">
-                  Logement
-                </span>
+                <Overline as="span">Logement</Overline>
                 <span className="break-words text-base text-ink">
                   {fixedApartment?.label ?? fixed}
                 </span>
@@ -287,13 +286,11 @@ export function LeaseForm({
       ) : (
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-1">
-            <span className="text-xs font-medium uppercase tracking-wide text-muted">Logement</span>
+            <Overline as="span">Logement</Overline>
             <span className="break-words text-base text-ink">{existing.apartmentLabel}</span>
           </div>
           <div className="flex flex-col gap-1">
-            <span className="text-xs font-medium uppercase tracking-wide text-muted">
-              Locataire
-            </span>
+            <Overline as="span">Locataire</Overline>
             <span className="break-words text-base text-ink">{existing.tenantLabel}</span>
           </div>
           <p className="text-xs text-muted">
