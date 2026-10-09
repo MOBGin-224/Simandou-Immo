@@ -84,11 +84,12 @@ describe('Navigation principale', () => {
   });
 
   describe('Ce que voit celui qui gère', () => {
-    it('conduit le propriétaire au patrimoine, aux locataires, aux loyers et à son compte', () => {
+    it('conduit le propriétaire au patrimoine, aux locataires, aux loyers, aux charges et à son compte', () => {
       expect(hrefsFor(['OWNER'])).toEqual([
         MANAGEMENT_HOME,
         '/locataires',
         '/loyers',
+        '/charges',
         ACCOUNT_HOME,
       ]);
     });
@@ -127,6 +128,7 @@ describe('Navigation principale', () => {
       expect(hrefs).not.toContain(MANAGEMENT_HOME);
       expect(hrefs).not.toContain('/locataires');
       expect(hrefs).not.toContain('/loyers');
+      expect(hrefs).not.toContain('/charges');
       expect(hrefs).not.toContain('/gestionnaires');
     });
 

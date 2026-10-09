@@ -19,6 +19,9 @@
  *
  * Périmètre du Lot 9 : échéances de loyer, première des deux créances du MVP
  * (MVP-BACKLOG-036).
+ *
+ * Périmètre du Lot 10 : charges communes et créances de charge, seconde créance
+ * du MVP (MVP-BACKLOG-051, DEC-005).
  */
 export * from './enums';
 export * from './organizations';
@@ -29,3 +32,4 @@ export * from './auth';
 export * from './invitations';
 export * from './leases';
 export * from './rents';
+export * from './charges';

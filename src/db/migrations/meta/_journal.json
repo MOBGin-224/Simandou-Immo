@@ -43,6 +43,13 @@
       "when": 1791459581018,
       "tag": "0005_loyers",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791585823187,
+      "tag": "0006_charges",
+      "breakpoints": true
     }
   ]
 }

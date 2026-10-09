@@ -12,14 +12,15 @@ SIMANDOU IMMO est un projet **distinct de SIMANDOU SEJOUR**. Les deux ne partage
 
 ## État du projet
 
-|                  |                                                                         |
-| ---------------- | ----------------------------------------------------------------------- |
-| Phase            | Lot 4 terminé, premiers écrans du produit                               |
-| Documentation    | 33 documents consolidés dans `docs/`, plus 12 ADR                       |
-| Base de données  | Schéma initial et migration `0000_initial_schema`                       |
-| Authentification | Téléphone et mot de passe, session, déconnexion                         |
-| Immeubles        | Domaine, API `/api/v1/properties`, six écrans, 29 tests de bout en bout |
-| Tests            | 383, dont la migration réellement appliquée sur PostgreSQL              |
+|                  |                                                                                          |
+| ---------------- | ---------------------------------------------------------------------------------------- |
+| Phase            | Lot 10 terminé : les charges communes, seconde créance du modèle financier               |
+| Documentation    | 33 documents consolidés dans `docs/`, plus 12 ADR                                        |
+| Base de données  | Sept migrations, de `0000_initial_schema` à `0006_charges`                               |
+| Authentification | Téléphone et mot de passe, session, déconnexion                                          |
+| Patrimoine       | Immeubles, appartements, gestionnaires et leur périmètre, locataires, baux               |
+| Finance          | Loyers générés par job, charges réparties et publiées, total dû loyers et charges réunis |
+| Tests            | 1365, dont les migrations réellement appliquées sur PostgreSQL                           |
 
 La documentation est la **source de vérité** fonctionnelle, produit, UX, technique et opérationnelle. Elle précède le code, et non l'inverse.
 
@@ -105,6 +106,14 @@ puis se termine en code 1 si un défaut est relevé. Il est en **lecture seule**
 `npm run mobile -- --help` détaille les options.
 
 Sous Git Bash, écrire les chemins sans `/` initial : le shell déforme les autres.
+
+L'audit est en lecture seule. Les actions qui engagent quelque chose se vérifient par un
+**parcours**, qui les touche vraiment au doigt à 360 px :
+
+```bash
+npx tsx scripts/mobile/parcours-loyers.ts    # génération des loyers, idempotente
+npx tsx scripts/mobile/parcours-charges.ts   # publication d'une charge, non rejouable
+```
 
 ---
 

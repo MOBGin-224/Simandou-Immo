@@ -220,6 +220,35 @@ export function LeaseStatusBadge({ status }: { status: LeaseStatusValue }) {
 }
 
 /**
+ * Statut d'une CHARGE, distinct de celui de ses créances (DEC-021, BR-052).
+ *
+ * Deux badges existent donc côte à côte sur l'écran d'une charge, et ce n'est
+ * pas une redondance : la charge dit où elle en est de son cycle de vie, ses
+ * créances disent où elles en sont de leur règlement. Une charge publiée dont
+ * toutes les parts sont payées porte « Publiée » et des créances « Payé ».
+ *
+ * Les tons suivent MVP-UI-011. « Brouillon » est en bleu d'information, parce
+ * qu'il n'appelle aucune action urgente mais signale un travail non terminé :
+ * tant qu'une charge est en brouillon, elle ne doit rien à personne.
+ * « Publiée » est en vert, c'est l'état normal d'une facture répartie.
+ * « Annulée » est neutre et non rouge : une annulation est une décision tracée,
+ * pas un incident (BR-054).
+ */
+export type ChargeStatusValue = 'DRAFT' | 'PUBLISHED' | 'CANCELLED';
+
+const CHARGE_STATUS_BADGES: Record<ChargeStatusValue, { tone: BadgeTone; label: string }> = {
+  DRAFT: { tone: 'info', label: 'Brouillon' },
+  PUBLISHED: { tone: 'success', label: 'Publiée' },
+  CANCELLED: { tone: 'neutral', label: 'Annulée' },
+};
+
+export function ChargeStatusBadge({ status }: { status: ChargeStatusValue }) {
+  const badge = CHARGE_STATUS_BADGES[status];
+
+  return <Badge tone={badge.tone}>{badge.label}</Badge>;
+}
+
+/**
  * Statut d'une créance, « À venir » comprise (BR-037, DEC-015).
  *
  * Il prend le statut AFFICHÉ et non le statut stocké : « À venir » n'existe pas
@@ -228,9 +257,10 @@ export function LeaseStatusBadge({ status }: { status: LeaseStatusValue }) {
  * date du jour séparément se contrediraient au passage de minuit.
  *
  * Un seul composant pour les DEUX créances du MVP, loyer et charge, puisque
- * l'énumération leur est commune (DEC-015) : le Lot 10 réutilisera celui-ci
+ * l'énumération leur est commune (DEC-015) : le Lot 10 réutilise celui-ci
  * plutôt que d'en écrire un second qui finirait par ne plus dire la même chose
- * du même état.
+ * du même état. Ne pas confondre avec `ChargeStatusBadge`, qui porte le cycle de
+ * vie de la CHARGE et non le règlement d'une créance.
  *
  * Les tons suivent MVP-UI-011. « Payé » est en vert, c'est l'argent reçu.
  * « En retard » est en rouge, le seul état vraiment anormal. « Impayé » et

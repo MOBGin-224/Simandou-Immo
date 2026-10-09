@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatArea, formatDate, formatMoney, pluralize } from '../../src/lib/ui/format';
+import {
+  formatArea,
+  formatDate,
+  formatMonth,
+  formatMonthOf,
+  formatMoney,
+  pluralize,
+} from '../../src/lib/ui/format';
 
 /**
  * Formatage d'affichage, verrouillé par des tests.
@@ -75,5 +82,26 @@ describe('Dates et pluriels', () => {
 
   it('accepte un pluriel irrégulier', () => {
     expect(pluralize(2, 'logement trouvé', 'logements trouvés')).toBe('2 logements trouvés');
+  });
+
+  it('affiche une période comme un mois entier, année comprise', () => {
+    expect(formatMonth('2026-10-01')).toBe('octobre 2026');
+  });
+
+  /**
+   * L'élision, vue à l'écran sur la fiche d'une charge : « Mois de octobre 2026 »
+   * se lit comme une faute. Trois mois commencent par une voyelle, et ce sont
+   * les seuls à élider.
+   */
+  it('élide la préposition devant un mois qui commence par une voyelle', () => {
+    expect(formatMonthOf('2026-10-01')).toBe("d'octobre 2026");
+    expect(formatMonthOf('2026-04-01')).toBe("d'avril 2026");
+    expect(formatMonthOf('2026-08-01')).toBe("d'août 2026");
+  });
+
+  it('garde la préposition entière devant les neuf autres mois', () => {
+    for (const month of ['01', '02', '03', '05', '06', '07', '09', '11', '12']) {
+      expect(formatMonthOf(`2026-${month}-01`).startsWith('de ')).toBe(true);
+    }
   });
 });

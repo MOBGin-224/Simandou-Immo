@@ -2,7 +2,7 @@ import { getDb } from '@/db/client';
 import { getEnv } from '@/lib/env';
 import { isAuthorizedInternalJob, internalJobNotFound } from '@/lib/http/internal-job';
 import { apiErrorResponse, dataResponse } from '@/lib/http/responses';
-import { runOverdueJob } from '@/modules/rents';
+import { runOverdueReceivablesJob } from '@/modules/receivables';
 
 /**
  * Passage en retard des créances échues (BR-037, DEC-028, job
@@ -23,10 +23,15 @@ import { runOverdueJob } from '@/modules/rents';
  * positif.
  *
  * **Le nom est au pluriel « receivables » et non « rents »**, parce que le job de
- * DEC-028 porte ce nom et qu'il vise les DEUX créances (DEC-015). Au Lot 9 il ne
- * balaie que les loyers, les charges n'existant pas ; le Lot 10 ajoutera leur
- * balayage ICI plutôt que d'ouvrir une seconde route, pour qu'une seule
- * exécution planifiée suffise.
+ * DEC-028 porte ce nom et qu'il vise les DEUX créances (DEC-015). Depuis le Lot
+ * 10, il les balaie toutes les deux dans la même exécution : les échéances de
+ * loyer, puis les créances de charge. Une seconde route n'aurait pas seulement
+ * dédoublé la planification, elle aurait permis à deux règles de retard de
+ * diverger.
+ *
+ * Les deux moitiés sont comptées SÉPARÉMENT dans le compte rendu : un retard qui
+ * n'apparaîtrait que sur un seul des deux types signale un défaut, et un total
+ * unique l'aurait caché.
  *
  * Même protection que l'autre job : non publique, refus en 404, fermée si le
  * secret est absent.
@@ -37,12 +42,12 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   try {
-    const result = await runOverdueJob(getDb());
+    const result = await runOverdueReceivablesJob(getDb());
 
     // Journalisation exigée par DEC-028 : une exécution sans effet affiche zéro,
     // ce qui est le cas normal d'un second passage le même jour.
     console.info(
-      `[job:markOverdueReceivables] date=${result.today} passées en retard=${result.marked}`,
+      `[job:markOverdueReceivables] date=${result.today} loyers=${result.rents} charges=${result.charges} total=${result.marked}`,
     );
 
     return dataResponse(result);

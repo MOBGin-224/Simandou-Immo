@@ -96,6 +96,18 @@ const BY_ERROR_NAME: Record<string, { status: number; code: ApiErrorCode }> = {
 
   RentValidationError: { status: 422, code: 'VALIDATION_ERROR' },
 
+  ChargeValidationError: { status: 422, code: 'VALIDATION_ERROR' },
+
+  // Charge déjà publiée, déjà annulée, ou immeuble archivé : 409, l'état de la
+  // ressource empêche l'opération. La republication est le cas qui compte, l'API
+  // section 29 exigeant ce refus « y compris en cas de double-clic ».
+  ChargeStateError: { status: 409, code: 'CONFLICT' },
+
+  // Immeuble sans aucun logement actif : 409 également, mais ce n'est pas la
+  // charge qui est en cause, c'est le parc entre lequel il n'y a rien à
+  // répartir. Le message dit le chemin de correction.
+  ChargeNoUnitError: { status: 409, code: 'CONFLICT' },
+
   // Génération refusée pour cause de volume : 409, l'état du périmètre demandé
   // empêche l'opération, et l'appelant la corrige en la restreignant. Aucun
   // conflit de doublon n'existe ici, la génération étant idempotente (DEC-028).

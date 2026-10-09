@@ -2,35 +2,40 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { SEED_IDS, seed } from '../../src/db/seed';
 import { ResourceOutOfScopeError } from '../../src/lib/authorization/service';
-import {
-  generateRents,
-  getMyOutstanding,
-  getTenantOutstanding,
-  runOverdueJob,
-} from '../../src/modules/rents/service';
+import { cancelCharge } from '../../src/modules/charges/service';
+import { getMyOutstanding, getTenantOutstanding } from '../../src/modules/receivables/service';
+import { generateRents, runOverdueJob } from '../../src/modules/rents/service';
 import { createTestDatabase, type TestDatabase } from '../helpers/database';
 import {
   OPTIONS,
   PERIOD,
   addApartment,
   addBillableLease,
+  addCharge,
   addProperty,
+  addPublishedCharge,
   addScope,
+  allocationsOfCharge,
   contextOf,
   freshPhone,
   installmentOf,
   passwordHasher,
   setPaid,
-} from '../helpers/rents';
+} from '../helpers/charges';
 
 /**
  * API section 18 : le total dû d'un locataire, et BR-039 qui le définit.
  *
- * Trois exigences s'y vérifient. Le total est calculé CÔTÉ SERVEUR, la section
+ * Quatre exigences s'y vérifient. Le total est calculé CÔTÉ SERVEUR, la section
  * l'écrit noir sur blanc : « le frontend ne le recompose jamais ». Il ne compte
- * que les créances OUVERTES. Et chaque élément porte un `kind`, parce que la
- * route agrège les deux types de créance (DEC-005), même si les charges
- * n'existeront qu'au Lot 10.
+ * que les créances OUVERTES. Chaque élément porte un `kind`. Et depuis le Lot
+ * 10, il agrège les DEUX créances du MVP, loyers et charges confondus (DEC-005,
+ * BR-039, BR-055) : c'est l'exemple même de la décision verrouillée, « loyer
+ * 2 500 000 plus charge eau 300 000 égale 2 800 000 dû ».
+ *
+ * Le fichier a changé de dossier au Lot 10 avec le cas d'usage : le total dû
+ * n'appartient plus au module Loyers, qui ne pouvait pas répondre seul à une
+ * question qui additionne les deux types.
  */
 describe('Total dû d un locataire', () => {
   let harness: TestDatabase;
@@ -308,6 +313,262 @@ describe('Total dû d un locataire', () => {
           expect(summary).toMatchObject({ totalOutstanding: 0 });
         }
       }
+    });
+  });
+
+  /**
+   * DEC-005, et c'est la raison pour laquelle le lot des charges passe avant
+   * celui des paiements : le total dû additionne les deux types de créance, et un
+   * paiement global devra les solder dans un ordre déterministe (DEC-022).
+   */
+  describe('Les deux créances réunies', () => {
+    it('additionne le loyer et la part de charge de la personne', async () => {
+      const property = await addProperty(harness, 'Résidence Totale');
+      const apartment = await addApartment(harness, property, 'T01');
+
+      const lease = await addBillableLease(harness, {
+        apartmentId: apartment,
+        tenantApartmentId: apartment,
+        ownerContext: owner,
+        hashPassword,
+        phone: freshPhone(),
+        startDate: '2026-01-01',
+        rentAmount: 2_500_000,
+        dueDay: 5,
+      });
+
+      await generateRents(harness.db, owner, { period: '2026-10', propertyId: property }, OPTIONS);
+
+      await addPublishedCharge(harness, {
+        propertyId: property,
+        context: owner,
+        type: 'WATER',
+        periodStart: '2026-10',
+        dueDate: '2026-10-10',
+        totalAmount: 300_000,
+      });
+
+      const summary = await getTenantOutstanding(harness.db, owner, lease.tenantUserId, OPTIONS);
+
+      expect(summary.totalOutstanding).toBe(2_800_000);
+      expect(summary.receivables.map((receivable) => receivable.kind)).toEqual(['RENT', 'CHARGE']);
+      expect(summary.receivables.map((receivable) => receivable.balance)).toEqual([
+        2_500_000, 300_000,
+      ]);
+    });
+
+    it('porte le type CHARGE et le libellé que la section 18 documente', async () => {
+      const property = await addProperty(harness, 'Résidence Libellé');
+      const apartment = await addApartment(harness, property, 'L01');
+
+      const lease = await addBillableLease(harness, {
+        apartmentId: apartment,
+        tenantApartmentId: apartment,
+        ownerContext: owner,
+        hashPassword,
+        phone: freshPhone(),
+        startDate: '2026-01-01',
+      });
+
+      await addPublishedCharge(harness, {
+        propertyId: property,
+        context: owner,
+        type: 'WATER',
+        periodStart: '2026-10',
+        dueDate: '2026-10-10',
+        totalAmount: 450_000,
+      });
+
+      const summary = await getTenantOutstanding(harness.db, owner, lease.tenantUserId, OPTIONS);
+      const [receivable] = summary.receivables;
+
+      expect(receivable?.kind).toBe('CHARGE');
+      expect(receivable?.label).toBe('Eau octobre 2026');
+      expect(receivable?.amountDue).toBe(450_000);
+      expect(receivable?.periodStart).toBe('2026-10-01');
+    });
+
+    /**
+     * L'ordre d'allocation de DEC-022 : échéance croissante, puis LOYER AVANT
+     * CHARGE à date égale. C'est l'ordre dans lequel un paiement global les
+     * soldera, donc le seul ordre d'affichage qui ne mentira pas sur ce qu'un
+     * versement règle.
+     */
+    it('place le loyer avant la charge à date d échéance égale', async () => {
+      const property = await addProperty(harness, 'Résidence Ordre');
+      const apartment = await addApartment(harness, property, 'R01');
+
+      const lease = await addBillableLease(harness, {
+        apartmentId: apartment,
+        tenantApartmentId: apartment,
+        ownerContext: owner,
+        hashPassword,
+        phone: freshPhone(),
+        startDate: '2026-01-01',
+        dueDay: 10,
+      });
+
+      await generateRents(harness.db, owner, { period: '2026-10', propertyId: property }, OPTIONS);
+
+      await addPublishedCharge(harness, {
+        propertyId: property,
+        context: owner,
+        periodStart: '2026-10',
+        dueDate: '2026-10-10',
+        totalAmount: 100_000,
+      });
+
+      const summary = await getTenantOutstanding(harness.db, owner, lease.tenantUserId, OPTIONS);
+
+      expect(summary.receivables.map((receivable) => receivable.dueDate)).toEqual([
+        '2026-10-10',
+        '2026-10-10',
+      ]);
+      expect(summary.receivables.map((receivable) => receivable.kind)).toEqual(['RENT', 'CHARGE']);
+    });
+
+    it('écarte du total les créances d une charge annulée', async () => {
+      const property = await addProperty(harness, 'Résidence Annulée');
+      const apartment = await addApartment(harness, property, 'N01');
+
+      const lease = await addBillableLease(harness, {
+        apartmentId: apartment,
+        tenantApartmentId: apartment,
+        ownerContext: owner,
+        hashPassword,
+        phone: freshPhone(),
+        startDate: '2026-01-01',
+      });
+
+      const charge = await addPublishedCharge(harness, {
+        propertyId: property,
+        context: owner,
+        totalAmount: 700_000,
+      });
+
+      expect(
+        (await getTenantOutstanding(harness.db, owner, lease.tenantUserId, OPTIONS))
+          .totalOutstanding,
+      ).toBe(700_000);
+
+      await cancelCharge(harness.db, owner, charge.id, OPTIONS);
+
+      const summary = await getTenantOutstanding(harness.db, owner, lease.tenantUserId, OPTIONS);
+
+      expect(summary.totalOutstanding).toBe(0);
+      expect(summary.receivables).toHaveLength(0);
+    });
+
+    /** Une charge en brouillon ne doit RIEN à personne (BR-052). */
+    it('ignore une charge restée en brouillon', async () => {
+      const property = await addProperty(harness, 'Résidence Brouillon');
+      const apartment = await addApartment(harness, property, 'B01');
+
+      const lease = await addBillableLease(harness, {
+        apartmentId: apartment,
+        tenantApartmentId: apartment,
+        ownerContext: owner,
+        hashPassword,
+        phone: freshPhone(),
+        startDate: '2026-01-01',
+      });
+
+      await addCharge(harness, { propertyId: property, context: owner, totalAmount: 800_000 });
+
+      const summary = await getTenantOutstanding(harness.db, owner, lease.tenantUserId, OPTIONS);
+
+      expect(summary.totalOutstanding).toBe(0);
+    });
+
+    /**
+     * La part d'un logement vacant n'a aucune personne redevable (BR-052) : elle
+     * n'entre donc dans le total de personne, tout en restant visible du
+     * bailleur.
+     */
+    it("n ajoute au total de personne la part d'un logement vacant", async () => {
+      const property = await addProperty(harness, 'Résidence Vacante');
+      const occupied = await addApartment(harness, property, 'V01');
+
+      await addApartment(harness, property, 'V02');
+
+      const lease = await addBillableLease(harness, {
+        apartmentId: occupied,
+        tenantApartmentId: occupied,
+        ownerContext: owner,
+        hashPassword,
+        phone: freshPhone(),
+        startDate: '2026-01-01',
+      });
+
+      const charge = await addPublishedCharge(harness, {
+        propertyId: property,
+        context: owner,
+        totalAmount: 600_000,
+      });
+
+      const summary = await getTenantOutstanding(harness.db, owner, lease.tenantUserId, OPTIONS);
+
+      expect(summary.totalOutstanding).toBe(300_000);
+      expect(await allocationsOfCharge(harness, charge.id)).toHaveLength(2);
+    });
+
+    it('donne au locataire son propre total, loyer et charges confondus', async () => {
+      const property = await addProperty(harness, 'Résidence Locataire');
+      const apartment = await addApartment(harness, property, 'C01');
+
+      const lease = await addBillableLease(harness, {
+        apartmentId: apartment,
+        tenantApartmentId: apartment,
+        ownerContext: owner,
+        hashPassword,
+        phone: freshPhone(),
+        startDate: '2026-01-01',
+        rentAmount: 1_000_000,
+        dueDay: 5,
+      });
+
+      await generateRents(harness.db, owner, { period: '2026-10', propertyId: property }, OPTIONS);
+
+      await addPublishedCharge(harness, {
+        propertyId: property,
+        context: owner,
+        totalAmount: 250_000,
+      });
+
+      const tenant = await contextOf(harness, lease.tenantUserId);
+      const summary = await getMyOutstanding(harness.db, tenant, OPTIONS);
+
+      expect(summary.totalOutstanding).toBe(1_250_000);
+      expect(summary.receivables).toHaveLength(2);
+    });
+
+    /**
+     * Le pendant, pour les charges, du total partiel refusé sur les loyers : la
+     * permission est portée par CHAQUE créance, et `charge.read` ne s'exerce que
+     * sur le périmètre de l'appelant.
+     */
+    it('refuse un total dont une créance de charge échappe au périmètre', async () => {
+      const outside = await addProperty(harness, 'Résidence Hors Périmètre');
+      const apartment = await addApartment(harness, outside, 'H01');
+
+      const lease = await addBillableLease(harness, {
+        apartmentId: apartment,
+        tenantApartmentId: apartment,
+        ownerContext: owner,
+        hashPassword,
+        phone: freshPhone(),
+        startDate: '2026-01-01',
+      });
+
+      await addPublishedCharge(harness, {
+        propertyId: outside,
+        context: owner,
+        totalAmount: 120_000,
+      });
+
+      await expect(
+        getTenantOutstanding(harness.db, manager, lease.tenantUserId, OPTIONS),
+      ).rejects.toThrow(ResourceOutOfScopeError);
     });
   });
 });

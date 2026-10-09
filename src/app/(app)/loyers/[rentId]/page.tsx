@@ -7,7 +7,7 @@ import { buttonClasses } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Overline } from '@/components/ui/overline';
 import { PageHeader } from '@/components/ui/page-header';
-import { formatDate, formatMoney, formatMonth } from '@/lib/ui/format';
+import { formatDate, formatMoney, formatMonth, formatMonthOf } from '@/lib/ui/format';
 import { describeApartment, describePeriod, isOpen } from '@/modules/rents';
 
 import { loadRentPage } from '../data';
@@ -54,7 +54,7 @@ export default async function RentPage(props: PageProps<'/loyers/[rentId]'>) {
     { label: "Date d'échéance", value: formatDate(rent.dueDate) },
     {
       label: 'Période couverte',
-      value: `Mois de ${formatMonth(rent.periodStart)}`,
+      value: `Mois ${formatMonthOf(rent.periodStart)}`,
     },
   ];
 
