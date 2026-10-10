@@ -33,3 +33,5 @@ export * from './invitations';
 export * from './leases';
 export * from './rents';
 export * from './charges';
+
+export * from './payments';
