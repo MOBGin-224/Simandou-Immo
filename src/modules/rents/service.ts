@@ -8,16 +8,13 @@ import {
   type AccessContext,
   type Permission,
 } from '@/lib/authorization';
-import { formatMonth } from '@/lib/ui/format';
+import { today } from '@/modules/receivables/client';
 
 import { RENT_GENERATION_MAX_INSTALLMENTS, type ReceivableStatus } from './constants';
 import {
   compareRentItems,
-  describePeriod,
   displayStatusOf,
   isOpen,
-  type OutstandingReceivable,
-  type OutstandingSummary,
   type RentApartmentRef,
   type RentListItem,
   type RentTenantRef,
@@ -95,15 +92,14 @@ export type RentServiceOptions = {
 };
 
 /**
- * Date civile `YYYY-MM-DD` du jour, en temps universel.
+ * Date civile du jour : une seule définition pour les deux créances.
  *
- * La Guinée est à GMT+0 et n'observe pas d'heure d'été (MVP-ENG-012) : le temps
- * universel EST l'heure locale du produit, et aucune conversion de fuseau n'a
- * donc à intervenir entre l'instant et la date civile.
+ * Elle vit dans le module Créances depuis le Lot 10 et est réexportée ici sous
+ * son nom d'origine. Deux lectures séparées de la date du jour se
+ * contrediraient au passage de minuit, et c'est cette date qui décide de « À
+ * venir » comme du retard (BR-037).
  */
-export function today(options: RentServiceOptions = {}): string {
-  return (options.now ?? new Date()).toISOString().slice(0, 10);
-}
+export { today };
 
 function parseOrThrow<Schema extends z.ZodType>(schema: Schema, input: unknown): z.output<Schema> {
   const result = schema.safeParse(input);
@@ -339,122 +335,29 @@ export async function listMyRents(
   return toListItems(await toViews(db, rows, day));
 }
 
-// --- Total dû -----------------------------------------------------------------------
+// --- Créances ouvertes d'une personne ------------------------------------------------
 
 /**
- * Libellé de créance, celui que l'API transmet.
+ * Échéances de loyer OUVERTES d'une personne, pour le total dû (BR-039).
  *
- * L'API renvoie un libellé déjà composé, « Loyer septembre 2026 » : la section 18
- * le montre dans sa réponse. C'est l'exception à la règle qui veut que le
- * formatage reste au frontend, et elle est assumée ici parce que le champ est un
- * LIBELLÉ de créance, destiné à être repris tel quel dans une quittance comme
- * dans un rappel, où il doit être identique à celui de l'écran.
+ * Exposée au module Créances, qui agrège les deux types de créance en un seul
+ * total depuis le Lot 10 (DEC-005, BR-055). Elle ne décide d'AUCUNE
+ * autorisation : c'est l'agrégateur qui vérifie, créance par créance, que
+ * l'appelant a le droit de la lire, parce que la même personne peut louer dans
+ * deux immeubles dont un seul relève du gestionnaire qui pose la question.
  *
- * D'où l'emploi de `formatMonth` plutôt qu'un second formateur local : deux
- * sources finiraient par écrire le même mois de deux façons, et c'est
- * exactement ce que ce champ doit éviter.
+ * Le total dû et son libellé de créance vivaient ici au Lot 9, faute de seconde
+ * créance : « loyers et charges confondus » étant la règle, ils ont rejoint
+ * `modules/receivables`, et ce module ne fournit plus que SA moitié.
  */
-function toOutstandingReceivable(view: RentView, monthLabel: (iso: string) => string) {
-  return {
-    kind: 'RENT' as const,
-    id: view.id,
-    label: describePeriod(view.periodStart, monthLabel),
-    periodStart: view.periodStart,
-    dueDate: view.dueDate,
-    amountDue: view.amountDue,
-    amountPaid: view.amountPaid,
-    balance: view.balance,
-    status: view.status,
-  } satisfies OutstandingReceivable;
-}
-
-/**
- * Total dû d'une personne, loyers et charges confondus (API section 18, BR-039).
- *
- * Trois choix tenus ici.
- *
- * Le total est la somme des soldes des créances OUVERTES, et d'elles seules :
- * une créance payée ne doit plus rien, une créance annulée n'a jamais rien dû.
- *
- * Il est calculé par le SERVEUR, la section le dit : « le frontend ne le
- * recompose jamais ». Un total recomposé par l'écran divergerait dès qu'une
- * créance serait paginée ou filtrée, et c'est le montant qu'une personne lit
- * avant de payer.
- *
- * Et il ne contient au Lot 9 que des créances `RENT`, parce que les charges
- * n'existent pas encore : c'est une absence de données, non une absence de
- * champ, et le Lot 10 n'aura rien à changer à cette forme.
- */
-export async function getTenantOutstanding(
+export async function openRentReceivablesForTenant(
   db: RentsDatabase,
-  context: AccessContext,
   tenantUserId: string,
   options: RentServiceOptions = {},
-): Promise<OutstandingSummary> {
-  // Même garde que sur la fiche locataire : un identifiant mal formé est
-  // « inexistant » et non une erreur interne.
-  if (!z.uuid().safeParse(tenantUserId).success) throw new ResourceOutOfScopeError();
-
-  const day = today(options);
+): Promise<RentView[]> {
   const rows = await listInstallmentsForTenant(db, tenantUserId, { openOnly: true });
 
-  /*
-   * Autorisation portée par CHAQUE créance, et non par la personne.
-   *
-   * C'est la seule façon de répondre juste à une question qui n'a pas de réponse
-   * globale : un gestionnaire peut être habilité sur l'immeuble d'une créance et
-   * pas sur celui d'une autre, la même personne pouvant louer dans deux
-   * immeubles. Écarter silencieusement ce qu'il ne peut pas lire donnerait un
-   * total faux ; refuser l'ensemble lui cacherait ce qu'il a le droit de voir.
-   * On lève donc dès la première créance hors périmètre.
-   */
-  for (const row of rows) {
-    requirePermission(context, 'rent.read', {
-      organizationId: row.organizationId,
-      propertyId: row.propertyId,
-      ownerUserId: row.tenantUserId,
-    });
-  }
-
-  /*
-   * Aucune créance ouverte, et la personne n'est donc pas nommée par une
-   * créance : il reste à vérifier que l'appelant pouvait poser la question. Sans
-   * cela, « total dû : zéro » confirmerait l'existence d'une personne à qui
-   * l'appelant n'a pas accès (ADR-008). Son propre total lui est toujours
-   * ouvert.
-   */
-  if (rows.length === 0 && tenantUserId !== context.userId) {
-    const scopes = readablePropertyScopes(context, 'rent.read');
-
-    if (scopes.length === 0) throw new ResourceOutOfScopeError();
-  }
-
-  const views = await toViews(db, rows, day);
-  const receivables = views
-    .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
-    .map((view) => toOutstandingReceivable(view, formatMonth));
-
-  return {
-    /*
-     * Une seule devise au MVP, le franc guinéen (DEC-014) : additionner des
-     * soldes est donc licite. La devise transmise est celle des créances, et
-     * `GNF` par défaut quand il n'y en a aucune, plutôt que `null` : la section
-     * 18 donne une devise dans tous les cas, et un écran qui afficherait « 0 »
-     * sans unité se lirait mal.
-     */
-    currency: views[0]?.currency ?? 'GNF',
-    totalOutstanding: receivables.reduce((sum, receivable) => sum + receivable.balance, 0),
-    receivables,
-  };
-}
-
-/** Total dû de la personne connectée (`GET /api/v1/me/outstanding`). */
-export async function getMyOutstanding(
-  db: RentsDatabase,
-  context: AccessContext,
-  options: RentServiceOptions = {},
-): Promise<OutstandingSummary> {
-  return getTenantOutstanding(db, context, context.userId, options);
+  return toViews(db, rows, today(options));
 }
 
 // --- Génération ---------------------------------------------------------------------

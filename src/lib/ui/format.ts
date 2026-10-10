@@ -43,6 +43,25 @@ export function formatMonth(isoDate: string): string {
 }
 
 /**
+ * Mois précédé de sa préposition, avec l'élision du français : « de septembre
+ * 2026 », mais « d'octobre 2026 ».
+ *
+ * Trois mois commencent par une voyelle, avril, août et octobre, et « Mois de
+ * octobre 2026 » se lit comme une faute. Le défaut a été VU à l'écran, sur la
+ * fiche d'une charge du Lot 10, et il existait déjà sur celle d'un loyer : la
+ * correction est donc faite ici, une fois, pour les deux.
+ *
+ * L'élision est décidée sur la première lettre du mois formaté, et non sur son
+ * numéro : c'est la langue d'affichage qui commande, et le jour où le produit
+ * parlera une autre langue, cette fonction sera le seul endroit à revoir.
+ */
+export function formatMonthOf(isoDate: string): string {
+  const month = formatMonth(isoDate);
+
+  return /^[aeiouyâàéèêîôûœ]/i.test(month) ? `d'${month}` : `de ${month}`;
+}
+
+/**
  * Accord du pluriel français.
  *
  * « 1 logement » et « 2 logements » : afficher « 1 logements » signale un produit

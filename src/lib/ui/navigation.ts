@@ -15,8 +15,11 @@ import { MANAGEMENT_HOME, TENANT_HOME } from './home';
  * **Trois règles tenues ici, et elles expliquent chaque absence.**
  *
  * 1. **Cinq entrées au maximum**, la charte l'impose. Le produit en propose
- *    quatre à qui gère et deux à qui loue : il reste de la place, et c'est
- *    volontaire, les lots suivants en ajoutant.
+ *    CINQ à qui gère depuis le Lot 10, et deux à qui loue. La place est donc
+ *    prise, et le Lot 13 devra trancher plutôt qu'ajouter : la piste est le
+ *    regroupement « Finance » que l'architecture de l'information décrit en 7.1,
+ *    qui rassemblerait Loyers, Charges et Paiements sous une entrée et rendrait
+ *    deux places d'un coup. Ce choix appartient au lot qui en aura besoin.
  * 2. **Aucune entrée morte.** La section 58 donne en exemple « Accueil,
  *    Immeubles, Loyers, Maintenance, Profil ». Maintenance n'existera qu'au Lot
  *    13 et n'y figure donc pas. « Accueil » non plus : les tableaux de bord sont
@@ -41,7 +44,7 @@ export type NavigationEntry = {
   href: string;
   label: string;
   /** Nom d'une icône de la charte, jamais un dessin improvisé. */
-  icon: 'immeuble' | 'logement' | 'locataires' | 'paiements' | 'acces';
+  icon: 'immeuble' | 'logement' | 'locataires' | 'paiements' | 'documents' | 'acces';
 };
 
 /** Destination du compte : le rôle, l'organisation, et la déconnexion. */
@@ -60,6 +63,16 @@ const MANAGEMENT_ENTRIES: readonly NavigationEntry[] = [
   { href: MANAGEMENT_HOME, label: 'Immeubles', icon: 'immeuble' },
   { href: '/locataires', label: 'Locataires', icon: 'locataires' },
   { href: '/loyers', label: 'Loyers', icon: 'paiements' },
+  /*
+   * « Charges » prend la cinquième et dernière place au Lot 10.
+   *
+   * L'architecture de l'information la place au premier niveau, dans le groupe
+   * Finance (7.1), aux côtés des loyers : une facture d'eau arrive sans prévenir
+   * et doit se saisir sans chercher par quel immeuble passer. L'icône est celle
+   * du document et non celle des paiements, déjà prise par les loyers : ce qu'on
+   * vient enregistrer ici est une FACTURE.
+   */
+  { href: '/charges', label: 'Charges', icon: 'documents' },
   { href: ACCOUNT_HOME, label: 'Compte', icon: 'acces' },
 ];
 
@@ -67,7 +80,7 @@ const MANAGEMENT_ENTRIES: readonly NavigationEntry[] = [
  * Navigation du locataire.
  *
  * Deux entrées, et c'est l'état réel de son espace : son logement, qui porte
- * aussi son contrat et ses loyers, et son compte. L'architecture 7.3 en prévoit
+ * aussi son contrat, ses loyers et ses charges, et son compte. L'architecture 7.3 en prévoit
  * sept ; les cinq autres naissent des lots suivants, et elles sont ANNONCÉES sur
  * son écran plutôt que posées ici en liens morts.
  *

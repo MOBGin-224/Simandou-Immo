@@ -1,7 +1,7 @@
 import { getDb } from '@/db/client';
 import { requireAccessContext } from '@/lib/authorization';
 import { apiErrorResponse, dataResponse } from '@/lib/http/responses';
-import { getTenantOutstanding } from '@/modules/rents';
+import { getTenantOutstanding } from '@/modules/receivables';
 
 /**
  * Total dû d'un locataire (API section 18).
@@ -27,6 +27,11 @@ import { getTenantOutstanding } from '@/modules/rents';
  *
  * Un locataire peut appeler sa propre adresse, mais `/api/v1/me/outstanding` est
  * la route faite pour lui : il n'a pas à connaître son identifiant.
+ *
+ * Depuis le Lot 10, le total agrège les DEUX créances du MVP (DEC-005) : chaque
+ * élément porte son `kind`, `RENT` ou `CHARGE`, et l'ordre est celui dans lequel
+ * un paiement global les soldera (DEC-022). La forme de la réponse n'a pas
+ * changé, seules les données s'y sont ajoutées.
  */
 export async function GET(
   _request: Request,

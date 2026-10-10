@@ -16,12 +16,9 @@ import {
   describePeriod,
   listMyLeases,
 } from '@/modules/leases';
-import {
-  describePeriod as describeRentPeriod,
-  getMyOutstanding,
-  isOpen,
-  listMyRents,
-} from '@/modules/rents';
+import { describeCharge, listMyCharges } from '@/modules/charges';
+import { getMyOutstanding } from '@/modules/receivables';
+import { describePeriod as describeRentPeriod, isOpen, listMyRents } from '@/modules/rents';
 import { describeApartment, getMyTenantSpace } from '@/modules/tenants';
 
 /**
@@ -38,10 +35,17 @@ import { describeApartment, getMyTenantSpace } from '@/modules/tenants';
  * le serveur et affiché en premier, avant le détail : c'est le montant qu'une
  * personne lit avant de payer, et BR-039 interdit au frontend de le recomposer.
  *
- * **Et il dit ce qui n'existe pas encore.** « Paiements », « Quittances »,
- * « Mes charges » et « Mes incidents » sont des destinations de l'architecture
- * cible que les lots suivants rempliront. Les afficher vides laisserait croire à
- * une panne ; les annoncer explique l'attente.
+ * **Depuis le Lot 10, ce total réunit ses loyers ET ses charges** (DEC-005,
+ * BR-055). Le produit lui présente donc un seul montant à payer, tout en gardant
+ * les deux composantes distinctes dans le détail, l'une sous « Mes loyers » et
+ * l'autre sous « Mes charges » : c'est exactement ce que BR-056 demande de
+ * pouvoir expliquer après un paiement partiel. Chaque part de charge porte son
+ * explication, comme la section 31 l'exige.
+ *
+ * **Et il dit ce qui n'existe pas encore.** « Paiements », « Quittances » et
+ * « Mes incidents » sont des destinations de l'architecture cible que les lots
+ * suivants rempliront. Les afficher vides laisserait croire à une panne ; les
+ * annoncer explique l'attente.
  *
  * La page n'existe pas pour qui n'est pas locataire : un propriétaire ou un
  * gestionnaire n'a pas d'espace locataire, et c'est la liste des locataires qui
@@ -84,6 +88,22 @@ export default async function MyApartmentPage() {
   const settledRents = rents.filter((rent) => !isOpen(rent.status));
   /* L'ordre place les créances soldées les plus récentes en tête (`compareRentItems`). */
   const lastSettled = settledRents[0];
+
+  /*
+   * SES parts de charge (BR-021, API section 31).
+   *
+   * Le locataire ne voit jamais la facture de l'immeuble, seulement SA part : le
+   * cas d'usage filtre sur la personne redevable figée à la publication, et une
+   * part de logement vacant n'apparaît donc chez personne (BR-052).
+   *
+   * Elles ne sont pas fondues dans la liste des loyers, bien qu'elles entrent
+   * dans le même total : DEC-005 veut que les composantes restent distinctes, et
+   * un locataire en désaccord vient justement vérifier laquelle des deux il n'a
+   * pas réglée.
+   */
+  const charges = await listMyCharges(getDb(), context);
+  const openCharges = charges.filter((charge) => isOpen(charge.status));
+  const settledCharges = charges.filter((charge) => !isOpen(charge.status));
 
   /*
    * Le logement vient du BAIL dès qu'il y en a un.
@@ -193,24 +213,37 @@ export default async function MyApartmentPage() {
         </p>
       </Card>
 
+      {/*
+        Le total DEVANT les deux listes, et dans sa propre carte depuis le Lot
+        10.
+
+        Il était à l'intérieur de « Mes loyers » au Lot 9, où il ne comptait que
+        des loyers. Il réunit maintenant les deux créances (DEC-005, BR-055), et
+        le laisser là annoncerait sous le titre « Mes loyers » un montant que la
+        liste en dessous ne justifie pas : vu à l'écran, le total valait
+        2 700 000 pour un loyer de 2 500 000, sans que rien n'explique l'écart.
+
+        Il n'apparaît que s'il y a quelque chose à devoir : afficher « 0 GNF » en
+        grand à qui est à jour transformerait une bonne nouvelle en alerte.
+      */}
+      {outstanding.totalOutstanding > 0 ? (
+        <Card className="flex flex-col gap-1">
+          <Overline as="h2">Total à payer</Overline>
+          <Amount
+            amount={outstanding.totalOutstanding}
+            currency={outstanding.currency}
+            scale="hero"
+          />
+          <p className="text-xs text-muted">
+            {openCharges.length > 0
+              ? 'Vos loyers et vos charges réunis, détaillés ci-dessous.'
+              : 'Somme des loyers qui restent à payer.'}
+          </p>
+        </Card>
+      ) : null}
+
       <Card className="flex flex-col gap-4">
         <Overline>Mes loyers</Overline>
-
-        {/*
-          Le total AVANT le détail, et seulement s'il y a quelque chose à devoir.
-          Afficher « 0 GNF » en grand à qui est à jour transformerait une bonne
-          nouvelle en alerte.
-        */}
-        {outstanding.totalOutstanding > 0 ? (
-          <div className="flex flex-col gap-1">
-            <Overline as="h3">Total à payer</Overline>
-            <Amount
-              amount={outstanding.totalOutstanding}
-              currency={outstanding.currency}
-              scale="hero"
-            />
-          </div>
-        ) : null}
 
         {openRents.length === 0 ? (
           <p className="text-sm text-muted">
@@ -257,12 +290,62 @@ export default async function MyApartmentPage() {
         </p>
       </Card>
 
+      <Card className="flex flex-col gap-4">
+        <Overline>Mes charges</Overline>
+
+        {charges.length === 0 ? (
+          <p className="text-sm text-muted">
+            Aucune charge ne vous est réclamée. Les charges communes, l&apos;eau ou
+            l&apos;électricité de l&apos;immeuble par exemple, apparaîtront ici lorsqu&apos;elles
+            seront réparties entre les logements.
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-3">
+            {(openCharges.length > 0 ? openCharges : charges).map((charge) => (
+              <li
+                key={charge.id}
+                className="flex flex-col gap-1 border-t border-line pt-3 first:border-t-0 first:pt-0"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <span className="font-display text-base font-semibold text-ink">
+                    {describeCharge(
+                      { type: charge.charge.type, periodStart: charge.periodStart },
+                      formatMonth,
+                    )}
+                  </span>
+                  <ReceivableStatusBadge status={charge.displayStatus} />
+                </div>
+                <Amount amount={charge.balance} currency={charge.currency} scale="key" />
+                <span className="text-xs text-muted">Échéance du {formatDate(charge.dueDate)}</span>
+                {/*
+                  L'EXPLICATION du calcul, exigée par l'API section 31 : « permet
+                  au locataire de comprendre comment sa part a été calculée ». Elle
+                  est figée à la publication, donc elle reste vraie même si
+                  l'immeuble change ensuite de nombre de logements.
+                */}
+                <span className="text-xs text-muted">
+                  Votre part de {formatMoney(charge.explanation.totalAmount, charge.currency)}{' '}
+                  répartis à parts égales entre {charge.explanation.unitCount} logements.
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {settledCharges.length > 0 && openCharges.length > 0 ? (
+          <p className="text-xs text-muted">
+            {settledCharges.length === 1
+              ? '1 charge déjà réglée.'
+              : `${settledCharges.length} charges déjà réglées.`}
+          </p>
+        ) : null}
+      </Card>
+
       <Card className="flex flex-col gap-3">
         <Overline>Prochainement</Overline>
         <p className="text-sm text-muted">
-          Vos paiements, vos quittances, vos charges et vos incidents apparaîtront ici. Ils
-          arriveront avec les prochaines étapes du produit, et rien ne vous est demandé en
-          attendant.
+          Vos paiements, vos quittances et vos incidents apparaîtront ici. Ils arriveront avec les
+          prochaines étapes du produit, et rien ne vous est demandé en attendant.
         </p>
       </Card>
     </div>

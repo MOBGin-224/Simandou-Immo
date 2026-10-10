@@ -9,14 +9,7 @@
  * d'accès, ce qui est exactement ce que ce découpage empêche.
  */
 
-export type {
-  OutstandingReceivable,
-  OutstandingSummary,
-  RentApartmentRef,
-  RentListItem,
-  RentTenantRef,
-  RentView,
-} from './domain';
+export type { RentApartmentRef, RentListItem, RentTenantRef, RentView } from './domain';
 export {
   compareRentItems,
   describeApartment,
@@ -73,13 +66,18 @@ export type {
 } from './service';
 export {
   generateRents,
-  getMyOutstanding,
   getRent,
-  getTenantOutstanding,
   listMyRents,
   listRents,
+  openRentReceivablesForTenant,
   plannedInstallments,
   runOverdueJob,
   runRentGenerationJob,
   today,
 } from './service';
+
+/**
+ * Le total dû, lui, n'est plus ici : il est « loyers et charges confondus »
+ * (BR-039, BR-055) et appartient donc au module Créances depuis le Lot 10.
+ * Ce module n'en fournit que sa moitié, par `openRentReceivablesForTenant`.
+ */

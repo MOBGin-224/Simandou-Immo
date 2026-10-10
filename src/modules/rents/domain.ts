@@ -1,8 +1,17 @@
-import {
-  OPEN_RECEIVABLE_STATUSES,
-  type ReceivableStatus,
-  type RentDisplayStatus,
-} from './constants';
+import type { ReceivableStatus, RentDisplayStatus } from './constants';
+
+/**
+ * Ce qu'une créance ouverte veut dire, et comment « À venir » se dérive :
+ * importés du module Créances depuis le Lot 10.
+ *
+ * Les deux règles sont communes au loyer et à la charge (BR-037, BR-039), et les
+ * écrire dans chaque module les aurait laissées diverger. Elles sont réexportées
+ * ici sous leurs noms d'origine : tout ce qui les lisait au Lot 9 continue de
+ * passer par la surface du module Loyers.
+ */
+import { displayStatusOf, isOpen } from '@/modules/receivables/client';
+
+export { displayStatusOf, isOpen };
 
 /**
  * Vues du module Loyers (BR-034 à BR-037, API section 18).
@@ -84,68 +93,14 @@ export type RentView = {
 export type RentListItem = Omit<RentView, 'createdAt' | 'updatedAt'>;
 
 /**
- * Une créance dans le total dû d'un locataire (API section 18).
+ * Le total dû et ses créances ont rejoint le module Créances au Lot 10.
  *
- * `kind` distingue le loyer de la charge : la route agrège les DEUX types
- * (DEC-005), et la charge arrivera au Lot 10 sans changer cette forme. Au Lot 9,
- * seules des créances `RENT` y figurent, ce qui est une absence de données et non
- * une absence de champ.
+ * `OutstandingReceivable` et `OutstandingSummary` étaient définis ici au Lot 9,
+ * quand le loyer était la seule créance existante. Le total dû est pourtant
+ * « loyers et charges confondus » (BR-039, BR-055) : il n'appartient donc pas au
+ * module Loyers, et les deux types vivent maintenant dans
+ * `modules/receivables`, que les routes appellent.
  */
-export type OutstandingReceivable = {
-  kind: 'RENT' | 'CHARGE';
-  id: string;
-  /** Libellé lisible, par exemple « Loyer septembre 2026 ». */
-  label: string;
-  periodStart: string;
-  dueDate: string;
-  amountDue: number;
-  amountPaid: number;
-  balance: number;
-  status: ReceivableStatus;
-};
-
-/**
- * Total dû d'un locataire, calculé CÔTÉ SERVEUR (API section 18).
- *
- * La section le dit explicitement : « le frontend ne le recompose jamais ». Un
- * total recomposé par l'écran se mettrait à diverger dès qu'une créance est
- * paginée, filtrée ou masquée, et c'est le montant qu'une personne lit avant de
- * payer.
- */
-export type OutstandingSummary = {
-  currency: string;
-  totalOutstanding: number;
-  receivables: OutstandingReceivable[];
-};
-
-/** Une créance est OUVERTE tant qu'elle peut encore être payée (BR-039). */
-export function isOpen(status: ReceivableStatus): boolean {
-  return (OPEN_RECEIVABLE_STATUSES as readonly ReceivableStatus[]).includes(status);
-}
-
-/**
- * Statut d'affichage d'une échéance (BR-037).
- *
- * UNE seule règle, et c'est tout ce que la dérivation fait : une échéance
- * `UNPAID` dont la date d'échéance est postérieure à aujourd'hui s'affiche « À
- * venir ». Tous les autres statuts s'affichent tels quels.
- *
- * `PARTIALLY_PAID` n'est volontairement PAS dérivé en « À venir », même avant
- * l'échéance : de l'argent a déjà été versé, donc l'annoncer comme à venir
- * effacerait un paiement reçu. La règle du document ne vise que `UNPAID`.
- *
- * La comparaison est faite sur des chaînes `YYYY-MM-DD`, dont l'ordre lexical
- * est l'ordre chronologique : aucun objet `Date` n'est construit, donc aucun
- * décalage de fuseau ne peut déplacer la frontière d'un jour.
- */
-export function displayStatusOf(
-  installment: Pick<RentView, 'status' | 'dueDate'>,
-  today: string,
-): RentDisplayStatus {
-  if (installment.status === 'UNPAID' && installment.dueDate > today) return 'UPCOMING';
-
-  return installment.status;
-}
 
 /**
  * Période d'une échéance, en clair : « Loyer septembre 2026 » (BR-035).

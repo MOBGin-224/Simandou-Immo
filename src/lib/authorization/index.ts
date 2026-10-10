@@ -27,6 +27,13 @@ export {
   readablePropertyScopes,
 } from './list-scope';
 
+/**
+ * La traduction du périmètre en SQL appartient au service d'autorisation, et non
+ * aux modules métier : deux traductions séparées finiraient par diverger, et une
+ * divergence ici est une fuite entre organisations.
+ */
+export { propertyScopeCondition } from './sql-scope';
+
 export type { Decision, DenialReason, ResourceRef } from './service';
 export {
   PermissionDeniedError,
