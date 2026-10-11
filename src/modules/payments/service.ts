@@ -486,7 +486,7 @@ export async function cancelPayment(
   const now = options.now ?? new Date();
 
   if (payment.status === 'CONFIRMED') {
-    await db.transaction(async (tx) => {
+    return db.transaction(async (tx) => {
       const allocations = await tx
         .select()
         .from(paymentAllocations)
@@ -550,7 +550,19 @@ export async function cancelPayment(
         }
       }
 
-      await tx.delete(paymentAllocations).where(eq(paymentAllocations.paymentId, payment.id));
+      const [updated] = await tx
+        .update(payments)
+        .set({
+          status: 'CANCELLED',
+          cancelledAt: now,
+          cancellationReason: reason,
+          updatedAt: now,
+        })
+        .where(eq(payments.id, payment.id))
+        .returning();
+
+      if (!updated) throw new Error('PAYMENT_CANCEL_RETURNED_NO_ROW');
+      return updated;
     });
   }
 

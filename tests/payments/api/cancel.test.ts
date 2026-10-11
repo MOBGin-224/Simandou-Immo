@@ -20,9 +20,17 @@ import { SEED_IDS, seed } from '../../../src/db/seed';
 import { UnauthenticatedError } from '../../../src/lib/auth/session';
 import { POST } from '../../../src/app/api/v1/payments/[id]/cancel/route';
 import { declarePayment, validatePayment } from '../../../src/modules/payments/service';
+import { getTenantOutstanding } from '../../../src/modules/receivables/service';
 import { generateRents } from '../../../src/modules/rents/service';
 import { createTestDatabase, type TestDatabase } from '../../helpers/database';
-import { addBillableLease, contextOf, freshPhone, NOW, passwordHasher } from '../../helpers/rents';
+import {
+  addBillableLease,
+  contextOf,
+  freshPhone,
+  NOW,
+  passwordHasher,
+  RENT_AMOUNT,
+} from '../../helpers/rents';
 
 describe('POST /api/v1/payments/[id]/cancel', () => {
   let harness: TestDatabase;
@@ -130,12 +138,19 @@ describe('POST /api/v1/payments/[id]/cancel', () => {
       .select()
       .from(harness.schema.rentInstallments)
       .where(eq(harness.schema.rentInstallments.leaseId, leaseId));
+    const outstanding = await getTenantOutstanding(harness.db, ownerContext, tenantId, {
+      now: NOW,
+    });
 
     expect(response.status).toBe(200);
     expect(result.data?.status).toBe('CANCELLED');
     expect(allocationsBefore.length).toBeGreaterThan(0);
-    expect(allocationsAfter).toHaveLength(0);
+    expect(allocationsAfter).toHaveLength(allocationsBefore.length);
+    expect(
+      allocationsAfter.every((allocation) => allocation.paymentId === declared.payment.id),
+    ).toBe(true);
     expect(installmentAfter?.balance).toBe(installmentBefore?.amountDue);
+    expect(outstanding.totalOutstanding).toBe(RENT_AMOUNT);
   });
 
   it('annule un paiement PENDING par gestionnaire dans son périmètre → 200', async () => {
