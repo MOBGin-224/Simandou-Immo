@@ -25,4 +25,4 @@ FROM ranked
 WHERE property.id = ranked.id;--> statement-breakpoint
 ALTER TABLE "properties" ALTER COLUMN "code" SET NOT NULL;--> statement-breakpoint
 ALTER TABLE "properties" ADD CONSTRAINT "properties_org_code_unique" UNIQUE("organization_id","code");--> statement-breakpoint
-ALTER TABLE "properties" ADD CONSTRAINT "properties_code_format" CHECK (code ~ '^[A-Z0-9]{3,6}$');
+ALTER TABLE "properties" ADD CONSTRAINT "properties_code_format" CHECK (code ~ '^[A-Z]{3,6}$');

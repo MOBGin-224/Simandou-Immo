@@ -26,6 +26,7 @@ describe("Création d'un immeuble", () => {
     const result = createPropertySchema.safeParse({
       organizationId: ORGANIZATION,
       name: '  Résidence   Camayenne  ',
+      code: 'CAM',
     });
 
     expect(result.success).toBe(true);
@@ -40,6 +41,7 @@ describe("Création d'un immeuble", () => {
     const result = createPropertySchema.safeParse({
       organizationId: ORGANIZATION,
       name: 'Immeuble A',
+      code: 'IMA',
       address: '',
       city: '   ',
       district: '',
@@ -58,6 +60,7 @@ describe("Création d'un immeuble", () => {
     const result = createPropertySchema.safeParse({
       organizationId: ORGANIZATION,
       name: 'Immeuble A',
+      code: 'IMA',
     });
 
     expect(result.success).toBe(true);

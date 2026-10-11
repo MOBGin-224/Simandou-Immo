@@ -46,7 +46,7 @@ export const properties = pgTable(
   },
   (table) => [
     check('properties_name_not_blank', sql`length(btrim(name)) > 0`),
-    check('properties_code_format', sql`code ~ '^[A-Z0-9]{3,6}$'`),
+    check('properties_code_format', sql`code ~ '^[A-Z]{3,6}$'`),
     // Deux immeubles d'une même organisation ne peuvent pas porter le même nom :
     // la confusion serait immédiate pour le gestionnaire.
     unique('properties_org_name_unique').on(table.organizationId, table.name),

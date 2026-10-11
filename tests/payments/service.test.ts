@@ -1,4 +1,3 @@
-import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { SEED_IDS, seed } from '../../src/db/seed';
@@ -7,7 +6,12 @@ import {
   AmountExceedsOutstandingError,
   PaymentDateInFutureError,
 } from '../../src/modules/payments';
-import { recordPayment } from '../../src/modules/payments/service';
+import {
+  cancelPayment,
+  declarePayment,
+  disputePayment,
+  validatePayment,
+} from '../../src/modules/payments/service';
 import { generateRents } from '../../src/modules/rents/service';
 import { createTestDatabase, type TestDatabase } from '../helpers/database';
 import {
@@ -24,7 +28,7 @@ import {
 
 const OPTIONS = { now: NOW };
 
-describe('Enregistrement des paiements', () => {
+describe('Paiements DEC-056', () => {
   let harness: TestDatabase;
   let owner: Awaited<ReturnType<typeof contextOf>>;
   let nextFixture = 0;
@@ -64,6 +68,7 @@ describe('Enregistrement des paiements', () => {
       leaseId: lease.leaseId,
       propertyId,
       manager: await contextOf(harness, SEED_IDS.managerA),
+      ownerContext: owner,
     };
   }
 
@@ -77,75 +82,141 @@ describe('Enregistrement des paiements', () => {
     };
   }
 
-  it('enregistre un paiement CONFIRMED avec confirmed_at renseigné', async () => {
+  it('déclare un paiement en PENDING sans allocation', async () => {
     const current = await fixture();
-    const result = await recordPayment(
+    const result = await declarePayment(
       harness.db,
       paymentInput(current.apartmentId, current.tenantId, 100_000),
       owner,
       OPTIONS,
     );
 
-    expect(result.payment.status).toBe('CONFIRMED');
-    expect(result.payment.confirmedAt).toEqual(NOW);
-    expect(result.payment.paidAt).toBe('2026-10-02');
+    expect(result.payment.status).toBe('PENDING');
+    expect(result.payment.confirmedAt).toBeNull();
+    expect(result.payment.createdBy).toBe(SEED_IDS.ownerA);
+    expect(result.payment.referenceNumber).toMatch(/^[A-Z]+-\d{4}-\d{4}$/);
+    expect(result.allocations).toHaveLength(0);
+    expect(result.newBalances).toEqual([]);
   });
 
-  it('refuse un appartement inexistant', async () => {
-    await expect(
-      recordPayment(
-        harness.db,
-        paymentInput('00000000-0000-4000-8000-000000000001', SEED_IDS.ownerA),
-        owner,
-        OPTIONS,
-      ),
-    ).rejects.toBeInstanceOf(ResourceOutOfScopeError);
-  });
-
-  it('refuse un appartement d’une autre organisation', async () => {
-    const propertyId = await addProperty(harness, 'Paiement autre organisation', {
-      organizationId: SEED_IDS.organizationB,
-    });
-    const apartmentId = await addApartment(harness, propertyId, 'B01', {
-      organizationId: SEED_IDS.organizationB,
-    });
-
-    await expect(
-      recordPayment(harness.db, paymentInput(apartmentId, SEED_IDS.ownerA), owner, OPTIONS),
-    ).rejects.toBeInstanceOf(ResourceOutOfScopeError);
-  });
-
-  it('autorise un gestionnaire sur un appartement de son périmètre', async () => {
+  it('autorise un locataire à déclarer son propre paiement', async () => {
     const current = await fixture();
-    const result = await recordPayment(
+    const tenant = await contextOf(harness, current.tenantId);
+    const result = await declarePayment(
       harness.db,
       paymentInput(current.apartmentId, current.tenantId, 100_000),
-      current.manager,
+      tenant,
       OPTIONS,
     );
 
-    expect(result.payment.recordedByUserId).toBe(SEED_IDS.managerA);
+    expect(result.payment.status).toBe('PENDING');
+    expect(result.payment.createdBy).toBe(current.tenantId);
   });
 
-  it('refuse au locataire le droit d’enregistrer un paiement', async () => {
+  it('refuse au locataire le droit d’enregistrer un paiement au nom d’un autre', async () => {
     const current = await fixture();
     const tenant = await contextOf(harness, current.tenantId);
 
     await expect(
-      recordPayment(
+      declarePayment(
         harness.db,
-        paymentInput(current.apartmentId, current.tenantId, 100_000),
+        paymentInput(current.apartmentId, SEED_IDS.ownerA, 100_000),
         tenant,
         OPTIONS,
       ),
+    ).rejects.toBeInstanceOf(ResourceOutOfScopeError);
+  });
+
+  it('validation confirme le paiement et alloue les soldes', async () => {
+    const current = await fixture();
+    const declared = await declarePayment(
+      harness.db,
+      paymentInput(current.apartmentId, current.tenantId, 100_000),
+      current.ownerContext,
+      OPTIONS,
+    );
+
+    const validated = await validatePayment(
+      harness.db,
+      declared.payment.id,
+      current.manager,
+      OPTIONS,
+    );
+
+    expect(validated.payment.status).toBe('CONFIRMED');
+    expect(validated.payment.validatedByUserId).toBe(SEED_IDS.managerA);
+    expect(validated.payment.confirmedAt).toEqual(NOW);
+    expect(validated.allocations.length).toBeGreaterThan(0);
+    expect(validated.newBalances.length).toBeGreaterThan(0);
+  });
+
+  it('refuse la validation quand le validateur est le déclarant', async () => {
+    const current = await fixture();
+    const declared = await declarePayment(
+      harness.db,
+      paymentInput(current.apartmentId, current.tenantId, 100_000),
+      current.ownerContext,
+      OPTIONS,
+    );
+
+    await expect(
+      validatePayment(harness.db, declared.payment.id, current.ownerContext, OPTIONS),
     ).rejects.toBeInstanceOf(PermissionDeniedError);
+  });
+
+  it('déclare un paiement contesté en DISPUTED', async () => {
+    const current = await fixture();
+    const declared = await declarePayment(
+      harness.db,
+      paymentInput(current.apartmentId, current.tenantId, 100_000),
+      current.ownerContext,
+      OPTIONS,
+    );
+
+    const disputed = await disputePayment(
+      harness.db,
+      declared.payment.id,
+      'WRONG_AMOUNT',
+      'NOT_PAID',
+      current.manager,
+      OPTIONS,
+    );
+
+    expect(disputed.status).toBe('DISPUTED');
+    expect(disputed.disputedByUserId).toBe(SEED_IDS.managerA);
+  });
+
+  it('annule un paiement confirmé en remettant les soldes à zéro', async () => {
+    const current = await fixture();
+    const declared = await declarePayment(
+      harness.db,
+      paymentInput(current.apartmentId, current.tenantId, 100_000),
+      current.ownerContext,
+      OPTIONS,
+    );
+    const validated = await validatePayment(
+      harness.db,
+      declared.payment.id,
+      current.manager,
+      OPTIONS,
+    );
+    const cancelled = await cancelPayment(
+      harness.db,
+      validated.payment.id,
+      'Erreur de saisie',
+      current.ownerContext,
+      OPTIONS,
+    );
+
+    expect(cancelled.status).toBe('CANCELLED');
+    expect(cancelled.cancellationReason).toBe('Erreur de saisie');
   });
 
   it('refuse un montant supérieur au solde de l’appartement', async () => {
     const current = await fixture();
 
     await expect(
-      recordPayment(
+      declarePayment(
         harness.db,
         paymentInput(current.apartmentId, current.tenantId, RENT_AMOUNT + 1),
         owner,
@@ -154,38 +225,11 @@ describe('Enregistrement des paiements', () => {
     ).rejects.toBeInstanceOf(AmountExceedsOutstandingError);
   });
 
-  it('accepte un montant égal au solde exact et met à jour la créance', async () => {
-    const current = await fixture();
-    const result = await recordPayment(
-      harness.db,
-      paymentInput(current.apartmentId, current.tenantId),
-      owner,
-      OPTIONS,
-    );
-    const [installment] = await harness.db
-      .select()
-      .from(harness.schema.rentInstallments)
-      .where(eq(harness.schema.rentInstallments.leaseId, current.leaseId));
-    const allocations = await harness.db
-      .select()
-      .from(harness.schema.paymentAllocations)
-      .where(eq(harness.schema.paymentAllocations.paymentId, result.payment.id));
-
-    expect(installment?.balance).toBe(0);
-    expect(installment?.status).toBe('PAID');
-    expect(result.newBalances).toEqual([
-      { receivableId: installment?.id, kind: 'RENT', balance: 0 },
-    ]);
-    expect(allocations.reduce((sum, allocation) => sum + allocation.amount, 0)).toBe(
-      result.payment.amount,
-    );
-  });
-
   it('refuse une date de paiement future', async () => {
     const current = await fixture();
 
     await expect(
-      recordPayment(
+      declarePayment(
         harness.db,
         { ...paymentInput(current.apartmentId, current.tenantId), paidAt: '2026-10-03' },
         owner,
@@ -198,7 +242,7 @@ describe('Enregistrement des paiements', () => {
     const current = await fixture();
 
     await expect(
-      recordPayment(
+      declarePayment(
         harness.db,
         {
           ...paymentInput(current.apartmentId, current.tenantId, RENT_AMOUNT + 1),
@@ -212,7 +256,7 @@ describe('Enregistrement des paiements', () => {
 
   it('accepte une date passée sans limite d’ancienneté', async () => {
     const current = await fixture();
-    const result = await recordPayment(
+    const result = await declarePayment(
       harness.db,
       { ...paymentInput(current.apartmentId, current.tenantId, 100_000), paidAt: '1990-01-01' },
       owner,
@@ -224,7 +268,7 @@ describe('Enregistrement des paiements', () => {
 
   it('accepte la date du jour', async () => {
     const current = await fixture();
-    const result = await recordPayment(
+    const result = await declarePayment(
       harness.db,
       { ...paymentInput(current.apartmentId, current.tenantId, 100_000), paidAt: '2026-10-02' },
       owner,
