@@ -2272,3 +2272,51 @@ Trois règles régissent la saisie manuelle des paiements dans le cadre du Lot 1
    Aucun document formel, comptable, PDF ou imprimable n'est généré. La confirmation se limite à l'interface (confirmation de succès) et à l'historique des transactions. Les quittances relèvent strictement du Lot 12.
 
 **Appliqué dans** : Modèle de données (payments), flux de saisie, interfaces du Lot 11.
+
+---
+
+## DEC-056 : Déclaration et validation des paiements manuels
+
+**Statut** : VERROUILLÉE
+
+**Date** : 11 octobre 2026
+
+**Révise** : DEC-055 règles 1 et 3, DEC-016 (ajout de `DISPUTED`)
+
+**Décision du fondateur** :
+
+Le paiement manuel suit un workflow en deux temps. La personne qui déclare le paiement ne peut pas le valider elle-même ; le validateur effectif est inscrit dans l'historique.
+
+1. **Déclaration puis validation croisée** :
+   - le locataire déclare le paiement ; un gestionnaire ou le propriétaire le valide ;
+   - le gestionnaire déclare le paiement ; le locataire le valide ;
+   - le propriétaire déclare le paiement ; le locataire le valide.
+
+2. **Statuts** :
+   - un paiement déclaré naît `PENDING`, sans être comptabilisé dans les soldes ;
+   - après validation croisée, il devient `CONFIRMED` et ses allocations sont alors comptabilisées ;
+   - `DISPUTED` est ajouté aux statuts de paiement ; un paiement contesté n'est pas comptabilisé.
+
+3. **Double confirmation** : l'interface demande deux confirmations successives au même validateur avant la validation du paiement.
+
+4. **Preuve jointe facultative** : un seul fichier JPG, PNG ou PDF, de 5 Mo au maximum. Son stockage attend la décision DEC-033.
+
+5. **Sur-paiement** : un paiement dont le montant dépasse le solde dû reste refusé avec `AMOUNT_EXCEEDS_OUTSTANDING` (DEC-023).
+
+6. **Contestation** : un motif est obligatoire et choisi parmi `NOT_PAID`, `WRONG_AMOUNT`, `WRONG_DATE`, `WRONG_PERSON` ou `OTHER`.
+
+7. **Délai de validation** : si le paiement n'est pas validé dans les 48 heures, le propriétaire est notifié. Aucune validation automatique n'a lieu.
+
+8. **Notifications** : après validation, les notifications prévues sont envoyées aux parties concernées.
+
+9. **Quittance PDF** : un PDF A4 est généré à la demande et téléchargeable par le locataire, le gestionnaire et le propriétaire. Il porte le logo SIMANDOU IMMO, le numéro `[CODE-IMMEUBLE]-AAAA-NNNN`, un QR code, les identités, le montant, les dates, un bloc de signature, les créances réglées et les mentions légales. Sa taille est inférieure à 400 Ko.
+
+10. **Partage rapide** : une invitation et une quittance peuvent être partagées par WhatsApp ou Messenger.
+
+11. **Accessibilité** : le parcours destiné aux personnes analphabètes utilise de gros boutons, des choix OUI/NON et une authentification Face ID ou empreinte.
+
+12. **Règles d'interface** : bouton d'action en bas de l'écran, hauteur de 56 px ; montant en Manrope, 32 px ; dates au format JJ/MM/AAAA ; notifications auto-explicatives ; toute action irréversible demande un double clic.
+
+13. **Articulation avec DEC-034** : les paiements manuels et les paiements numériques coexistent ; le flux manuel n'attend pas la décision sur le fournisseur numérique.
+
+**Impact si changé** : workflow de paiement, statuts et schéma de données, validations et allocations, notifications, preuves, quittances et interfaces du Lot 11.
