@@ -8,7 +8,11 @@ export const recordPaymentSchema = z.object({
   amount: z.number().int().positive(),
   currency: z.literal('GNF'),
   method: z.enum(PAYMENT_METHODS),
-  reference: z.string().max(255).optional().transform((v) => v || undefined),
+  reference: z
+    .string()
+    .max(255)
+    .optional()
+    .transform((v) => v || undefined),
 });
 
 export type RecordPaymentParams = z.infer<typeof recordPaymentSchema>;

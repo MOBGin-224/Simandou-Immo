@@ -140,14 +140,14 @@ export function compareOutstanding(
 
 /**
  * Calcule le nouveau statut d'une creance apres allocation d'un paiement (Lot 11).
- * 
+ *
  * - Si totalement paye -> PAID
  * - Si partiellement paye et dejà OVERDUE -> reste OVERDUE
  * - Sinon -> PARTIALLY_PAID
  */
 export function computeReceivableStatusAfterPayment(
   oldStatus: ReceivableStatus,
-  newBalance: number
+  newBalance: number,
 ): ReceivableStatus {
   if (newBalance === 0) return 'PAID';
   if (oldStatus === 'OVERDUE') return 'OVERDUE';

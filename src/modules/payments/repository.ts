@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 import type { ReceivablesDatabase } from '@/modules/receivables/service';
 import { payments, paymentAllocations, rentInstallments, chargeAllocations } from '@/db/schema';
-import type { PaymentMethod, PaymentStatus } from './constants';
+import type { PaymentMethod } from './constants';
 import { computeReceivableStatusAfterPayment } from '@/modules/receivables/domain';
 import type { ReceivableStatus } from '@/modules/receivables/constants';
 
@@ -23,7 +23,10 @@ export type RecordPaymentPayload = {
   recordedAt: Date;
   allocations: PaymentAllocationInsert[];
   // Requis pour recalculer le statut correctement
-  receivablesBeforePayment: Record<string, { status: ReceivableStatus; balance: number; amountDue: number }>;
+  receivablesBeforePayment: Record<
+    string,
+    { status: ReceivableStatus; balance: number; amountDue: number }
+  >;
 };
 
 /**
@@ -32,7 +35,7 @@ export type RecordPaymentPayload = {
  */
 export async function insertPaymentTx(
   db: ReceivablesDatabase,
-  payload: RecordPaymentPayload
+  payload: RecordPaymentPayload,
 ): Promise<string> {
   return await db.transaction(async (tx) => {
     // 1. Inserer le paiement (DEC-055 : nait CONFIRMED)
@@ -51,6 +54,10 @@ export async function insertPaymentTx(
         recordedAt: payload.recordedAt,
       })
       .returning({ id: payments.id });
+
+    if (!insertedPayment) {
+      throw new Error('PAYMENT_INSERT_RETURNED_NO_ROW');
+    }
 
     const paymentId = insertedPayment.id;
 
@@ -101,7 +108,7 @@ export async function insertPaymentTx(
 export async function cancelPaymentTx(
   db: ReceivablesDatabase,
   paymentId: string,
-  reason: string
+  reason: string,
 ): Promise<void> {
   await db.transaction(async (tx) => {
     const payment = await tx.query.payments.findFirst({
@@ -139,7 +146,8 @@ export async function cancelPaymentTx(
           if (newBalance === rent.amountDue) newStatus = 'UNPAID';
           else if (rent.status === 'PAID') newStatus = 'PARTIALLY_PAID'; // ou OVERDUE si echue, mais le job s'en chargera
 
-          await tx.update(rentInstallments)
+          await tx
+            .update(rentInstallments)
             .set({ balance: newBalance, amountPaid: newAmountPaid, status: newStatus })
             .where(eq(rentInstallments.id, rent.id));
         }
@@ -154,7 +162,8 @@ export async function cancelPaymentTx(
           if (newBalance === charge.amountDue) newStatus = 'UNPAID';
           else if (charge.status === 'PAID') newStatus = 'PARTIALLY_PAID';
 
-          await tx.update(chargeAllocations)
+          await tx
+            .update(chargeAllocations)
             .set({ balance: newBalance, amountPaid: newAmountPaid, status: newStatus })
             .where(eq(chargeAllocations.id, charge.id));
         }

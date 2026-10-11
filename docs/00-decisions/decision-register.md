@@ -2263,10 +2263,10 @@ Toute fonctionnalité reste gouvernée par le Master Product Specification et le
 Trois règles régissent la saisie manuelle des paiements dans le cadre du Lot 11, en l'absence d'intégration avec un fournisseur de paiement numérique (DEC-034) :
 
 1. **Statut initial : CONFIRMED**.
-   Un paiement manuel naît directement au statut CONFIRMED, le gestionnaire attestant par sa saisie avoir reçu ou vérifié le paiement (espèces, virement, Mobile Money). Le solde dû des créances est réduit immédiatement. La traçabilité de l'auteur (ecorded_by_user_id) et de la date d'enregistrement est conservée.
+   Un paiement manuel naît directement au statut CONFIRMED, le gestionnaire attestant par sa saisie avoir reçu ou vérifié le paiement (espèces, virement, Mobile Money). Le solde dû des créances est réduit immédiatement. La traçabilité de l'auteur (`recorded_by_user_id`) et de la date d'enregistrement est conservée.
 
 2. **Référence transactionnelle facultative**.
-   Le champ eference est facultatif pour toutes les méthodes de paiement du MVP. Si renseignée, sa longueur et son format doivent être validés.
+      Le champ `reference` est facultatif pour toutes les méthodes de paiement du MVP. Si renseignée, sa longueur et son format doivent être validés.
 
 3. **Absence de quittance au Lot 11**.
    Aucun document formel, comptable, PDF ou imprimable n'est généré. La confirmation se limite à l'interface (confirmation de succès) et à l'historique des transactions. Les quittances relèvent strictement du Lot 12.

@@ -19,7 +19,7 @@ export type PaymentAllocationPlan = {
  */
 export function allocatePayment(
   paymentAmount: number,
-  openReceivables: (OutstandingReceivable & { createdAt: string })[]
+  openReceivables: (OutstandingReceivable & { createdAt: string })[],
 ): PaymentAllocationPlan[] {
   const totalOutstanding = openReceivables.reduce((acc, r) => acc + r.balance, 0);
   if (paymentAmount > totalOutstanding) {

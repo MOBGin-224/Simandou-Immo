@@ -1,13 +1,5 @@
 import { sql } from 'drizzle-orm';
-import {
-  bigint,
-  char,
-  check,
-  pgTable,
-  text,
-  timestamp,
-  uuid,
-} from 'drizzle-orm/pg-core';
+import { bigint, char, check, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
 import { paymentMethodEnum, paymentStatusEnum } from './enums';
 import { organizations } from './organizations';
@@ -74,11 +66,11 @@ export const paymentAllocations = pgTable(
     currency: char('currency', { length: 3 }).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
-  (table) => [
+  () => [
     check(
       'single_receivable_check',
-      sql`((rent_installment_id IS NOT NULL)::int + (charge_allocation_id IS NOT NULL)::int) = 1`
+      sql`((rent_installment_id IS NOT NULL)::int + (charge_allocation_id IS NOT NULL)::int) = 1`,
     ),
     check('positive_amount_check', sql`amount > 0`),
-  ]
+  ],
 );
