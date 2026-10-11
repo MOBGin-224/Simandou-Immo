@@ -62,8 +62,6 @@ export async function recordPayment(
   const data = parseOrThrow(input);
   const todayDate = today(options);
 
-  if (data.paidAt > todayDate) throw new PaymentDateInFutureError();
-
   const apartment = await findApartmentForPayment(db, data.apartmentId);
 
   if (!apartment) throw new ResourceOutOfScopeError();
@@ -117,6 +115,8 @@ export async function recordPayment(
   ].filter((receivable) => receivable.balance > 0);
 
   const allocationPlan = allocatePayment(data.amount, openReceivables);
+  if (data.paidAt > todayDate) throw new PaymentDateInFutureError();
+
   const currency = openReceivables[0]?.currency ?? 'GNF';
 
   const inserted = await insertPaymentTx(db, {
