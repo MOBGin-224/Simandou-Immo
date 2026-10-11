@@ -38,6 +38,11 @@ import {
 } from '../../src/modules/leases/errors';
 import { RentGenerationLimitError, RentValidationError } from '../../src/modules/rents/errors';
 import {
+  AmountExceedsOutstandingError,
+  PaymentDateInFutureError,
+  PaymentValidationError,
+} from '../../src/modules/payments/errors';
+import {
   TenantInvitationConflictError,
   TenantNameNotOwnedError,
   TenantNoAccessError,
@@ -123,6 +128,21 @@ describe('Traduction des erreurs en réponses HTTP', () => {
       code: 'VALIDATION_ERROR',
     },
     { error: new RentGenerationLimitError(501, 500), status: 409, code: 'CONFLICT' },
+    {
+      error: new AmountExceedsOutstandingError(),
+      status: 422,
+      code: 'AMOUNT_EXCEEDS_OUTSTANDING',
+    },
+    {
+      error: new PaymentValidationError({ amount: ['invalide'] }),
+      status: 422,
+      code: 'VALIDATION_ERROR',
+    },
+    {
+      error: new PaymentDateInFutureError(),
+      status: 422,
+      code: 'VALIDATION_ERROR',
+    },
     { error: new InvitationInvalidError(), status: 404, code: 'NOT_FOUND' },
     { error: new InvitationLoginRequiredError(), status: 401, code: 'UNAUTHORIZED' },
     { error: new WeakPasswordError(), status: 422, code: 'VALIDATION_ERROR' },

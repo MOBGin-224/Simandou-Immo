@@ -15,7 +15,6 @@ export default defineConfig({
     // PGlite, donc plusieurs workers simultanés saturent la mémoire. Deux
     // workers suffisent pour conserver une exécution stable sans OOM.
     maxWorkers: 2,
-    minWorkers: 1,
 
     /*
      * Délais élargis pour les tests adossés à PostgreSQL.
