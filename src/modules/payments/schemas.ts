@@ -2,12 +2,11 @@ import { z } from 'zod';
 import { PAYMENT_METHODS } from './constants';
 
 export const recordPaymentSchema = z.object({
-  organizationId: z.string().uuid(),
-  propertyId: z.string().uuid(),
+  apartmentId: z.string().uuid(),
   tenantId: z.string().uuid(),
   amount: z.number().int().positive(),
-  currency: z.literal('GNF'),
   method: z.enum(PAYMENT_METHODS),
+  paidAt: z.iso.date(),
   reference: z
     .string()
     .max(255)
@@ -15,7 +14,7 @@ export const recordPaymentSchema = z.object({
     .transform((v) => v || undefined),
 });
 
-export type RecordPaymentParams = z.infer<typeof recordPaymentSchema>;
+export type RecordPaymentInput = z.input<typeof recordPaymentSchema>;
 
 export const cancelPaymentSchema = z.object({
   cancellationReason: z.string().min(3).max(1000),

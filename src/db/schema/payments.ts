@@ -133,3 +133,6 @@ export const paymentAllocations = pgTable(
     check('positive_amount_check', sql`amount > 0`),
   ],
 );
+
+export type Payment = typeof payments.$inferSelect;
+export type NewPayment = typeof payments.$inferInsert;
