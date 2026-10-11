@@ -83,6 +83,7 @@ export const receivableStatusEnum = pgEnum('receivable_status', [
 export const paymentStatusEnum = pgEnum('payment_status', [
   'PENDING',
   'CONFIRMED',
+  'DISPUTED',
   'FAILED',
   'CANCELLED',
 ]);
