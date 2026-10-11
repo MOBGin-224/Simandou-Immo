@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useState } from 'react';
 import { useActionState } from 'react';
 
 import type { PropertyFormState } from '@/app/(app)/immeubles/actions';
@@ -11,6 +12,7 @@ import { SubmitButton } from '@/components/ui/submit-button';
 import {
   PROPERTY_ADDRESS_MAX_LENGTH,
   PROPERTY_CITY_MAX_LENGTH,
+  PROPERTY_CODE_MAX_LENGTH,
   PROPERTY_DESCRIPTION_MAX_LENGTH,
   PROPERTY_DISTRICT_MAX_LENGTH,
   PROPERTY_NAME_MAX_LENGTH,
@@ -54,10 +56,22 @@ export function PropertyForm({
   cancelHref,
 }: PropertyFormProps) {
   const [state, formAction] = useActionState(action, INITIAL_STATE);
+  const initialName = state.values?.name ?? property?.name ?? '';
+  const [name, setName] = useState(initialName);
+  const [code, setCode] = useState(state.values?.code ?? property?.code ?? '');
+  const [codeWasEdited, setCodeWasEdited] = useState(Boolean(property || state.values?.code));
 
   /** Valeur à afficher : la saisie refusée d'abord, la donnée existante ensuite. */
   const value = (field: keyof PropertyView & string, fallback: string | null) =>
     state.values?.[field] ?? fallback ?? '';
+
+  function suggestCode(propertyName: string): string {
+    return propertyName
+      .normalize('NFKD')
+      .replace(/[^A-Za-z]/gu, '')
+      .slice(0, 3)
+      .toUpperCase();
+  }
 
   return (
     <form action={formAction} className="flex flex-col gap-5" noValidate={false}>
@@ -104,13 +118,47 @@ export function PropertyForm({
           <Input
             {...attributes}
             name="name"
-            defaultValue={value('name', property?.name ?? null)}
+            value={name}
+            onChange={(event) => {
+              setName(event.target.value);
+              if (!codeWasEdited && !property) setCode(suggestCode(event.target.value));
+            }}
             maxLength={PROPERTY_NAME_MAX_LENGTH}
             required
             autoComplete="off"
           />
         )}
       </Field>
+
+      {!property ? (
+        <Field
+          id="code"
+          label="Code de l'immeuble"
+          required
+          hint="3 à 6 lettres majuscules, uniques dans votre organisation. Une suggestion suit le nom."
+          errors={state.fieldErrors?.code}
+        >
+          {(attributes) => (
+            <Input
+              {...attributes}
+              name="code"
+              value={code}
+              onChange={(event) => {
+                setCode(
+                  event.target.value
+                    .toUpperCase()
+                    .replace(/[^A-Z]/gu, '')
+                    .slice(0, PROPERTY_CODE_MAX_LENGTH),
+                );
+                setCodeWasEdited(true);
+              }}
+              maxLength={PROPERTY_CODE_MAX_LENGTH}
+              required
+              autoComplete="off"
+            />
+          )}
+        </Field>
+      ) : null}
 
       <div className="grid gap-5 sm:grid-cols-2">
         <Field id="district" label="Quartier" errors={state.fieldErrors?.district}>

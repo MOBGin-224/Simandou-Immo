@@ -16,6 +16,7 @@ export type { ArchivedPropertyReason, FieldErrors } from './errors';
 export {
   ArchivedPropertyError,
   PropertyNameAlreadyUsedError,
+  PropertyCodeAlreadyUsedError,
   PropertyValidationError,
 } from './errors';
 
@@ -34,6 +35,7 @@ export {
   PROPERTY_LIST_FILTERS,
   PROPERTY_LIST_MAX_PAGE_SIZE,
   PROPERTY_NAME_MAX_LENGTH,
+  PROPERTY_CODE_MAX_LENGTH,
 } from './constants';
 
 export type { CreatePropertyInput, ListPropertiesQuery, UpdatePropertyInput } from './schemas';

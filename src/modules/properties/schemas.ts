@@ -3,6 +3,7 @@ import { z } from 'zod';
 import {
   PROPERTY_ADDRESS_MAX_LENGTH,
   PROPERTY_CITY_MAX_LENGTH,
+  PROPERTY_CODE_MAX_LENGTH,
   PROPERTY_DESCRIPTION_MAX_LENGTH,
   PROPERTY_DISTRICT_MAX_LENGTH,
   PROPERTY_LIST_DEFAULT_PAGE_SIZE,
@@ -83,6 +84,7 @@ function patchText(max: number, tooLong: string) {
 
 const NAME_MISSING = "Le nom de l'immeuble est obligatoire.";
 const NAME_TOO_LONG = `Le nom ne peut pas dépasser ${PROPERTY_NAME_MAX_LENGTH} caractères.`;
+const CODE_INVALID = 'Le code doit contenir 3 à 6 lettres majuscules (A-Z).';
 const ADDRESS_TOO_LONG = `L'adresse ne peut pas dépasser ${PROPERTY_ADDRESS_MAX_LENGTH} caractères.`;
 const CITY_TOO_LONG = `La ville ne peut pas dépasser ${PROPERTY_CITY_MAX_LENGTH} caractères.`;
 const DISTRICT_TOO_LONG = `Le quartier ne peut pas dépasser ${PROPERTY_DISTRICT_MAX_LENGTH} caractères.`;
@@ -99,6 +101,11 @@ const DESCRIPTION_TOO_LONG = `La description ne peut pas dépasser ${PROPERTY_DE
 export const createPropertySchema = z.object({
   organizationId: z.string().uuid("L'organisation est obligatoire."),
   name: requiredText(PROPERTY_NAME_MAX_LENGTH, NAME_MISSING, NAME_TOO_LONG),
+  code: z
+    .string()
+    .trim()
+    .max(PROPERTY_CODE_MAX_LENGTH, CODE_INVALID)
+    .regex(/^[A-Z]{3,6}$/u, CODE_INVALID),
   address: creationText(PROPERTY_ADDRESS_MAX_LENGTH, ADDRESS_TOO_LONG),
   city: creationText(PROPERTY_CITY_MAX_LENGTH, CITY_TOO_LONG),
   district: creationText(PROPERTY_DISTRICT_MAX_LENGTH, DISTRICT_TOO_LONG),

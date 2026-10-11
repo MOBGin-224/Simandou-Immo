@@ -20,6 +20,7 @@ const BASE: Property = {
   id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaa101',
   organizationId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1',
   name: 'Immeuble Camayenne',
+  code: 'CAM',
   address: 'Corniche Nord',
   city: 'Conakry',
   district: 'Camayenne',

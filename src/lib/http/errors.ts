@@ -54,6 +54,7 @@ const BY_ERROR_NAME: Record<string, { status: number; code: ApiErrorCode }> = {
   ResourceOutOfScopeError: { status: 404, code: 'NOT_FOUND' },
   PropertyValidationError: { status: 422, code: 'VALIDATION_ERROR' },
   PropertyNameAlreadyUsedError: { status: 409, code: 'CONFLICT' },
+  PropertyCodeAlreadyUsedError: { status: 409, code: 'CONFLICT' },
   ArchivedPropertyError: { status: 409, code: 'CONFLICT' },
   ApartmentValidationError: { status: 422, code: 'VALIDATION_ERROR' },
   ApartmentNumberAlreadyUsedError: { status: 409, code: 'CONFLICT' },

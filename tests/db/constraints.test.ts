@@ -28,8 +28,8 @@ describe('Contraintes du schéma initial', () => {
     ]);
 
     await db.insert(schema.properties).values([
-      { id: propertyId, organizationId, name: 'Immeuble A' },
-      { id: otherPropertyId, organizationId, name: 'Immeuble A bis' },
+      { id: propertyId, organizationId, name: 'Immeuble A', code: 'IMA' },
+      { id: otherPropertyId, organizationId, name: 'Immeuble A bis', code: 'IMB' },
     ]);
   }, 60_000);
 
@@ -126,7 +126,7 @@ describe('Contraintes du schéma initial', () => {
     const { db, schema } = harness;
 
     await expect(
-      db.insert(schema.properties).values({ organizationId, name: 'Immeuble A' }),
+      db.insert(schema.properties).values({ organizationId, name: 'Immeuble A', code: 'IMC' }),
     ).rejects.toThrow();
   });
 
@@ -135,10 +135,21 @@ describe('Contraintes du schéma initial', () => {
 
     const inserted = await db
       .insert(schema.properties)
-      .values({ organizationId: otherOrganizationId, name: 'Immeuble A' })
+      .values({ organizationId: otherOrganizationId, name: 'Immeuble A', code: 'IMA' })
       .returning();
 
     expect(inserted[0]?.organizationId).toBe(otherOrganizationId);
+    expect(inserted[0]?.code).toBe('IMA');
+  });
+
+  it('refuse les codes hors format et les doublons dans une organisation', async () => {
+    const { db, schema } = harness;
+    await expect(
+      db.insert(schema.properties).values({ organizationId, name: 'Code invalide', code: 'im1' }),
+    ).rejects.toThrow();
+    await expect(
+      db.insert(schema.properties).values({ organizationId, name: 'Code dupliqué', code: 'IMA' }),
+    ).rejects.toThrow();
   });
 
   // --- Convention monétaire (DEC-014) ---------------------------------------

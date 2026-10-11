@@ -9,6 +9,7 @@ import { PermissionDeniedError, ResourceOutOfScopeError } from '@/lib/authorizat
 import {
   ArchivedPropertyError,
   PropertyNameAlreadyUsedError,
+  PropertyCodeAlreadyUsedError,
   PropertyValidationError,
   archiveProperty,
   createProperty,
@@ -61,6 +62,10 @@ function toFormState(error: unknown, values: Record<string, string>): PropertyFo
     return { fieldErrors: { name: [error.message] }, values };
   }
 
+  if (error instanceof PropertyCodeAlreadyUsedError) {
+    return { fieldErrors: { code: [error.message] }, values };
+  }
+
   if (error instanceof ArchivedPropertyError) {
     return { message: error.message, values };
   }
@@ -82,6 +87,7 @@ function toFormState(error: unknown, values: Record<string, string>): PropertyFo
 const PROPERTY_FIELD_NAMES = [
   'organizationId',
   'name',
+  'code',
   'district',
   'city',
   'address',
@@ -92,6 +98,7 @@ const PROPERTY_FIELD_NAMES = [
 function propertyFields(formData: FormData) {
   return {
     name: formData.get('name'),
+    code: formData.get('code'),
     address: formData.get('address'),
     city: formData.get('city'),
     district: formData.get('district'),

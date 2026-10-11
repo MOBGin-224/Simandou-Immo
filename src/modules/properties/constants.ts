@@ -14,6 +14,7 @@
 
 /** Longueurs alignées sur les colonnes de `properties` (Lot 1). */
 export const PROPERTY_NAME_MAX_LENGTH = 200;
+export const PROPERTY_CODE_MAX_LENGTH = 6;
 export const PROPERTY_CITY_MAX_LENGTH = 120;
 export const PROPERTY_DISTRICT_MAX_LENGTH = 120;
 

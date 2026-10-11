@@ -48,6 +48,14 @@ export class PropertyNameAlreadyUsedError extends Error {
   }
 }
 
+/** Deux immeubles d'une même organisation ne peuvent pas partager leur code. */
+export class PropertyCodeAlreadyUsedError extends Error {
+  constructor(readonly propertyCode: string) {
+    super(`Le code « ${propertyCode} » est déjà utilisé dans cette organisation.`);
+    this.name = 'PropertyCodeAlreadyUsedError';
+  }
+}
+
 /** Pourquoi l'état d'archivage refuse l'opération. */
 export type ArchivedPropertyReason = 'already-archived' | 'not-modifiable';
 

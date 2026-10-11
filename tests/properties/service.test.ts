@@ -10,6 +10,7 @@ import {
 } from '../../src/lib/authorization/service';
 import {
   ArchivedPropertyError,
+  PropertyCodeAlreadyUsedError,
   PropertyNameAlreadyUsedError,
   PropertyValidationError,
 } from '../../src/modules/properties/errors';
@@ -57,16 +58,19 @@ describe('Cas d usage du module Immeubles', () => {
   });
 
   /** Crée un immeuble au nom de l'organisation A, en tant que propriétaire. */
+  let createCodeCounter = 0;
   const createForOwner = (name: string, extra: Record<string, unknown> = {}) =>
     createProperty(harness.db, owner, {
       organizationId: SEED_IDS.organizationA,
       name,
+      code: `TA${String.fromCharCode(65 + createCodeCounter++)}`,
       ...extra,
     });
 
   describe('Création', () => {
     it('crée un immeuble et le rend consultable', async () => {
       const created = await createForOwner('  Résidence   Kaloum  ', {
+        code: 'KAL',
         district: 'Kaloum',
         city: 'Conakry',
       });
@@ -94,11 +98,18 @@ describe('Cas d usage du module Immeubles', () => {
       );
     });
 
+    it('refuse un code déjà utilisé dans la même organisation', async () => {
+      await expect(createForOwner('Nouvel immeuble', { code: 'CAM' })).rejects.toBeInstanceOf(
+        PropertyCodeAlreadyUsedError,
+      );
+    });
+
     /** L'unicité est par organisation : deux propriétaires peuvent employer le même nom. */
     it('accepte le même nom dans une autre organisation', async () => {
       const created = await createProperty(harness.db, otherOwner, {
         organizationId: SEED_IDS.organizationB,
         name: 'Immeuble Camayenne',
+        code: 'CAM',
       });
 
       expect(created.organizationId).toBe(SEED_IDS.organizationB);
@@ -116,6 +127,7 @@ describe('Cas d usage du module Immeubles', () => {
         createProperty(harness.db, manager, {
           organizationId: SEED_IDS.organizationA,
           name: 'Immeuble du gestionnaire',
+          code: 'GES',
         }),
       ).rejects.toBeInstanceOf(ResourceOutOfScopeError);
     });
@@ -125,6 +137,7 @@ describe('Cas d usage du module Immeubles', () => {
         createProperty(harness.db, owner, {
           organizationId: SEED_IDS.organizationB,
           name: 'Tentative inter-organisations',
+          code: 'TEN',
         }),
       ).rejects.toBeInstanceOf(ResourceOutOfScopeError);
     });
