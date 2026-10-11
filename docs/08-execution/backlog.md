@@ -838,7 +838,7 @@ Tester obligatoirement :
 
 ## MVP-BACKLOG-118 : Payment Cancellation
 
-> **DEC-055, règles 1 et 3. DEC-013, DEC-016, DEC-020.**
+> **DEC-055. DEC-016.**
 
 Implémenter l'annulation d'un paiement manuel, dans le **Lot 11**.
 
