@@ -3,7 +3,6 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 const mocks = vi.hoisted(() => ({
   getDb: vi.fn(),
   requireAccessContext: vi.fn(),
-  validatePayment: vi.fn(),
 }));
 
 vi.mock('@/db/client', async (importOriginal) => ({
@@ -16,22 +15,10 @@ vi.mock('@/lib/authorization', async (importOriginal) => ({
   requireAccessContext: mocks.requireAccessContext,
 }));
 
-vi.mock('@/modules/payments', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/modules/payments')>();
-
-  return {
-    ...actual,
-    validatePayment: mocks.validatePayment,
-  };
-});
-
 import { SEED_IDS, seed } from '../../../src/db/seed';
 import { UnauthenticatedError } from '../../../src/lib/auth/session';
 import { POST } from '../../../src/app/api/v1/payments/[id]/validate/route';
-import {
-  declarePayment,
-  validatePayment as validatePaymentService,
-} from '../../../src/modules/payments/service';
+import { declarePayment } from '../../../src/modules/payments/service';
 import { generateRents } from '../../../src/modules/rents/service';
 import { createTestDatabase, type TestDatabase } from '../../helpers/database';
 import { addBillableLease, contextOf, freshPhone, NOW, passwordHasher } from '../../helpers/rents';
@@ -98,7 +85,6 @@ describe('POST /api/v1/payments/[id]/validate', () => {
   beforeEach(() => {
     mocks.getDb.mockReset().mockReturnValue(harness.db);
     mocks.requireAccessContext.mockReset();
-    mocks.validatePayment.mockReset().mockImplementation(validatePaymentService);
   });
 
   afterAll(async () => {
@@ -118,21 +104,11 @@ describe('POST /api/v1/payments/[id]/validate', () => {
   it('valide par locataire une déclaration gestionnaire → 200', async () => {
     const declared = await declaredBy(managerContext);
     mocks.requireAccessContext.mockResolvedValueOnce(tenantContext);
-    mocks.validatePayment.mockResolvedValueOnce({
-      payment: { ...declared.payment, status: 'CONFIRMED' },
-      allocations: [],
-      newBalances: [],
-    });
 
     const { response, result } = await post(declared.payment.id);
 
     expect(response.status).toBe(200);
     expect(result.data?.status).toBe('CONFIRMED');
-    expect(mocks.validatePayment).toHaveBeenCalledWith(
-      harness.db,
-      declared.payment.id,
-      tenantContext,
-    );
   });
 
   it('refuse si le validateur est le déclarant → 403', async () => {

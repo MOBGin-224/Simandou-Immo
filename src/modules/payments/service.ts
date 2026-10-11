@@ -75,6 +75,14 @@ function assertValidatorForPayment(
     throw new PermissionDeniedError('payment.create');
   }
 
+  const isTenantValidator =
+    context.userId === payment.tenantId &&
+    context.memberships.some(
+      (membership) => membership.organizationId === organizationId && membership.role === 'TENANT',
+    );
+
+  if (isTenantValidator) return;
+
   requirePermission(context, 'payment.create', {
     organizationId,
     propertyId,
