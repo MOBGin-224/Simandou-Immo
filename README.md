@@ -12,15 +12,15 @@ SIMANDOU IMMO est un projet **distinct de SIMANDOU SEJOUR**. Les deux ne partage
 
 ## État du projet
 
-|                  |                                                                                          |
-| ---------------- | ---------------------------------------------------------------------------------------- |
-| Phase            | Lot 10 terminé : les charges communes, seconde créance du modèle financier               |
-| Documentation    | 33 documents consolidés dans `docs/`, plus 12 ADR                                        |
-| Base de données  | Sept migrations, de `0000_initial_schema` à `0006_charges`                               |
-| Authentification | Téléphone et mot de passe, session, déconnexion                                          |
-| Patrimoine       | Immeubles, appartements, gestionnaires et leur périmètre, locataires, baux               |
-| Finance          | Loyers générés par job, charges réparties et publiées, total dû loyers et charges réunis |
-| Tests            | 1365, dont les migrations réellement appliquées sur PostgreSQL                           |
+|                  |                                                                                                                                |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Phase            | Lot 10 terminé : les charges communes, seconde créance du modèle financier. Lot 11 (paiements) en cours sur `lot-11-paiements` |
+| Documentation    | 33 documents consolidés dans `docs/`, plus 12 ADR                                                                              |
+| Base de données  | Huit migrations, de `0000_initial_schema` aux paiements (`0007_lively_chimera`)                                                |
+| Authentification | Téléphone et mot de passe, session, déconnexion                                                                                |
+| Patrimoine       | Immeubles, appartements, gestionnaires et leur périmètre, locataires, baux                                                     |
+| Finance          | Loyers générés par job, charges réparties et publiées, total dû loyers et charges réunis                                       |
+| Tests            | 1 368, dont les migrations réellement appliquées sur PostgreSQL                                                                |
 
 La documentation est la **source de vérité** fonctionnelle, produit, UX, technique et opérationnelle. Elle précède le code, et non l'inverse.
 
