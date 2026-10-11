@@ -836,6 +836,26 @@ Tester obligatoirement :
 
 ---
 
+## MVP-BACKLOG-118 : Payment Cancellation
+
+> **DEC-055, règle 1. DEC-013, DEC-016, DEC-020.**
+
+Implémenter l'annulation d'un paiement manuel, dans le **Lot 11**.
+
+Inclut :
+
+- un **motif obligatoire**, saisi par le gestionnaire et validé ;
+- la **traçabilité** : auteur de l'annulation, horodatage et motif conservés ;
+- **aucune suppression physique** : le paiement et ses allocations sont conservés, jamais supprimés (DEC-020) ;
+- la **neutralisation** du paiement et de ses allocations dans les calculs financiers, en restaurant les soldes des créances de loyer et de charge ;
+- le statut `CANCELLED` appliqué au paiement (DEC-016).
+
+**Périmètre strict** : ce ticket traite le paiement et ses allocations. **L'invalidation des quittances associées relève du Lot 12** et n'est pas traitée ici.
+
+Refus d'une seconde annulation d'un même paiement, conformément à DEC-016.
+
+---
+
 # 18. Lot 12 : Quittances
 
 ## MVP-BACKLOG-048 : Receipt Model
