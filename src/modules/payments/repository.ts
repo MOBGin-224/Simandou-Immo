@@ -84,13 +84,11 @@ export type PaymentListResult = {
   meta: { total: number; page: number; pageSize: number };
 };
 
+type PaymentAllocation = typeof paymentAllocations.$inferSelect;
+
 const PAYMENT_LIST_PAGE_SIZE = 20;
 
-export async function listPaymentsForContext(
-  db: ReceivablesDatabase,
-  context: AccessContext,
-  filters: PaymentListFilters,
-): Promise<PaymentListResult> {
+function paymentVisibilityCondition(context: AccessContext) {
   const scopes = readablePropertyScopes(context, 'payment.read');
   const propertyCondition = propertyScopeCondition(scopes, {
     organizationId: payments.organizationId,
@@ -106,7 +104,15 @@ export async function listPaymentsForContext(
         ),
       ),
   );
-  const visibilityCondition = or(propertyCondition, tenantCondition);
+  return or(propertyCondition, tenantCondition);
+}
+
+export async function listPaymentsForContext(
+  db: ReceivablesDatabase,
+  context: AccessContext,
+  filters: PaymentListFilters,
+): Promise<PaymentListResult> {
+  const visibilityCondition = paymentVisibilityCondition(context);
 
   if (!visibilityCondition) {
     return {
@@ -137,6 +143,31 @@ export async function listPaymentsForContext(
   return {
     payments: rows,
     meta: { total: totalRow?.total ?? 0, page: filters.page, pageSize: PAYMENT_LIST_PAGE_SIZE },
+  };
+}
+
+export async function findPaymentWithAllocations(
+  db: ReceivablesDatabase,
+  paymentId: string,
+  context: AccessContext,
+): Promise<{ payment: Payment; allocations: PaymentAllocation[] } | null> {
+  const visibilityCondition = paymentVisibilityCondition(context);
+  if (!visibilityCondition) return null;
+
+  const rows = await db
+    .select({ payment: payments, allocation: paymentAllocations })
+    .from(payments)
+    .leftJoin(paymentAllocations, eq(paymentAllocations.paymentId, payments.id))
+    .where(and(eq(payments.id, paymentId), visibilityCondition));
+
+  if (rows.length === 0) return null;
+
+  const payment = rows[0]?.payment;
+  if (!payment) return null;
+
+  return {
+    payment,
+    allocations: rows.flatMap((row) => (row.allocation ? [row.allocation] : [])),
   };
 }
 

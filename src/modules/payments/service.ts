@@ -34,6 +34,7 @@ import {
 import {
   findActiveLeaseForPayment,
   findApartmentForPayment,
+  findPaymentWithAllocations,
   insertPaymentTx,
   listPaymentsForContext,
 } from './repository';
@@ -81,6 +82,19 @@ export async function listPayments(
     apartmentId: query.apartmentId,
     tenantId: query.tenantId,
   });
+}
+
+export async function getPaymentById(
+  db: ReceivablesDatabase,
+  paymentId: string,
+  context: AccessContext,
+) {
+  if (!z.uuid().safeParse(paymentId).success) throw new ResourceOutOfScopeError();
+
+  const result = await findPaymentWithAllocations(db, paymentId, context);
+  if (!result) throw new ResourceOutOfScopeError();
+
+  return result;
 }
 
 type OpenPaymentReceivable = OutstandingReceivable & {

@@ -10,6 +10,7 @@ export {
   cancelPayment,
   declarePayment,
   disputePayment,
+  getPaymentById,
   listPayments,
   validatePayment,
 } from './service';
