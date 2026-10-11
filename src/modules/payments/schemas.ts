@@ -19,3 +19,12 @@ export type RecordPaymentInput = z.input<typeof recordPaymentSchema>;
 export const cancelPaymentSchema = z.object({
   cancellationReason: z.string().min(3).max(1000),
 });
+
+export const listPaymentsQuerySchema = z.object({
+  page: z.coerce.number('Numéro de page invalide.').int().min(1).default(1),
+  status: z.enum(['PENDING', 'CONFIRMED', 'DISPUTED', 'CANCELLED']).optional(),
+  apartmentId: z.uuid('Identifiant invalide.').optional(),
+  tenantId: z.uuid('Identifiant invalide.').optional(),
+});
+
+export type ListPaymentsQuery = z.output<typeof listPaymentsQuerySchema>;

@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, count, desc, eq, or } from 'drizzle-orm';
 import type { ReceivablesDatabase } from '@/modules/receivables/service';
 import {
   apartments,
@@ -10,6 +10,11 @@ import {
   properties,
   type Payment,
 } from '@/db/schema';
+import {
+  propertyScopeCondition,
+  readablePropertyScopes,
+  type AccessContext,
+} from '@/lib/authorization';
 import type { PaymentMethod } from './constants';
 import { computeReceivableStatusAfterPayment } from '@/modules/receivables/domain';
 import type { ReceivableStatus } from '@/modules/receivables/constants';
@@ -66,6 +71,74 @@ export type PaymentApartmentRow = {
   organizationId: string;
   propertyId: string;
 };
+
+export type PaymentListFilters = {
+  page: number;
+  status?: 'PENDING' | 'CONFIRMED' | 'DISPUTED' | 'CANCELLED';
+  apartmentId?: string;
+  tenantId?: string;
+};
+
+export type PaymentListResult = {
+  payments: Payment[];
+  meta: { total: number; page: number; pageSize: number };
+};
+
+const PAYMENT_LIST_PAGE_SIZE = 20;
+
+export async function listPaymentsForContext(
+  db: ReceivablesDatabase,
+  context: AccessContext,
+  filters: PaymentListFilters,
+): Promise<PaymentListResult> {
+  const scopes = readablePropertyScopes(context, 'payment.read');
+  const propertyCondition = propertyScopeCondition(scopes, {
+    organizationId: payments.organizationId,
+    propertyId: payments.propertyId,
+  });
+  const tenantCondition = or(
+    ...context.memberships
+      .filter((membership) => membership.role === 'TENANT')
+      .map((membership) =>
+        and(
+          eq(payments.organizationId, membership.organizationId),
+          eq(payments.tenantId, context.userId),
+        ),
+      ),
+  );
+  const visibilityCondition = or(propertyCondition, tenantCondition);
+
+  if (!visibilityCondition) {
+    return {
+      payments: [],
+      meta: { total: 0, page: filters.page, pageSize: PAYMENT_LIST_PAGE_SIZE },
+    };
+  }
+
+  const where = and(
+    visibilityCondition,
+    filters.status ? eq(payments.status, filters.status) : undefined,
+    filters.apartmentId ? eq(payments.apartmentId, filters.apartmentId) : undefined,
+    filters.tenantId ? eq(payments.tenantId, filters.tenantId) : undefined,
+  );
+  const offset = (filters.page - 1) * PAYMENT_LIST_PAGE_SIZE;
+
+  const [rows, [totalRow]] = await Promise.all([
+    db
+      .select()
+      .from(payments)
+      .where(where)
+      .orderBy(desc(payments.declaredAt), desc(payments.createdAt), desc(payments.id))
+      .limit(PAYMENT_LIST_PAGE_SIZE)
+      .offset(offset),
+    db.select({ total: count() }).from(payments).where(where),
+  ]);
+
+  return {
+    payments: rows,
+    meta: { total: totalRow?.total ?? 0, page: filters.page, pageSize: PAYMENT_LIST_PAGE_SIZE },
+  };
+}
 
 export async function findApartmentForPayment(
   db: ReceivablesDatabase,

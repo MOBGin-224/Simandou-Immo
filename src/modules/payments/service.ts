@@ -31,8 +31,18 @@ import {
   PaymentDateInFutureError,
   PaymentValidationError,
 } from './errors';
-import { findActiveLeaseForPayment, findApartmentForPayment, insertPaymentTx } from './repository';
-import { recordPaymentSchema, type RecordPaymentInput } from './schemas';
+import {
+  findActiveLeaseForPayment,
+  findApartmentForPayment,
+  insertPaymentTx,
+  listPaymentsForContext,
+} from './repository';
+import {
+  listPaymentsQuerySchema,
+  recordPaymentSchema,
+  type ListPaymentsQuery,
+  type RecordPaymentInput,
+} from './schemas';
 
 export type PaymentNewBalance = {
   receivableId: string;
@@ -49,6 +59,29 @@ export type RecordPaymentResult = {
 export type PaymentServiceOptions = {
   now?: Date;
 };
+
+export async function listPayments(
+  db: ReceivablesDatabase,
+  context: AccessContext,
+  input: unknown = {},
+) {
+  const result = listPaymentsQuerySchema.safeParse(input);
+
+  if (!result.success) {
+    throw new PaymentValidationError(
+      z.flattenError(result.error).fieldErrors as Record<string, string[]>,
+    );
+  }
+
+  const query: ListPaymentsQuery = result.data;
+
+  return listPaymentsForContext(db, context, {
+    page: query.page,
+    status: query.status,
+    apartmentId: query.apartmentId,
+    tenantId: query.tenantId,
+  });
+}
 
 type OpenPaymentReceivable = OutstandingReceivable & {
   createdAt: string;
