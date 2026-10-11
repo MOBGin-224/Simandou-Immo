@@ -6,7 +6,7 @@
  */
 
 export type { PaymentNewBalance, PaymentServiceOptions, RecordPaymentResult } from './service';
-export { recordPayment } from './service';
+export { cancelPayment, declarePayment, disputePayment, validatePayment } from './service';
 export type { RecordPaymentInput } from './schemas';
 
 export type { FieldErrors } from './errors';

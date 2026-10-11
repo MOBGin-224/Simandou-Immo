@@ -46,11 +46,18 @@ export type RecordPaymentPayload = {
   currency: string;
   method: PaymentMethod;
   reference?: string;
-  /** Date métier du paiement, `paid_at`. */
   paidAt: string;
-  /** Instantan de confirmation : le maintenant du serveur (DEC-055). */
-  confirmedAt: Date;
-  recordedByUserId: string;
+  status: 'PENDING' | 'CONFIRMED' | 'DISPUTED' | 'CANCELLED';
+  declaredAt?: Date | null;
+  confirmedAt?: Date | null;
+  createdBy: string;
+  validatedByUserId?: string | null;
+  validatedAt?: Date | null;
+  disputedByUserId?: string | null;
+  disputedAt?: Date | null;
+  cancelledAt?: Date | null;
+  cancellationReason?: string | null;
+  referenceNumber: string;
   allocations: PaymentAllocationInsert[];
 };
 
@@ -149,7 +156,6 @@ export async function insertPaymentTx(
   payload: RecordPaymentPayload,
 ): Promise<{ payment: Payment; newBalances: PaymentBalanceUpdate[] }> {
   return await db.transaction(async (tx) => {
-    // 1. Inserer le paiement (DEC-055 : nait CONFIRMED)
     const [insertedPayment] = await tx
       .insert(payments)
       .values({
@@ -161,10 +167,18 @@ export async function insertPaymentTx(
         currency: payload.currency,
         method: payload.method,
         reference: payload.reference,
-        status: 'CONFIRMED',
+        status: payload.status,
         paidAt: payload.paidAt,
-        confirmedAt: payload.confirmedAt,
-        recordedByUserId: payload.recordedByUserId,
+        declaredAt: payload.declaredAt ?? new Date(),
+        confirmedAt: payload.confirmedAt ?? null,
+        createdBy: payload.createdBy,
+        validatedByUserId: payload.validatedByUserId ?? null,
+        validatedAt: payload.validatedAt ?? null,
+        disputedByUserId: payload.disputedByUserId ?? null,
+        disputedAt: payload.disputedAt ?? null,
+        cancelledAt: payload.cancelledAt ?? null,
+        cancellationReason: payload.cancellationReason ?? null,
+        referenceNumber: payload.referenceNumber,
       })
       .returning();
 
