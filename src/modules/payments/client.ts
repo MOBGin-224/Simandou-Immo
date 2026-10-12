@@ -91,3 +91,28 @@ export async function validatePaymentRequest(paymentId: string): Promise<Respons
     },
   });
 }
+
+export type DisputeCategory = 'NOT_PAID' | 'WRONG_AMOUNT' | 'WRONG_DATE' | 'WRONG_PERSON' | 'OTHER';
+
+export const DISPUTE_CATEGORY_LABELS: Record<DisputeCategory, string> = {
+  NOT_PAID: "Je n'ai pas reçu ce paiement",
+  WRONG_AMOUNT: 'Le montant est incorrect',
+  WRONG_DATE: 'La date est incorrecte',
+  WRONG_PERSON: 'Le destinataire est incorrect',
+  OTHER: 'Autre motif',
+};
+
+export async function disputePaymentRequest(
+  paymentId: string,
+  category: DisputeCategory,
+  reason: string,
+): Promise<Response> {
+  return fetch(`/api/v1/payments/${encodeURIComponent(paymentId)}/dispute`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify({ category, reason }),
+  });
+}
