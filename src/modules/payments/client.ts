@@ -116,3 +116,15 @@ export async function disputePaymentRequest(
     body: JSON.stringify({ category, reason }),
   });
 }
+
+/** Appelle l'API POST /api/v1/payments/[id]/cancel pour annuler un paiement. */
+export async function cancelPaymentRequest(paymentId: string, reason: string): Promise<Response> {
+  return fetch(`/api/v1/payments/${encodeURIComponent(paymentId)}/cancel`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify({ reason }),
+  });
+}
