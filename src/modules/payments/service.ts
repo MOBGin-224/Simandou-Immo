@@ -1,3 +1,4 @@
+import { randomInt } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 
@@ -338,6 +339,21 @@ async function applyAllocationToReceivable(
   };
 }
 
+const BASE62_CHARS = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+
+/**
+ * Génère une référence publique pour la vérification par un tiers (DEC-057, point 3.4).
+ * Format : "R-" suivi de 10 caractères alphanumériques base62 (longueur totale 12).
+ * Non séquentielle et imprévisible.
+ */
+export function generatePublicReference(): string {
+  let result = 'R-';
+  for (let i = 0; i < 10; i++) {
+    result += BASE62_CHARS[randomInt(0, BASE62_CHARS.length)];
+  }
+  return result;
+}
+
 export async function declarePayment(
   db: ReceivablesDatabase,
   input: RecordPaymentInput,
@@ -381,29 +397,54 @@ export async function declarePayment(
     new Date(data.paidAt).getFullYear(),
   );
 
-  const inserted = await insertPaymentTx(db, {
-    organizationId: apartment.organizationId,
-    propertyId: apartment.propertyId,
-    apartmentId: apartment.id,
-    tenantId: data.tenantId,
-    amount: data.amount,
-    currency: openReceivables[0]?.currency ?? 'GNF',
-    method: data.method,
-    reference: data.reference,
-    paidAt: data.paidAt,
-    status: 'PENDING',
-    declaredAt: now,
-    confirmedAt: null,
-    createdBy: context.userId,
-    validatedByUserId: null,
-    validatedAt: null,
-    disputedByUserId: null,
-    disputedAt: null,
-    cancelledAt: null,
-    cancellationReason: null,
-    referenceNumber,
-    allocations: [],
-  });
+  let inserted: Awaited<ReturnType<typeof insertPaymentTx>> | null = null;
+  const maxAttempts = 5;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const publicReference = generatePublicReference();
+    try {
+      inserted = await insertPaymentTx(db, {
+        organizationId: apartment.organizationId,
+        propertyId: apartment.propertyId,
+        apartmentId: apartment.id,
+        tenantId: data.tenantId,
+        amount: data.amount,
+        currency: openReceivables[0]?.currency ?? 'GNF',
+        method: data.method,
+        reference: data.reference,
+        paidAt: data.paidAt,
+        status: 'PENDING',
+        declaredAt: now,
+        confirmedAt: null,
+        createdBy: context.userId,
+        validatedByUserId: null,
+        validatedAt: null,
+        disputedByUserId: null,
+        disputedAt: null,
+        cancelledAt: null,
+        cancellationReason: null,
+        referenceNumber,
+        publicReference,
+        allocations: [],
+      });
+      break;
+    } catch (error) {
+      const isUniqueViolation =
+        typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
+        (error as { code: string }).code === '23505';
+
+      if (isUniqueViolation && attempt < maxAttempts - 1) {
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  if (!inserted) {
+    throw new Error('FAILED_TO_GENERATE_UNIQUE_PUBLIC_REFERENCE');
+  }
 
   return {
     payment: inserted.payment,

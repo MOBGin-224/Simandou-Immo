@@ -63,6 +63,7 @@ export type RecordPaymentPayload = {
   cancelledAt?: Date | null;
   cancellationReason?: string | null;
   referenceNumber: string;
+  publicReference: string;
   allocations: PaymentAllocationInsert[];
 };
 
@@ -283,6 +284,7 @@ export async function insertPaymentTx(
         cancelledAt: payload.cancelledAt ?? null,
         cancellationReason: payload.cancellationReason ?? null,
         referenceNumber: payload.referenceNumber,
+        publicReference: payload.publicReference,
       })
       .returning();
 

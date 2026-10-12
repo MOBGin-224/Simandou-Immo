@@ -19,6 +19,7 @@ import { SEED_IDS, seed } from '../../../src/db/seed';
 import { UnauthenticatedError } from '../../../src/lib/auth/session';
 import { GET } from '../../../src/app/api/v1/payments/route';
 import { createTestDatabase, type TestDatabase } from '../../helpers/database';
+import { generatePublicReference } from '../../../src/modules/payments';
 import {
   addApartment,
   addBillableLease,
@@ -60,6 +61,7 @@ describe('GET /api/v1/payments', () => {
         declaredAt: values.declaredAt,
         createdBy: SEED_IDS.ownerA,
         referenceNumber: values.referenceNumber,
+        publicReference: generatePublicReference(),
       })
       .returning();
 

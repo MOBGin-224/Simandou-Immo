@@ -85,6 +85,13 @@
       "when": 1791736000000,
       "tag": "0011_payment_dec056",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1791846560881,
+      "tag": "0012_secret_loki",
+      "breakpoints": true
     }
   ]
 }

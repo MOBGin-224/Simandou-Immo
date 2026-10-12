@@ -20,6 +20,7 @@ import { SEED_IDS, seed } from '../../../src/db/seed';
 import { UnauthenticatedError } from '../../../src/lib/auth/session';
 import { GET } from '../../../src/app/api/v1/payments/[id]/route';
 import { generateRents } from '../../../src/modules/rents/service';
+import { generatePublicReference } from '../../../src/modules/payments';
 import { createTestDatabase, type TestDatabase } from '../../helpers/database';
 import {
   addApartment,
@@ -58,6 +59,7 @@ describe('GET /api/v1/payments/[id]', () => {
         paidAt: '2026-10-01',
         declaredAt: NOW,
         createdBy: SEED_IDS.ownerA,
+        publicReference: generatePublicReference(),
       })
       .returning();
 

@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import {
   bigint,
+  boolean,
   char,
   check,
   date,
@@ -9,6 +10,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
   varchar,
 } from 'drizzle-orm/pg-core';
@@ -87,6 +89,12 @@ export const payments = pgTable(
     disputeCategory: text('dispute_category'),
     proofUrl: text('proof_url'),
     referenceNumber: text('reference_number').notNull().unique(),
+    /**
+     * Référence publique pour la vérification par un tiers (DEC-057, point 3.4).
+     * Distincte de l'id interne et du referenceNumber, non séquentielle et imprévisible.
+     * Format : "R-" suivi de 10 caractères base62.
+     */
+    publicReference: varchar('public_reference', { length: 12 }).notNull().unique(),
     confirmedAt: timestamp('confirmed_at', { withTimezone: true }),
     cancelledAt: timestamp('cancelled_at', { withTimezone: true }),
     cancellationReason: text('cancellation_reason'),
@@ -97,6 +105,40 @@ export const payments = pgTable(
       .$onUpdate(() => new Date()),
   },
   () => [check('payments_positive_amount_check', sql`amount > 0`)],
+);
+
+/**
+ * Traçabilité des versions successives du reçu PDF (DEC-057, sections 1.4 et 4).
+ *
+ * Aucune suppression physique (DEC-020). Les versions successives coexistent,
+ * la plus récente est active (au plus une active par paiement), les précédentes
+ * sont marquées remplacées ou invalidées. Clés étrangères en RESTRICT.
+ */
+export const paymentReceiptVersions = pgTable(
+  'payment_receipt_versions',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    paymentId: uuid('payment_id')
+      .notNull()
+      .references(() => payments.id, { onDelete: 'restrict' }),
+    version: integer('version').notNull(),
+    isActive: boolean('is_active').notNull().default(true),
+    generatedByUserId: uuid('generated_by_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict' }),
+    generatedAt: timestamp('generated_at', { withTimezone: true }).defaultNow().notNull(),
+    replacedAt: timestamp('replaced_at', { withTimezone: true }),
+    replacedByUserId: uuid('replaced_by_user_id').references(() => users.id, {
+      onDelete: 'restrict',
+    }),
+    replacementReason: text('replacement_reason'),
+  },
+  (table) => [
+    unique('payment_receipt_versions_payment_version_unique').on(table.paymentId, table.version),
+    uniqueIndex('payment_receipt_versions_one_active_per_payment')
+      .on(table.paymentId)
+      .where(sql`is_active = true`),
+  ],
 );
 
 /**
@@ -136,3 +178,5 @@ export const paymentAllocations = pgTable(
 
 export type Payment = typeof payments.$inferSelect;
 export type NewPayment = typeof payments.$inferInsert;
+export type PaymentReceiptVersion = typeof paymentReceiptVersions.$inferSelect;
+export type NewPaymentReceiptVersion = typeof paymentReceiptVersions.$inferInsert;

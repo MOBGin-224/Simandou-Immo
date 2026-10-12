@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { OutstandingReceivable } from '../../src/modules/receivables/domain';
 import { AmountExceedsOutstandingError } from '../../src/modules/payments/errors';
 import { allocatePayment } from '../../src/modules/payments/domain';
+import { generatePublicReference } from '../../src/modules/payments';
 
 function receivable(
   id: string,
@@ -80,5 +81,30 @@ describe('Allocation des paiements', () => {
     expect(() => allocatePayment(201, [receivable('one'), receivable('two')])).toThrow(
       AmountExceedsOutstandingError,
     );
+  });
+});
+
+describe('generatePublicReference (DEC-057)', () => {
+  it('commence par R-', () => {
+    const ref = generatePublicReference();
+    expect(ref.startsWith('R-')).toBe(true);
+  });
+
+  it('fait 12 caractères au total', () => {
+    const ref = generatePublicReference();
+    expect(ref).toHaveLength(12);
+  });
+
+  it('les 10 caractères après R- sont alphanumériques base62', () => {
+    const ref = generatePublicReference();
+    expect(ref).toMatch(/^R-[0-9A-Za-z]{10}$/);
+  });
+
+  it('100 appels produisent 100 références distinctes', () => {
+    const refs = new Set<string>();
+    for (let i = 0; i < 100; i++) {
+      refs.add(generatePublicReference());
+    }
+    expect(refs.size).toBe(100);
   });
 });

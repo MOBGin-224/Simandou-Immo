@@ -10,6 +10,7 @@ export {
   cancelPayment,
   declarePayment,
   disputePayment,
+  generatePublicReference,
   getPaymentById,
   listPayments,
   validatePayment,

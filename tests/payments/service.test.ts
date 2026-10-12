@@ -1,3 +1,4 @@
+import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { SEED_IDS, seed } from '../../src/db/seed';
@@ -276,5 +277,128 @@ describe('Paiements DEC-056', () => {
     );
 
     expect(result.payment.paidAt).toBe('2026-10-02');
+  });
+
+  describe('Reçus et référence publique DEC-057', () => {
+    it('declarePayment produit un paiement avec publicReference non nulle et bien persistée', async () => {
+      const current = await fixture();
+      const result = await declarePayment(
+        harness.db,
+        paymentInput(current.apartmentId, current.tenantId, 50_000),
+        owner,
+        OPTIONS,
+      );
+
+      expect(result.payment.publicReference).toBeDefined();
+      expect(result.payment.publicReference).toMatch(/^R-[0-9A-Za-z]{10}$/);
+
+      const [stored] = await harness.db
+        .select()
+        .from(harness.schema.payments)
+        .where(eq(harness.schema.payments.id, result.payment.id))
+        .limit(1);
+
+      expect(stored?.publicReference).toBe(result.payment.publicReference);
+    });
+
+    it('deux declarePayment successifs produisent deux publicReference différentes', async () => {
+      const current = await fixture();
+      const p1 = await declarePayment(
+        harness.db,
+        paymentInput(current.apartmentId, current.tenantId, 25_000),
+        owner,
+        OPTIONS,
+      );
+      const p2 = await declarePayment(
+        harness.db,
+        paymentInput(current.apartmentId, current.tenantId, 25_000),
+        owner,
+        OPTIONS,
+      );
+
+      expect(p1.payment.publicReference).not.toBe(p2.payment.publicReference);
+    });
+
+    it('insérer une version active dans payment_receipt_versions fonctionne', async () => {
+      const current = await fixture();
+      const p = await declarePayment(
+        harness.db,
+        paymentInput(current.apartmentId, current.tenantId, 10_000),
+        owner,
+        OPTIONS,
+      );
+
+      const [inserted] = await harness.db
+        .insert(harness.schema.paymentReceiptVersions)
+        .values({
+          paymentId: p.payment.id,
+          version: 1,
+          isActive: true,
+          generatedByUserId: SEED_IDS.ownerA,
+        })
+        .returning();
+
+      expect(inserted).toBeDefined();
+      expect(inserted!.version).toBe(1);
+      expect(inserted!.isActive).toBe(true);
+    });
+
+    it('insérer deux versions avec isActive=true pour le même paiement échoue (index unique partiel)', async () => {
+      const current = await fixture();
+      const p = await declarePayment(
+        harness.db,
+        paymentInput(current.apartmentId, current.tenantId, 10_000),
+        owner,
+        OPTIONS,
+      );
+
+      await harness.db.insert(harness.schema.paymentReceiptVersions).values({
+        paymentId: p.payment.id,
+        version: 1,
+        isActive: true,
+        generatedByUserId: SEED_IDS.ownerA,
+      });
+
+      await expect(
+        harness.db.insert(harness.schema.paymentReceiptVersions).values({
+          paymentId: p.payment.id,
+          version: 2,
+          isActive: true,
+          generatedByUserId: SEED_IDS.ownerA,
+        }),
+      ).rejects.toThrow();
+    });
+
+    it('insérer deux versions avec des numéros différents et au plus une active fonctionne', async () => {
+      const current = await fixture();
+      const p = await declarePayment(
+        harness.db,
+        paymentInput(current.apartmentId, current.tenantId, 10_000),
+        owner,
+        OPTIONS,
+      );
+
+      await harness.db.insert(harness.schema.paymentReceiptVersions).values({
+        paymentId: p.payment.id,
+        version: 1,
+        isActive: false,
+        generatedByUserId: SEED_IDS.ownerA,
+        replacementReason: 'Remplacé par la version 2',
+      });
+
+      const [v2] = await harness.db
+        .insert(harness.schema.paymentReceiptVersions)
+        .values({
+          paymentId: p.payment.id,
+          version: 2,
+          isActive: true,
+          generatedByUserId: SEED_IDS.ownerA,
+        })
+        .returning();
+
+      expect(v2).toBeDefined();
+      expect(v2!.version).toBe(2);
+      expect(v2!.isActive).toBe(true);
+    });
   });
 });
