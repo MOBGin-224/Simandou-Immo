@@ -276,9 +276,9 @@ export default function CancelPaymentClient({
             size="lg"
             fullWidth
             className="min-h-14 text-base font-semibold"
-            onClick={() => router.push('/paiements')}
+            onClick={() => router.push(`/paiements/${encodeURIComponent(paymentId)}`)}
           >
-            Retour à la liste des paiements
+            Voir le détail du paiement
           </Button>
         </Card>
       </div>

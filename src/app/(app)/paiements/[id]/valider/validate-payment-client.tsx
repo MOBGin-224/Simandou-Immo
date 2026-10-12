@@ -262,7 +262,7 @@ export default function ValidatePaymentClient({ paymentId }: { paymentId: string
   if (!payment) {
     return (
       <div className="flex max-w-xl flex-col gap-6">
-        <PageHeader title="Valider un paiement" back={{ href: '/mon-logement', label: 'Retour' }} />
+        <PageHeader title="Valider un paiement" back={{ href: '/paiements', label: 'Retour' }} />
         <Alert tone="danger">{errorMessage ?? 'Impossible de charger ce paiement.'}</Alert>
       </div>
     );
@@ -273,7 +273,7 @@ export default function ValidatePaymentClient({ paymentId }: { paymentId: string
       <PageHeader
         title={payment.status === 'CONFIRMED' ? 'Paiement confirmé' : 'Vérifier un paiement'}
         description="Vérifiez les informations avant de confirmer cette déclaration."
-        back={{ href: '/mon-logement', label: 'Retour' }}
+        back={{ href: `/paiements/${encodeURIComponent(paymentId)}`, label: 'Retour' }}
       />
 
       {errorMessage ? <Alert tone="danger">{errorMessage}</Alert> : null}

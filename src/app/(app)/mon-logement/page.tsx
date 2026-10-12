@@ -120,6 +120,14 @@ export default async function MyApartmentPage() {
     ? describeLeaseApartment(activeLease.apartment)
     : describeApartment(tenant.apartment);
 
+  /*
+   * Appartement à transmettre à la déclaration de paiement : le bail fait foi
+   * dès qu'il y en a un, exactement comme pour `apartmentLabel` ci-dessus.
+   */
+  const paymentApartmentId = activeLease
+    ? activeLease.apartment.id
+    : (tenant.apartment?.id ?? null);
+
   const details: { label: string; value: string }[] = [
     { label: 'Logement', value: apartmentLabel },
     { label: 'Gestion assurée par', value: tenant.organizationName },
@@ -341,11 +349,33 @@ export default async function MyApartmentPage() {
         ) : null}
       </Card>
 
+      <Card className="flex flex-col gap-4">
+        <Overline>Mes paiements</Overline>
+        <p className="text-sm text-muted">
+          Déclarez un règlement que vous avez effectué, ou consultez l&apos;historique de vos
+          paiements et leur statut de validation.
+        </p>
+
+        <div className="flex flex-col gap-3">
+          {paymentApartmentId ? (
+            <Link
+              href={`/paiements/declarer?appartement=${encodeURIComponent(paymentApartmentId)}&locataire=${encodeURIComponent(tenant.id)}`}
+              className={buttonClasses('primary', 'md', true)}
+            >
+              Déclarer un paiement
+            </Link>
+          ) : null}
+          <Link href="/paiements" className={buttonClasses('secondary', 'md', true)}>
+            Voir mes paiements
+          </Link>
+        </div>
+      </Card>
+
       <Card className="flex flex-col gap-3">
         <Overline>Prochainement</Overline>
         <p className="text-sm text-muted">
-          Vos paiements, vos quittances et vos incidents apparaîtront ici. Ils arriveront avec les
-          prochaines étapes du produit, et rien ne vous est demandé en attendant.
+          Vos quittances et vos incidents apparaîtront ici. Ils arriveront avec les prochaines
+          étapes du produit, et rien ne vous est demandé en attendant.
         </p>
       </Card>
     </div>

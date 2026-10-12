@@ -199,7 +199,7 @@ export default function PaymentsListClient({ canDeclare }: { canDeclare: boolean
         actions={
           canDeclare ? (
             <Link
-              href="/paiements/declarer"
+              href="/locataires"
               className={cn(buttonClasses('primary', 'md'), 'min-h-11 font-medium')}
             >
               Déclarer un paiement
@@ -243,7 +243,7 @@ export default function PaymentsListClient({ canDeclare }: { canDeclare: boolean
           action={
             canDeclare ? (
               <Link
-                href="/paiements/declarer"
+                href="/locataires"
                 className={cn(buttonClasses('primary', 'md'), 'font-medium')}
               >
                 Déclarer un paiement

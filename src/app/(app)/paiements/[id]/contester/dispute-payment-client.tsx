@@ -248,10 +248,7 @@ export default function DisputePaymentClient({ paymentId }: { paymentId: string 
   if (!payment) {
     return (
       <div className="flex max-w-xl flex-col gap-6">
-        <PageHeader
-          title="Contester un paiement"
-          back={{ href: '/mon-logement', label: 'Retour' }}
-        />
+        <PageHeader title="Contester un paiement" back={{ href: '/paiements', label: 'Retour' }} />
         <Alert tone="danger">{errorMessage ?? 'Impossible de charger ce paiement.'}</Alert>
       </div>
     );
@@ -264,7 +261,7 @@ export default function DisputePaymentClient({ paymentId }: { paymentId: string 
         <PageHeader
           title="Paiement contesté"
           description="Cette déclaration a été contestée et n'est pas comptabilisée."
-          back={{ href: '/mon-logement', label: 'Retour' }}
+          back={{ href: `/paiements/${encodeURIComponent(paymentId)}`, label: 'Retour' }}
         />
 
         <Card className="flex flex-col gap-5 p-5 sm:p-6">
@@ -288,9 +285,9 @@ export default function DisputePaymentClient({ paymentId }: { paymentId: string 
             size="lg"
             fullWidth
             className="min-h-14 text-base font-semibold"
-            onClick={() => router.push('/mon-logement')}
+            onClick={() => router.push(`/paiements/${encodeURIComponent(paymentId)}`)}
           >
-            Retour
+            Voir le détail du paiement
           </Button>
         </Card>
       </div>
@@ -302,7 +299,7 @@ export default function DisputePaymentClient({ paymentId }: { paymentId: string 
       <PageHeader
         title="Contester un paiement"
         description="Signalez une contestation concernant ce règlement."
-        back={{ href: `/paiements/${encodeURIComponent(paymentId)}/valider`, label: 'Retour' }}
+        back={{ href: `/paiements/${encodeURIComponent(paymentId)}`, label: 'Retour' }}
       />
 
       {errorMessage ? <Alert tone="danger">{errorMessage}</Alert> : null}
