@@ -17,7 +17,6 @@ import { formatDate } from '@/lib/ui/format';
 import {
   declarePaymentRequest,
   describePaymentMethod,
-  listPaymentsRequest,
   type PaymentMethod,
 } from '@/modules/payments/client';
 
@@ -39,17 +38,13 @@ type DeclaredPaymentSuccess = {
 
 function DeclarePaymentContent() {
   const searchParams = useSearchParams();
-  const initialApartmentId =
-    searchParams.get('appartement') ?? searchParams.get('apartmentId') ?? '';
-  const initialTenantId = searchParams.get('locataire') ?? searchParams.get('tenantId') ?? '';
+  const apartmentId = searchParams.get('appartement')?.trim() ?? '';
+  const tenantId = searchParams.get('locataire')?.trim() ?? '';
 
-  const [apartmentId, setApartmentId] = useState(initialApartmentId);
-  const [tenantId, setTenantId] = useState(initialTenantId);
   const [amount, setAmount] = useState('');
   const [method, setMethod] = useState<PaymentMethod>('MOBILE_MONEY');
   const [paidAt, setPaidAt] = useState(() => new Date().toISOString().slice(0, 10));
   const [reference, setReference] = useState('');
-  const [proofFileName, setProofFileName] = useState('');
 
   const [outstanding, setOutstanding] = useState<OutstandingState | null>(null);
   const [loadingOutstanding, setLoadingOutstanding] = useState(true);
@@ -84,22 +79,6 @@ function DeclarePaymentContent() {
     };
   }, []);
 
-  // 2. Si apartmentId ou tenantId non fournis, tentative de déduction via GET /api/v1/payments
-  useEffect(() => {
-    if (initialApartmentId && initialTenantId) return;
-
-    listPaymentsRequest({ page: 1 })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((payload) => {
-        if (payload?.data && Array.isArray(payload.data) && payload.data.length > 0) {
-          const recent = payload.data[0];
-          if (!apartmentId && recent.apartmentId) setApartmentId(recent.apartmentId);
-          if (!tenantId && recent.tenantId) setTenantId(recent.tenantId);
-        }
-      })
-      .catch(() => {});
-  }, [initialApartmentId, initialTenantId, apartmentId, tenantId]);
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErrorMessage(null);
@@ -108,16 +87,6 @@ function DeclarePaymentContent() {
     const parsedAmount = parseInt(amount, 10);
     if (Number.isNaN(parsedAmount) || parsedAmount <= 0) {
       setFieldErrors({ amount: ['Veuillez saisir un montant positif supérieur à zéro.'] });
-      return;
-    }
-
-    if (!apartmentId.trim()) {
-      setFieldErrors({ apartmentId: ['Identifiant du logement obligatoire.'] });
-      return;
-    }
-
-    if (!tenantId.trim()) {
-      setFieldErrors({ tenantId: ['Identifiant du locataire obligatoire.'] });
       return;
     }
 
@@ -161,7 +130,7 @@ function DeclarePaymentContent() {
     return (
       <div className="flex max-w-xl flex-col gap-6">
         <PageHeader
-          title="Paiement déclaré avec succès"
+          title="Paiement déclaré, en attente de validation"
           description="Votre déclaration a été transmise pour validation croisée."
         />
 
@@ -223,7 +192,6 @@ function DeclarePaymentContent() {
                 setDeclaredPayment(null);
                 setAmount('');
                 setReference('');
-                setProofFileName('');
               }}
               className={buttonClasses('secondary', 'md', true)}
             >
@@ -235,8 +203,30 @@ function DeclarePaymentContent() {
     );
   }
 
-  const needsManualIds = !initialApartmentId || !initialTenantId;
+  if (!apartmentId || !tenantId) {
+    return (
+      <div className="flex max-w-xl flex-col gap-6">
+        <PageHeader
+          title="Déclarer un paiement"
+          back={{ href: '/mon-logement', label: 'Retour' }}
+        />
+        <Card className="flex flex-col gap-4 p-5">
+          <p className="text-sm text-muted">
+            Pour déclarer un paiement, accédez à cet écran depuis votre logement.
+          </p>
+          <Link
+            href="/mon-logement"
+            className={cn(buttonClasses('primary', 'md', true), 'font-semibold')}
+          >
+            Retour à mon logement
+          </Link>
+        </Card>
+      </div>
+    );
+  }
 
+  // TODO(DEC-033): champ de preuve à réintroduire quand le stockage
+  // objet sera tranché. Voir DEC-056 point 4.
   return (
     <div className="flex max-w-xl flex-col gap-6">
       <PageHeader
@@ -362,78 +352,6 @@ function DeclarePaymentContent() {
             />
           )}
         </Field>
-
-        {/* Justificatif / Preuve (upload facultatif) */}
-        <Field
-          id="proof"
-          label="Justificatif ou reçu"
-          hint="Photo de reçu ou capture Mobile Money (JPG, PNG ou PDF, 5 Mo max). Stockage effectif à venir (DEC-033)."
-        >
-          {(attrs) => (
-            <div className="flex flex-col gap-1.5">
-              <Input
-                {...attrs}
-                type="file"
-                accept="image/jpeg,image/png,application/pdf"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  setProofFileName(file ? file.name : '');
-                }}
-              />
-              {proofFileName ? (
-                <span className="text-xs text-muted">Pièce sélectionnée : {proofFileName}</span>
-              ) : null}
-            </div>
-          )}
-        </Field>
-
-        {/* Logement et Locataire (visibles si non fournis dans l'URL) */}
-        {needsManualIds ? (
-          <div className="rounded-md border border-line bg-surface-subtle p-3 flex flex-col gap-4">
-            <Field
-              id="apartmentId"
-              label="Identifiant du logement"
-              required
-              errors={fieldErrors?.apartmentId}
-              hint="Identifiant technique unique du logement concerné."
-            >
-              {(attrs) => (
-                <Input
-                  {...attrs}
-                  type="text"
-                  required
-                  placeholder="UUID de l'appartement"
-                  value={apartmentId}
-                  onChange={(e) => setApartmentId(e.target.value)}
-                />
-              )}
-            </Field>
-
-            <Field
-              id="tenantId"
-              label="Identifiant du locataire"
-              required
-              errors={fieldErrors?.tenantId}
-              hint="Identifiant technique de la personne locataire."
-            >
-              {(attrs) => (
-                <Input
-                  {...attrs}
-                  type="text"
-                  required
-                  placeholder="UUID du locataire"
-                  value={tenantId}
-                  onChange={(e) => setTenantId(e.target.value)}
-                />
-              )}
-            </Field>
-          </div>
-        ) : (
-          <>
-            <input type="hidden" name="apartmentId" value={apartmentId} />
-            <input type="hidden" name="tenantId" value={tenantId} />
-          </>
-        )}
 
         {/* Bouton de déclaration mobile first (56px min) */}
         <Button
