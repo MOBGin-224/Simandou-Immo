@@ -142,6 +142,8 @@ Lorsqu'une contradiction est détectée, elle doit être corrigée dans le docum
 | DEC-053 | Calendrier de génération des loyers | VERROUILLÉE | aucun |
 | DEC-054 | Répartition et cycle de vie d'une charge commune | DÉDUITE | aucun |
 | DEC-055 | Saisie manuelle des paiements au MVP | VERROUILLÉE | aucun |
+| DEC-056 | Déclaration et validation des paiements manuels | VERROUILLÉE | aucun |
+| DEC-057 | Reçus de paiement et vérification publique | VERROUILLÉE | aucun |
 
 
 ---
@@ -2320,3 +2322,181 @@ Le paiement manuel suit un workflow en deux temps. La personne qui déclare le p
 13. **Articulation avec DEC-034** : les paiements manuels et les paiements numériques coexistent ; le flux manuel n'attend pas la décision sur le fournisseur numérique.
 
 **Impact si changé** : workflow de paiement, statuts et schéma de données, validations et allocations, notifications, preuves, quittances et interfaces du Lot 11.
+
+---
+
+## DEC-057 : Reçus de paiement et vérification publique
+
+**Statut** : VERROUILLÉE
+**Date** : 12 octobre 2026
+**Dépend de** : DEC-016, DEC-020, DEC-055, DEC-056
+
+**Décision** :
+
+Un reçu PDF peut être généré pour un paiement manuel. Il est vérifiable 
+publiquement par un tiers via un QR code imprimé dessus. La vérification 
+n'expose que des informations minimales et n'accorde aucun accès aux 
+données métier privées.
+
+### 1. Conditions d'émission
+
+1.1. Un reçu de paiement ne peut être émis que pour un paiement au statut 
+CONFIRMED.
+
+1.2. Un paiement PENDING ou DISPUTED ne génère pas de reçu.
+
+1.3. Un paiement CONFIRMED qui est ensuite CANCELLED ne supprime pas le 
+reçu déjà émis. Un nouveau PDF marqué ANNULÉ est généré, avec sa propre 
+version, pour signaler que le reçu initial n'est plus valide.
+
+1.4. Aucune suppression physique de reçu. Les versions successives 
+coexistent, la plus récente est marquée active, les précédentes sont 
+marquées remplacées ou invalidées.
+
+### 2. Contenu du reçu PDF
+
+2.1. Le reçu affiche :
+   - Le logo SIMANDOU IMMO
+   - Le titre REÇU DE PAIEMENT ou REÇU DE PAIEMENT ANNULÉ selon le statut
+   - Le numéro de reçu (reference_number, format CODE-IMMEUBLE-AAAA-NNNN)
+   - Un QR code vers la page publique de vérification
+   - Les informations d'identification : locataire, appartement, immeuble
+   - Le montant, la devise, le moyen de paiement, la référence si fournie
+   - La date du paiement (paid_at)
+   - La date de déclaration (declared_at) et le déclarant
+   - La date de validation (validated_at) et le validateur si CONFIRMED
+   - Le détail des allocations : nature de la créance (loyer ou charge), 
+     période, montant alloué
+   - Les mentions légales : "Ce reçu atteste d'une déclaration et d'une 
+     validation dans SIMANDOU IMMO. Il ne remplace pas une quittance 
+     fiscale."
+   - Le numéro de version du document
+
+2.2. Le détail des allocations provient des allocations enregistrées au 
+moment de la génération. Il n'est pas recalculé depuis les soldes actuels 
+qui peuvent avoir évolué.
+
+2.3. Les montants affichés doivent être cohérents avec les allocations 
+persistées. Une incohérence bloque la génération et déclenche une erreur 
+d'intégrité. Aucun montant ne doit être fabriqué ou extrapolé.
+
+2.4. Le reçu n'affiche pas l'historique des autres paiements du locataire. 
+Un reçu prouve une opération, il n'est pas un relevé de compte. 
+L'historique complet reste accessible dans l'application.
+
+### 3. Page publique de vérification
+
+3.1. Une route /verify/[publicReference] est accessible sans 
+authentification. C'est une exception limitée à la règle d'autorisation 
+systématique côté serveur.
+
+3.2. La page publique affiche uniquement :
+   - La reconnaissance ou non du reçu : "Reçu reconnu" ou "Vérification 
+     impossible"
+   - Le statut actuel du paiement (PENDING, CONFIRMED, DISPUTED, CANCELLED)
+   - La validité du document (actif, remplacé, invalidé)
+   - Le montant et la devise
+   - La date du paiement
+   - La date de validation si elle existe
+   - Le numéro de version du document
+   - La date de la vérification
+
+3.3. La page publique n'affiche jamais :
+   - Le nom du locataire, ni même masqué
+   - Le téléphone, l'adresse, l'appartement ou l'immeuble
+   - Le détail des allocations
+   - Le motif d'une contestation
+   - L'identité du contestataire ou du validateur
+   - Aucune donnée personnelle
+
+3.4. La publicReference est distincte de l'identifiant interne du 
+paiement. Elle est non séquentielle et imprévisible. Elle ne peut pas 
+être devinée par énumération.
+
+3.5. Une référence inconnue, invalide ou non vérifiable donne une réponse 
+neutre : "Vérification impossible. Vérifiez la référence du document ou 
+contactez le gestionnaire."
+
+3.6. La route est protégée par un rate limit pour empêcher l'énumération 
+et les abus. Le seuil exact est un paramètre technique, pas une règle 
+métier.
+
+3.7. La page publique ne propose aucun formulaire de recherche, aucune 
+liste de reçus, aucun accès à d'autres ressources.
+
+3.8. La page publique ne prétend pas vérifier un mouvement d'argent chez 
+un opérateur mobile ou une banque. Elle vérifie uniquement ce qui est 
+enregistré dans SIMANDOU IMMO.
+
+### 4. Versions et corrections
+
+4.1. Une réimpression à contenu identique ne crée pas de nouvelle version. 
+Le reçu conserve sa version et son numéro.
+
+4.2. Une correction réelle (changement de montant, de période, de 
+bénéficiaire, correction d'erreur) crée une nouvelle version. L'ancienne 
+est conservée et marquée remplacée.
+
+4.3. Chaque version est traçable : auteur, date, raison dans l'historique 
+d'audit.
+
+4.4. Le numéro de version est imprimé sur le reçu et encodé dans le QR 
+code pour que la page publique sache quelle version a été présentée.
+
+4.5. Si un reçu présenté est une version remplacée, la page publique 
+indique "Ce reçu a été remplacé. Une version plus récente existe." sans 
+accuser ni alerter.
+
+4.6. Aucune empreinte SHA-256 n'est imposée par cette décision. Une 
+empreinte d'intégrité pourra être ajoutée par une décision ultérieure si 
+un besoin réel se présente.
+
+### 5. Contestations
+
+5.1. L'historique détaillé des contestations est conservé en base privée. 
+Accès réservé aux rôles autorisés selon les règles existantes.
+
+5.2. Le reçu affiche uniquement un résumé synthétique de l'état de 
+contestation : "Aucune contestation", "Contestation en cours", 
+"Contestation résolue", ou "Reçu invalidé par annulation".
+
+5.3. Le résumé ne révèle jamais : motif libre, identité du contestataire, 
+note de résolution, chronologie détaillée.
+
+5.4. Les événements de contestation ne sont jamais effacés ni écrasés. 
+L'historique reste accessible en interne selon les permissions applicables.
+
+5.5. Cette décision ne modifie pas DEC-016 ni DEC-056. DISPUTED reste 
+dans l'énumération payment_status conformément à DEC-056. Aucun nouveau 
+statut n'est ajouté.
+
+### 6. Articulation avec les décisions existantes
+
+6.1. DEC-016 définit les statuts canoniques. DEC-056 ajoute DISPUTED. 
+Cette décision ne modifie ni l'un ni l'autre.
+
+6.2. DEC-020 interdit la suppression physique. Les reçus, leurs versions 
+et leurs historiques suivent cette règle.
+
+6.3. DEC-055 prévoit qu'un reçu formel relève du Lot 12. Cette décision 
+précise les conditions et le contenu.
+
+6.4. Quand les quittances formelles seront implémentées (Lot 12), elles 
+auront leur propre cycle. Un reçu de paiement n'est pas une quittance. 
+Une quittance atteste le règlement complet d'une période. Un reçu atteste 
+un paiement précis.
+
+### 7. Éléments à trancher ultérieurement
+
+7.1. Format exact de la publicReference (dérivée du numéro de reçu, ou 
+générée séparément).
+
+7.2. Nombre de versions conservées par reçu.
+
+7.3. Rôles exacts autorisés à consulter l'historique détaillé des 
+contestations.
+
+7.4. Rendu visuel exact du filigrane ANNULÉ sur le PDF.
+
+**Impact si changé** : refonte du PDF, de la page publique, du schéma 
+de versions, du QR code, des tests.
