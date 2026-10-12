@@ -71,3 +71,23 @@ export async function listPaymentsRequest(filters: ListPaymentsFilters = {}): Pr
     },
   });
 }
+
+/** Appelle l'API GET /api/v1/payments/[id] pour consulter un paiement. */
+export async function getPaymentRequest(paymentId: string): Promise<Response> {
+  return fetch(`/api/v1/payments/${encodeURIComponent(paymentId)}`, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+    },
+  });
+}
+
+/** Appelle l'API POST /api/v1/payments/[id]/validate pour valider un paiement. */
+export async function validatePaymentRequest(paymentId: string): Promise<Response> {
+  return fetch(`/api/v1/payments/${encodeURIComponent(paymentId)}/validate`, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+    },
+  });
+}
