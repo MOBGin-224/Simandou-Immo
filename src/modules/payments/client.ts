@@ -18,6 +18,27 @@ export type DeclarePaymentInput = {
   reference?: string;
 };
 
+export type PaymentItem = {
+  id: string;
+  organizationId: string;
+  propertyId: string;
+  apartmentId: string;
+  tenantId: string;
+  amount: number;
+  currency: string;
+  method: PaymentMethod;
+  reference?: string | null;
+  status: PaymentStatus;
+  paidAt: string;
+  declaredAt: string;
+  referenceNumber: string;
+  createdBy?: string | null;
+  validatedByUserId?: string | null;
+  disputedByUserId?: string | null;
+  cancelledAt?: string | null;
+  cancellationReason?: string | null;
+};
+
 export type ListPaymentsFilters = {
   page?: number;
   status?: PaymentStatus;
