@@ -90,9 +90,51 @@ export type PaymentListResult = {
   meta: { total: number; page: number; pageSize: number };
 };
 
+export type PaymentWithPublicReceiptVersion = {
+  payment: Payment;
+  activeReceiptVersion: PaymentReceiptVersion | null;
+  versionCount: number;
+};
+
 type PaymentAllocation = typeof paymentAllocations.$inferSelect;
 
 const PAYMENT_LIST_PAGE_SIZE = 20;
+
+export async function findPaymentByPublicReference(
+  db: ReceivablesDatabase,
+  publicReference: string,
+): Promise<PaymentWithPublicReceiptVersion | null> {
+  const [payment] = await db
+    .select()
+    .from(payments)
+    .where(eq(payments.publicReference, publicReference))
+    .limit(1);
+
+  if (!payment) return null;
+
+  const [activeReceiptVersion, [versionCountRow]] = await Promise.all([
+    db
+      .select()
+      .from(paymentReceiptVersions)
+      .where(
+        and(
+          eq(paymentReceiptVersions.paymentId, payment.id),
+          eq(paymentReceiptVersions.isActive, true),
+        ),
+      )
+      .limit(1),
+    db
+      .select({ total: count() })
+      .from(paymentReceiptVersions)
+      .where(eq(paymentReceiptVersions.paymentId, payment.id)),
+  ]);
+
+  return {
+    payment,
+    activeReceiptVersion: activeReceiptVersion[0] ?? null,
+    versionCount: versionCountRow?.total ?? 0,
+  };
+}
 
 function paymentVisibilityCondition(context: AccessContext) {
   const scopes = readablePropertyScopes(context, 'payment.read');

@@ -5,13 +5,19 @@
  * les autres modules utilisent uniquement ce cas d'usage.
  */
 
-export type { PaymentNewBalance, PaymentServiceOptions, RecordPaymentResult } from './service';
+export type {
+  PaymentNewBalance,
+  PaymentServiceOptions,
+  PublicVerificationData,
+  RecordPaymentResult,
+} from './service';
 export {
   cancelPayment,
   declarePayment,
   disputePayment,
   generatePublicReference,
   getPaymentById,
+  getPublicVerification,
   getPaymentReceiptPdf,
   listPayments,
   validatePayment,

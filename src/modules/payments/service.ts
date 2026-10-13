@@ -37,6 +37,7 @@ import {
   findActiveLeaseForPayment,
   findApartmentForPayment,
   findOrCreateActiveReceiptVersion,
+  findPaymentByPublicReference,
   findPaymentWithAllocations,
   findPaymentWithNamesForReceipt,
   insertPaymentTx,
@@ -62,9 +63,51 @@ export type RecordPaymentResult = {
   newBalances: PaymentNewBalance[];
 };
 
+export type PublicVerificationData = {
+  isRecognized: true;
+  paymentStatus: 'PENDING' | 'CONFIRMED' | 'DISPUTED' | 'CANCELLED';
+  documentStatus: 'actif' | 'remplacé' | 'invalidé';
+  amount: number;
+  currency: string;
+  paidAt: string;
+  validatedAt: string | null;
+  version: number;
+  verifiedAt: string;
+};
+
 export type PaymentServiceOptions = {
   now?: Date;
 };
+
+export async function getPublicVerification(
+  db: ReceivablesDatabase,
+  publicReference: string,
+): Promise<PublicVerificationData | null> {
+  const result = await findPaymentByPublicReference(db, publicReference);
+  if (!result?.activeReceiptVersion) return null;
+
+  const { payment, activeReceiptVersion } = result;
+  if (payment.status === 'FAILED') return null;
+
+  const documentStatus =
+    payment.status === 'CANCELLED'
+      ? 'invalidé'
+      : activeReceiptVersion.isActive
+        ? 'actif'
+        : 'remplacé';
+
+  return {
+    isRecognized: true,
+    paymentStatus: payment.status,
+    documentStatus,
+    amount: Number(payment.amount),
+    currency: payment.currency,
+    paidAt: payment.paidAt,
+    validatedAt: payment.validatedAt?.toISOString() ?? null,
+    version: activeReceiptVersion.version,
+    verifiedAt: new Date().toISOString(),
+  };
+}
 
 export async function listPayments(
   db: ReceivablesDatabase,
