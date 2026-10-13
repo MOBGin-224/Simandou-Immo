@@ -12,6 +12,7 @@ import { Overline } from '@/components/ui/overline';
 import { PageHeader } from '@/components/ui/page-header';
 import { cn } from '@/lib/ui/cn';
 import { formatDate } from '@/lib/ui/format';
+import { buildMessengerShareUrl, buildWhatsAppShareUrl } from '@/lib/ui/share-links';
 import {
   describePaymentMethod,
   getPaymentRequest,
@@ -33,6 +34,7 @@ type Payment = {
   paidAt: string;
   declaredAt: string;
   referenceNumber: string;
+  publicReference: string;
   createdBy: string | null;
   validatedByUserId: string | null;
   validatedAt: string | null;
@@ -134,9 +136,11 @@ const STATUS_TONES: Record<PaymentStatus, BadgeTone> = {
 export default function PaymentDetailClient({
   paymentId,
   isOwnerOrManager,
+  appUrl,
 }: {
   paymentId: string;
   isOwnerOrManager: boolean;
+  appUrl: string;
 }) {
   const [payment, setPayment] = useState<Payment | null>(null);
   const [allocations, setAllocations] = useState<PaymentAllocation[]>([]);
@@ -147,7 +151,6 @@ export default function PaymentDetailClient({
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [supplementErrors, setSupplementErrors] = useState<string[]>([]);
-
   useEffect(() => {
     let cancelled = false;
 
@@ -406,17 +409,43 @@ export default function PaymentDetailClient({
         ) : null}
 
         {payment.status === 'CONFIRMED' || payment.status === 'CANCELLED' ? (
-          <a
-            href={`/api/v1/payments/${encodeURIComponent(paymentId)}/receipt`}
-            target="_blank"
-            rel="noopener"
-            className={cn(
-              buttonClasses('secondary', 'lg', true),
-              'min-h-14 text-base font-semibold',
-            )}
-          >
-            Télécharger le reçu
-          </a>
+          <>
+            <a
+              href={`/api/v1/payments/${encodeURIComponent(paymentId)}/receipt`}
+              target="_blank"
+              rel="noopener"
+              className={cn(
+                buttonClasses('secondary', 'lg', true),
+                'min-h-14 text-base font-semibold',
+              )}
+            >
+              Télécharger le reçu
+            </a>
+            {appUrl ? (
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <a
+                  href={buildWhatsAppShareUrl(
+                    `Vérifiez ce reçu SIMANDOU IMMO: ${appUrl}/verify/${encodeURIComponent(payment.publicReference)}`,
+                  )}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={buttonClasses('secondary', 'md', true)}
+                >
+                  Partager sur WhatsApp
+                </a>
+                <a
+                  href={buildMessengerShareUrl(
+                    `${appUrl}/verify/${encodeURIComponent(payment.publicReference)}`,
+                  )}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={buttonClasses('secondary', 'md', true)}
+                >
+                  Partager sur Messenger
+                </a>
+              </div>
+            ) : null}
+          </>
         ) : null}
 
         {canCancel ? (

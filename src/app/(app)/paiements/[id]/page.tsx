@@ -1,4 +1,5 @@
 import { requireAccessContextOrSignIn } from '@/lib/auth/guard';
+import { getEnv } from '@/lib/env';
 
 import PaymentDetailClient from './payment-detail-client';
 
@@ -10,5 +11,11 @@ export default async function PaymentDetailPage({ params }: { params: Promise<{ 
   const roles = context.memberships.map((membership) => membership.role);
   const isOwnerOrManager = roles.some((role) => role === 'OWNER' || role === 'MANAGER');
 
-  return <PaymentDetailClient paymentId={id} isOwnerOrManager={isOwnerOrManager} />;
+  return (
+    <PaymentDetailClient
+      paymentId={id}
+      isOwnerOrManager={isOwnerOrManager}
+      appUrl={getEnv().APP_URL}
+    />
+  );
 }
