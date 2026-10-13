@@ -144,6 +144,7 @@ Lorsqu'une contradiction est détectée, elle doit être corrigée dans le docum
 | DEC-055 | Saisie manuelle des paiements au MVP | VERROUILLÉE | aucun |
 | DEC-056 | Déclaration et validation des paiements manuels | VERROUILLÉE | aucun |
 | DEC-057 | Reçus de paiement et vérification publique | VERROUILLÉE | aucun |
+| DEC-058 | Quittances formelles (Lot 12) | VERROUILLÉE | aucun |
 
 
 ---
@@ -2500,3 +2501,210 @@ contestations.
 
 **Impact si changé** : refonte du PDF, de la page publique, du schéma 
 de versions, du QR code, des tests.
+
+---
+
+## DEC-058 : Quittances formelles (Lot 12)
+
+**Statut** : VERROUILLÉE
+**Date** : 13 octobre 2026
+**Dépend de** : DEC-016, DEC-020, DEC-024, DEC-033, DEC-055, DEC-056, DEC-057
+**Remplace** : DEC-024 sur le modèle des quittances uniquement
+
+**Décision** :
+
+Le Lot 12 produit des quittances formelles. Elles sont distinctes des 
+reçus de paiement du Lot 11.
+
+### 1. Terminologie
+
+1.1. Un reçu de paiement (Lot 11, DEC-057) atteste un paiement précis.
+
+1.2. Une quittance formelle (Lot 12) atteste qu'un bail est libéré de ses 
+obligations financières pour une période donnée (un mois calendaire).
+
+1.3. Les tickets MVP-BACKLOG-048, 049 et 050 désignent la quittance 
+formelle, malgré l'emploi du mot anglais "Receipt" dans le backlog.
+
+### 2. Modèle métier
+
+2.1. Une quittance correspond à un bail et à une période (un mois 
+calendaire).
+
+2.2. Clé métier unique : (lease_id, period). La période est normalisée au 
+premier jour du mois.
+
+2.3. Un locataire qui change d'appartement en cours de mois produit deux 
+quittances distinctes, une par bail.
+
+2.4. Le prorata de loyer n'est pas dans le périmètre du Lot 12. Chaque 
+bail porte ses propres créances, chacune attachée à ses propres 
+échéances.
+
+2.5. La table s'appelle lease_receipts. Elle référence le bail, la 
+période, la liste des créances couvertes et la version courante.
+
+### 3. Conditions d'émission
+
+3.1. Une quittance ne peut être émise que si les conditions suivantes 
+sont réunies :
+
+a) La période possède au moins une créance admissible (échéance de loyer 
+   ou allocation de charge).
+b) Toutes les créances prévues pour la période sont finalisées.
+c) Le solde restant à payer sur ces créances est nul après prise en 
+   compte des allocations valides.
+d) Seuls les paiements CONFIRMED et leurs allocations valides 
+   contribuent au règlement.
+
+3.2. Fenêtre de finalisation : une période est considérée comme finalisée 
+à partir du 6 du mois suivant. Toute créance publiée après cette date 
+n'est plus rattachée à la quittance de la période concernée.
+
+3.3. L'émission est automatique. Un job planifié generateMonthlyReceipts 
+tourne le 6 de chaque mois et génère toutes les quittances éligibles de 
+la période écoulée.
+
+3.4. Aucun utilisateur ne déclenche manuellement une émission. Le 
+locataire, le gestionnaire et le propriétaire consultent les quittances 
+émises selon leur périmètre.
+
+### 4. Contenu de la quittance
+
+4.1. La quittance contient :
+
+- Le logo SIMANDOU IMMO
+- Le titre QUITTANCE DE LOYER
+- Un numéro de quittance au format CODE-IMMEUBLE-AAAA-MM-NNNN
+- Un QR code vers la page publique de vérification
+- L'identité du locataire, de l'appartement, de l'immeuble
+- La période couverte (mois calendaire)
+- Le détail des créances couvertes : nature (loyer ou charge), période, 
+  montant dû, montant alloué
+- Le total attesté (somme des créances couvertes)
+- La date d'émission
+- Le numéro de version
+- Les mentions légales
+- Le timestamp de génération
+
+4.2. Les montants affichés correspondent aux allocations valides au 
+moment de l'émission. Ils ne sont pas recalculés à la lecture.
+
+4.3. Une nouvelle charge publiée après la fenêtre de finalisation 
+(point 3.2) n'est pas rattachée à la quittance de la période concernée. 
+Elle fera l'objet d'une quittance ultérieure.
+
+### 5. Versions et invalidation
+
+5.1. Une quittance peut avoir plusieurs versions. Chaque version est 
+figée à son émission.
+
+5.2. Deux états de version : ÉMISE et INVALIDÉE.
+
+5.3. Une version est invalidée lorsque :
+
+a) Un paiement rattaché à ses créances passe en CANCELLED ou DISPUTED.
+b) Une créance couverte change de montant après l'émission.
+c) Une erreur de calcul est détectée.
+
+5.4. Une invalidation conserve : date, motif, événement déclencheur 
+(identifiant du paiement annulé ou contesté).
+
+5.5. Une version invalidée n'est jamais réactivée ni réécrite. Si les 
+conditions d'émission sont de nouveau réunies, une nouvelle version est 
+créée.
+
+5.6. Une simple réimpression ou régénération du PDF ne crée pas de 
+nouvelle version.
+
+5.7. Le contenu historique de chaque version est conservé en base. Le PDF 
+est régénéré à la volée depuis ces données.
+
+### 6. Cas particuliers
+
+6.1. Paiement DISPUTED après émission : la quittance est invalidée avec 
+motif "paiement contesté". Une nouvelle version est émise si le litige se 
+résout sans changement de solde.
+
+6.2. Paiement CANCELLED après émission : la quittance est invalidée avec 
+motif "paiement annulé". Une nouvelle version n'est émise que si le 
+solde repasse à zéro grâce à d'autres paiements valides.
+
+6.3. Changement d'appartement en cours de mois : chaque bail produit sa 
+propre quittance pour la période. Pas de prorata.
+
+### 7. Vérification publique
+
+7.1. La page /verify/[publicReference] accepte les références de 
+quittances, comme pour les reçus de paiement (DEC-057).
+
+7.2. Elle affiche : reconnaissance, état (ÉMISE ou INVALIDÉE), période 
+couverte, montant total attesté, date d'émission, numéro de quittance, 
+date de vérification.
+
+7.3. Elle n'affiche jamais : nom du locataire, adresse, appartement, 
+immeuble, détail des créances, montants individuels.
+
+7.4. La référence publique de quittance est distincte de celle des reçus 
+de paiement. Préfixe Q- pour les quittances, R- pour les reçus.
+
+### 8. Exception DEC-033
+
+8.1. Le Lot 12 génère et transmet des quittances PDF sans stockage objet 
+persistant. Cette exception est explicite : DEC-033 reste OUVERTE pour 
+les documents et photos d'incidents, mais ne bloque plus le Lot 12.
+
+8.2. Les métadonnées, l'historique des versions et les informations 
+nécessaires à la reproduction du contenu de chaque quittance sont 
+conservés en base.
+
+8.3. L'absence de stockage PDF ne signifie pas absence d'historique.
+
+### 9. Remplacement de DEC-024
+
+9.1. Sur le modèle des quittances uniquement, DEC-024 est remplacée. La 
+table receipts avec document_id prévue par DEC-024 n'est pas créée.
+
+9.2. Le modèle retenu est lease_receipts (point 2.5), avec sa propre 
+table de versions lease_receipt_versions.
+
+9.3. DEC-024 reste applicable pour les autres documents, à préciser dans 
+une décision ultérieure.
+
+### 10. Relation avec DEC-056 point 9
+
+10.1. Le point 9 de DEC-056 décrit la quittance formelle du Lot 12, pas 
+le reçu de paiement du Lot 11.
+
+10.2. Le reçu de paiement du Lot 11 est défini par DEC-057. Il réutilise 
+des éléments visuels (logo, QR, numéro) par cohérence graphique, mais 
+reste un document distinct.
+
+10.3. La quittance du Lot 12 respecte les exigences du point 9 de DEC-056 
+sur son contenu.
+
+10.4. DEC-056 n'est pas modifiée.
+
+### 11. Critères d'acceptation pour les tickets du Lot 12
+
+11.1. MVP-BACKLOG-048 (Receipt Model) : les tables lease_receipts et 
+lease_receipt_versions sont créées. Une quittance est associée à un bail 
+et une période.
+
+11.2. MVP-BACKLOG-049 (Receipt Generation) : le job generateMonthlyReceipts 
+tourne le 6 de chaque mois. Il génère les quittances éligibles. Une 
+quittance est générée uniquement si toutes les conditions du point 3.1 
+sont réunies.
+
+11.3. MVP-BACKLOG-050 (Receipt UI) : le locataire, le gestionnaire et le 
+propriétaire peuvent consulter leurs quittances selon leur périmètre. Un 
+bouton "Télécharger la quittance" est disponible sur l'écran de détail.
+
+11.4. Toute quittance expose un QR code vers la page publique de 
+vérification.
+
+11.5. Une version invalidée reste visible dans l'historique avec son 
+motif d'invalidation.
+
+**Impact si changé** : refonte du modèle métier, du job de génération, du 
+PDF, de la page publique, des tests.
