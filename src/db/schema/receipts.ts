@@ -164,7 +164,43 @@ export const leaseReceiptVersions = pgTable(
   ],
 );
 
+/**
+ * Séquence de numérotation des quittances, par immeuble et par mois.
+ *
+ * Même forme que `payment_sequences` (Lot 11) : un compteur par immeuble,
+ * incrémenté sous verrou, pour produire un `referenceNumber` lisible et
+ * sans trou visible dans la numérotation (DEC-058, 4.1).
+ */
+export const leaseReceiptSequences = pgTable(
+  'lease_receipt_sequences',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'restrict' }),
+    propertyId: uuid('property_id')
+      .notNull()
+      .references(() => properties.id, { onDelete: 'restrict' }),
+    year: integer('year').notNull(),
+    month: integer('month').notNull(),
+    lastValue: integer('last_value').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('lease_receipt_sequences_property_year_month_unique').on(
+      table.propertyId,
+      table.year,
+      table.month,
+    ),
+    check('lease_receipt_sequences_month_range', sql`month >= 1 AND month <= 12`),
+    check('lease_receipt_sequences_last_value_non_negative', sql`last_value >= 0`),
+  ],
+);
+
 export type LeaseReceipt = typeof leaseReceipts.$inferSelect;
 export type NewLeaseReceipt = typeof leaseReceipts.$inferInsert;
 export type LeaseReceiptVersion = typeof leaseReceiptVersions.$inferSelect;
 export type NewLeaseReceiptVersion = typeof leaseReceiptVersions.$inferInsert;
+export type LeaseReceiptSequence = typeof leaseReceiptSequences.$inferSelect;
+export type NewLeaseReceiptSequence = typeof leaseReceiptSequences.$inferInsert;
