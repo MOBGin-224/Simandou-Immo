@@ -18,6 +18,7 @@ import {
   type AccessContext,
 } from '@/lib/authorization';
 import { openChargeReceivablesForTenant } from '@/modules/charges';
+import { invalidateReceiptForPayment } from '@/modules/receipts';
 import { openRentReceivablesForTenant } from '@/modules/rents';
 import {
   computeReceivableStatusAfterPayment,
@@ -595,6 +596,13 @@ export async function disputePayment(
     .returning();
 
   if (!updated) throw new Error('PAYMENT_DISPUTE_RETURNED_NO_ROW');
+
+  // DEC-058, 5.3.a : invalide toute quittance rattachée. En pratique, un
+  // paiement DISPUTED vient toujours de PENDING, avant qu'aucune quittance
+  // n'ait pu être émise (seul CONFIRMED le permet) : cet appel ne trouve rien
+  // dans le flux actuel, mais couvre la lettre de la décision.
+  await invalidateReceiptForPayment(db, updated.id, 'Paiement contesté', { now });
+
   return updated;
 }
 
@@ -621,7 +629,7 @@ export async function cancelPayment(
   const now = options.now ?? new Date();
 
   if (payment.status === 'CONFIRMED') {
-    return db.transaction(async (tx) => {
+    const updated = await db.transaction(async (tx) => {
       const allocations = await tx
         .select()
         .from(paymentAllocations)
@@ -699,6 +707,11 @@ export async function cancelPayment(
       if (!updated) throw new Error('PAYMENT_CANCEL_RETURNED_NO_ROW');
       return updated;
     });
+
+    // DEC-058, 5.3.a : hors de la transaction, après qu'elle a été validée.
+    await invalidateReceiptForPayment(db, updated.id, 'Paiement annulé', { now });
+
+    return updated;
   }
 
   const [updated] = await db
@@ -713,6 +726,12 @@ export async function cancelPayment(
     .returning();
 
   if (!updated) throw new Error('PAYMENT_CANCEL_RETURNED_NO_ROW');
+
+  // Un paiement PENDING ou DISPUTED annulé ici n'a jamais pu avoir de
+  // quittance (DEC-058, 1.1 : seul CONFIRMED en a une), mais l'appel couvre
+  // la lettre de 5.3.a sans coût pratique.
+  await invalidateReceiptForPayment(db, updated.id, 'Paiement annulé', { now });
+
   return updated;
 }
 

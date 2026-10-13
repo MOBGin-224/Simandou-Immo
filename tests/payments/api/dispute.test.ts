@@ -180,4 +180,14 @@ describe('POST /api/v1/payments/[id]/dispute', () => {
     expect(response.status).toBe(401);
     expect(result.error?.code).toBe('UNAUTHORIZED');
   });
+
+  it('conteste un paiement PENDING sans erreur (aucune quittance à invalider, DEC-058)', async () => {
+    const declared = await declaredBy(tenantContext);
+    mocks.requireAccessContext.mockResolvedValueOnce(managerContext);
+
+    const { response, result } = await post(declared.payment.id);
+
+    expect(response.status).toBe(200);
+    expect(result.data?.status).toBe('DISPUTED');
+  });
 });
