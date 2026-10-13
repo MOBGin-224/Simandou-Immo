@@ -1,6 +1,24 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { internalJobNotFound, isAuthorizedInternalJob } from '../../src/lib/http/internal-job';
+
+const mocks = vi.hoisted(() => ({
+  getDb: vi.fn(),
+  getEnv: vi.fn(),
+}));
+
+vi.mock('@/db/client', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/db/client')>()),
+  getDb: mocks.getDb,
+}));
+
+vi.mock('@/lib/env', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/env')>()),
+  getEnv: mocks.getEnv,
+}));
+
+import { POST } from '../../src/app/internal/jobs/generate-receipts/route';
+import { createTestDatabase, type TestDatabase } from '../helpers/database';
 
 /**
  * DEC-028 : « toute route `/internal/*` est inaccessible publiquement ».
@@ -81,5 +99,62 @@ describe('Garde des routes internes', () => {
       expect(response.status).not.toBe(403);
       expect(await response.text()).toBe('');
     });
+  });
+});
+
+/**
+ * Route du job `generateMonthlyReceipts` (DEC-058, 3.3) : même garde que les
+ * autres jobs internes, vérifiée ici de bout en bout plutôt qu'à l'unité,
+ * puisqu'aucune route de job n'avait encore de test à ce niveau.
+ */
+describe('POST /internal/jobs/generate-receipts', () => {
+  let harness: TestDatabase;
+  const SECRET = 'secret-interne-de-job-assez-long-pour-passer';
+
+  const request = (authorization?: string) =>
+    new Request('https://immo.test/internal/jobs/generate-receipts', {
+      method: 'POST',
+      headers: authorization === undefined ? {} : { authorization },
+    });
+
+  beforeAll(async () => {
+    harness = await createTestDatabase();
+  });
+
+  afterAll(async () => {
+    await harness.close();
+  });
+
+  it('répond 404 sans en-tête Authorization, jamais 401', async () => {
+    mocks.getEnv.mockReturnValue({ INTERNAL_JOB_SECRET: SECRET });
+
+    const response = await POST(request());
+
+    expect(response.status).toBe(404);
+    expect(response.status).not.toBe(401);
+  });
+
+  it('répond 404 avec un mauvais secret, jamais 401', async () => {
+    mocks.getEnv.mockReturnValue({ INTERNAL_JOB_SECRET: SECRET });
+
+    const response = await POST(request('Bearer mauvais-secret'));
+
+    expect(response.status).toBe(404);
+    expect(response.status).not.toBe(401);
+  });
+
+  it('répond 200 avec le bon secret, et un JSON de résultat', async () => {
+    mocks.getEnv.mockReturnValue({ INTERNAL_JOB_SECRET: SECRET });
+    mocks.getDb.mockReturnValue(harness.db);
+
+    const response = await POST(request(`Bearer ${SECRET}`));
+    const body = (await response.json()) as {
+      data?: { emitted: number; skipped: number; details: unknown[] };
+    };
+
+    expect(response.status).toBe(200);
+    expect(body.data?.emitted).toBeTypeOf('number');
+    expect(body.data?.skipped).toBeTypeOf('number');
+    expect(Array.isArray(body.data?.details)).toBe(true);
   });
 });

@@ -7,11 +7,14 @@ export type {
   EligibilityResult,
   EligibleAllocation,
   EligibleReceivable,
+  MonthlyReceiptJobDetail,
+  MonthlyReceiptJobResult,
   ReceiptServiceOptions,
 } from './service';
 export {
   checkEligibility,
   emitReceipt,
+  generateMonthlyReceiptsJob,
   getLeaseReceiptById,
   invalidateReceiptForPayment,
   listLeaseReceipts,

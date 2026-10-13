@@ -1,4 +1,4 @@
-import { and, eq, isNull, ne } from 'drizzle-orm';
+import { and, eq, isNotNull, isNull, ne } from 'drizzle-orm';
 
 import {
   chargeAllocations,
@@ -328,4 +328,90 @@ export async function listLeaseReceipts(
   filters: LeaseReceiptListFilters = {},
 ): Promise<LeaseReceiptListResult> {
   return listLeaseReceiptsForContext(db, context, filters);
+}
+
+export type MonthlyReceiptJobDetail = {
+  leaseId: string;
+  period: string;
+  status: 'EMITTED' | 'SKIPPED';
+  reason?: string;
+};
+
+export type MonthlyReceiptJobResult = {
+  emitted: number;
+  skipped: number;
+  details: MonthlyReceiptJobDetail[];
+};
+
+/** Premier jour du mois précédent celui de `now` (DEC-058, 3.3). */
+function previousPeriodOf(now: Date): string {
+  const previousMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+  const year = previousMonth.getUTCFullYear();
+  const month = previousMonth.getUTCMonth() + 1;
+  return `${year}-${String(month).padStart(2, '0')}-01`;
+}
+
+/**
+ * Job mensuel de génération des quittances (DEC-058, 3.3 et 3.4).
+ *
+ * Cible toujours le mois PRÉCÉDENT celui de `now`, jamais le mois courant,
+ * et seulement une fois sa fenêtre de finalisation ouverte (3.2, le 6 du
+ * mois en cours relativement à `now`) : avant cette date, rien n'est fait.
+ * Émission automatique et sans utilisateur, comme `emitReceipt` lui-même.
+ */
+export async function generateMonthlyReceiptsJob(
+  db: ReceivablesDatabase,
+  options: ReceiptServiceOptions = {},
+): Promise<MonthlyReceiptJobResult> {
+  const now = options.now ?? new Date();
+  const periodStart = previousPeriodOf(now);
+
+  if (now.getTime() < finalizationDateOf(periodStart).getTime()) {
+    return { emitted: 0, skipped: 0, details: [] };
+  }
+
+  const [rentLeaseRows, chargeLeaseRows] = await Promise.all([
+    db
+      .select({ leaseId: rentInstallments.leaseId })
+      .from(rentInstallments)
+      .where(eq(rentInstallments.periodStart, periodStart)),
+    db
+      .select({ leaseId: chargeAllocations.leaseId })
+      .from(chargeAllocations)
+      .where(
+        and(eq(chargeAllocations.periodStart, periodStart), isNotNull(chargeAllocations.leaseId)),
+      ),
+  ]);
+
+  const leaseIds = Array.from(
+    new Set([
+      ...rentLeaseRows.map((row) => row.leaseId),
+      ...chargeLeaseRows.map((row) => row.leaseId as string),
+    ]),
+  );
+
+  const details: MonthlyReceiptJobDetail[] = [];
+  let emitted = 0;
+  let skipped = 0;
+
+  for (const leaseId of leaseIds) {
+    const eligibility = await checkEligibility(db, leaseId, periodStart, { now });
+
+    if (!eligibility.eligible) {
+      skipped += 1;
+      details.push({
+        leaseId,
+        period: periodStart,
+        status: 'SKIPPED',
+        reason: eligibility.reason,
+      });
+      continue;
+    }
+
+    await emitReceipt(db, leaseId, periodStart, { now });
+    emitted += 1;
+    details.push({ leaseId, period: periodStart, status: 'EMITTED' });
+  }
+
+  return { emitted, skipped, details };
 }
