@@ -62,7 +62,7 @@ describe('Migration initiale', () => {
     expect(tables).not.toContain('access_permissions'); // DEC-025
   });
 
-  it('crée les 19 énumérations du MVP', async () => {
+  it('crée les 20 énumérations du MVP', async () => {
     const rows = await harness.db.execute<{ typname: string }>(sql`
       select t.typname
       from pg_type t
@@ -83,6 +83,7 @@ describe('Migration initiale', () => {
       'incident_status',
       'intervention_status',
       'invitation_status',
+      'lease_receipt_version_status',
       'lease_status',
       'notification_channel',
       'notification_status',

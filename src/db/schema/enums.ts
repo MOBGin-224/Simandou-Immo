@@ -105,6 +105,18 @@ export const allocationMethodEnum = pgEnum('allocation_method', ['EQUAL']);
 
 export const expenseStatusEnum = pgEnum('expense_status', ['RECORDED', 'CANCELLED']);
 
+/**
+ * Cycle de version d'une quittance formelle (DEC-058, Lot 12).
+ *
+ * Exception à la règle 1 de DEC-021 (valeurs en anglais) : DEC-058 fixe ces
+ * deux valeurs en français, ÉMISE et INVALIDÉE, sans accent pour rester dans
+ * l'alphabet autorisé par une énumération PostgreSQL.
+ */
+export const leaseReceiptVersionStatusEnum = pgEnum('lease_receipt_version_status', [
+  'EMISE',
+  'INVALIDEE',
+]);
+
 // --- Maintenance -------------------------------------------------------------
 
 /**
