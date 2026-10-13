@@ -130,6 +130,31 @@ export async function findLeaseReceiptById(
   return row ? toWithRelations(row) : null;
 }
 
+/**
+ * Charge les relations d'une quittance SANS filtre de périmètre.
+ *
+ * Réservée au service, pour l'émission automatique par job (DEC-058, 3.3 et
+ * 3.4) : ce chemin n'a pas de `context` utilisateur, il n'y a donc rien à
+ * vérifier. Ne jamais exposer cette fonction à une route.
+ */
+export async function findLeaseReceiptRelationsById(
+  db: ReceivablesDatabase,
+  receiptId: string,
+): Promise<LeaseReceiptWithRelations | null> {
+  const [row] = await db
+    .select(RELATIONS_SELECTION)
+    .from(leaseReceipts)
+    .innerJoin(users, eq(users.id, leaseReceipts.tenantUserId))
+    .innerJoin(apartments, eq(apartments.id, leaseReceipts.apartmentId))
+    .innerJoin(properties, eq(properties.id, leaseReceipts.propertyId))
+    .innerJoin(organizations, eq(organizations.id, leaseReceipts.organizationId))
+    .leftJoin(leaseReceiptVersions, eq(leaseReceiptVersions.id, leaseReceipts.currentVersionId))
+    .where(eq(leaseReceipts.id, receiptId))
+    .limit(1);
+
+  return row ? toWithRelations(row) : null;
+}
+
 /** Recherche par clé métier (DEC-058, 2.2), sans filtre de périmètre : usage interne au service. */
 export async function findLeaseReceiptByLeaseAndPeriod(
   db: ReceivablesDatabase,
