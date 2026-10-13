@@ -405,6 +405,20 @@ export default function PaymentDetailClient({
           </>
         ) : null}
 
+        {payment.status === 'CONFIRMED' || payment.status === 'CANCELLED' ? (
+          <a
+            href={`/api/v1/payments/${encodeURIComponent(paymentId)}/receipt`}
+            target="_blank"
+            rel="noopener"
+            className={cn(
+              buttonClasses('secondary', 'lg', true),
+              'min-h-14 text-base font-semibold',
+            )}
+          >
+            Télécharger le reçu
+          </a>
+        ) : null}
+
         {canCancel ? (
           <Link
             href={`/paiements/${encodeURIComponent(paymentId)}/annuler`}

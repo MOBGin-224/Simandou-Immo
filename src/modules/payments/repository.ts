@@ -1,14 +1,19 @@
 import { and, count, desc, eq, or } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import type { ReceivablesDatabase } from '@/modules/receivables/service';
 import {
   apartments,
   leases,
+  organizations,
   payments,
   paymentAllocations,
+  paymentReceiptVersions,
   rentInstallments,
   chargeAllocations,
   properties,
+  users,
   type Payment,
+  type PaymentReceiptVersion,
 } from '@/db/schema';
 import {
   propertyScopeCondition,
@@ -170,6 +175,106 @@ export async function findPaymentWithAllocations(
     payment,
     allocations: rows.flatMap((row) => (row.allocation ? [row.allocation] : [])),
   };
+}
+
+export type PaymentWithNamesForReceipt = {
+  payment: Payment;
+  allocations: PaymentAllocation[];
+  tenantName: string;
+  declaredByName: string | null;
+  validatedByName: string | null;
+  apartmentName: string;
+  propertyName: string;
+  organizationName: string;
+};
+
+/**
+ * Charge un paiement avec les noms nécessaires au reçu PDF (DEC-057).
+ *
+ * Respecte exactement le même périmètre que `findPaymentWithAllocations` :
+ * deux alias Drizzle distincts portent les jointures du déclarant et du
+ * validateur, puisque `users` est jointe trois fois (locataire, déclarant,
+ * validateur).
+ */
+export async function findPaymentWithNamesForReceipt(
+  db: ReceivablesDatabase,
+  paymentId: string,
+  context: AccessContext,
+): Promise<PaymentWithNamesForReceipt | null> {
+  const visibilityCondition = paymentVisibilityCondition(context);
+  if (!visibilityCondition) return null;
+
+  const declarant = alias(users, 'declarant');
+  const validator = alias(users, 'validator');
+
+  const rows = await db
+    .select({
+      payment: payments,
+      allocation: paymentAllocations,
+      tenantName: users.fullName,
+      declaredByName: declarant.fullName,
+      validatedByName: validator.fullName,
+      apartmentName: apartments.number,
+      propertyName: properties.name,
+      organizationName: organizations.name,
+    })
+    .from(payments)
+    .leftJoin(paymentAllocations, eq(paymentAllocations.paymentId, payments.id))
+    .innerJoin(users, eq(users.id, payments.tenantId))
+    .leftJoin(declarant, eq(declarant.id, payments.createdBy))
+    .leftJoin(validator, eq(validator.id, payments.validatedByUserId))
+    .innerJoin(apartments, eq(apartments.id, payments.apartmentId))
+    .innerJoin(properties, eq(properties.id, payments.propertyId))
+    .innerJoin(organizations, eq(organizations.id, payments.organizationId))
+    .where(and(eq(payments.id, paymentId), visibilityCondition));
+
+  if (rows.length === 0) return null;
+
+  const first = rows[0];
+  if (!first) return null;
+
+  return {
+    payment: first.payment,
+    allocations: rows.flatMap((row) => (row.allocation ? [row.allocation] : [])),
+    tenantName: first.tenantName,
+    declaredByName: first.declaredByName,
+    validatedByName: first.validatedByName,
+    apartmentName: first.apartmentName,
+    propertyName: first.propertyName,
+    organizationName: first.organizationName,
+  };
+}
+
+/**
+ * Charge la version active du reçu d'un paiement, ou en crée la première
+ * (DEC-057, 4.1) : une réimpression à contenu identique réutilise la même
+ * version, elle n'en crée jamais une nouvelle.
+ */
+export async function findOrCreateActiveReceiptVersion(
+  db: ReceivablesDatabase,
+  paymentId: string,
+  generatedByUserId: string,
+): Promise<PaymentReceiptVersion> {
+  const [existing] = await db
+    .select()
+    .from(paymentReceiptVersions)
+    .where(
+      and(
+        eq(paymentReceiptVersions.paymentId, paymentId),
+        eq(paymentReceiptVersions.isActive, true),
+      ),
+    )
+    .limit(1);
+
+  if (existing) return existing;
+
+  const [inserted] = await db
+    .insert(paymentReceiptVersions)
+    .values({ paymentId, version: 1, isActive: true, generatedByUserId })
+    .returning();
+
+  if (!inserted) throw new Error('PAYMENT_RECEIPT_VERSION_INSERT_RETURNED_NO_ROW');
+  return inserted;
 }
 
 export async function findApartmentForPayment(

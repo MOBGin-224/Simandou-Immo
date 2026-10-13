@@ -12,6 +12,7 @@ export {
   disputePayment,
   generatePublicReference,
   getPaymentById,
+  getPaymentReceiptPdf,
   listPayments,
   validatePayment,
 } from './service';
@@ -22,4 +23,5 @@ export {
   AmountExceedsOutstandingError,
   PaymentDateInFutureError,
   PaymentValidationError,
+  ReceiptNotAvailableError,
 } from './errors';

@@ -27,3 +27,11 @@ export class PaymentAlreadyCancelledError extends Error {
     this.name = 'PaymentAlreadyCancelledError';
   }
 }
+
+/** DEC-057, 1.1 et 1.2 : seul un paiement CONFIRMED ou CANCELLED a un reçu. */
+export class ReceiptNotAvailableError extends Error {
+  constructor() {
+    super('Un reçu ne peut être généré que pour un paiement confirmé ou annulé');
+    this.name = 'ReceiptNotAvailableError';
+  }
+}

@@ -31,14 +31,18 @@ import {
   AmountExceedsOutstandingError,
   PaymentDateInFutureError,
   PaymentValidationError,
+  ReceiptNotAvailableError,
 } from './errors';
 import {
   findActiveLeaseForPayment,
   findApartmentForPayment,
+  findOrCreateActiveReceiptVersion,
   findPaymentWithAllocations,
+  findPaymentWithNamesForReceipt,
   insertPaymentTx,
   listPaymentsForContext,
 } from './repository';
+import { generateReceiptPdf } from './receipt';
 import {
   listPaymentsQuerySchema,
   recordPaymentSchema,
@@ -667,4 +671,60 @@ export async function cancelPayment(
 
   if (!updated) throw new Error('PAYMENT_CANCEL_RETURNED_NO_ROW');
   return updated;
+}
+
+/**
+ * Génère le PDF de reçu d'un paiement (DEC-057).
+ *
+ * Seul un paiement CONFIRMED ou CANCELLED a un reçu (1.1, 1.2, 1.3). Une
+ * réimpression réutilise la version active déjà enregistrée plutôt que d'en
+ * créer une nouvelle (4.1) : c'est `findOrCreateActiveReceiptVersion` qui
+ * porte cette règle.
+ */
+export async function getPaymentReceiptPdf(
+  db: ReceivablesDatabase,
+  paymentId: string,
+  context: AccessContext,
+  appUrl: string,
+  options: PaymentServiceOptions = {},
+): Promise<{ pdf: Uint8Array; payment: Payment }> {
+  const result = await findPaymentWithNamesForReceipt(db, paymentId, context);
+  if (!result) throw new ResourceOutOfScopeError();
+
+  const { payment } = result;
+  if (payment.status !== 'CONFIRMED' && payment.status !== 'CANCELLED') {
+    throw new ReceiptNotAvailableError();
+  }
+
+  const version = await findOrCreateActiveReceiptVersion(db, payment.id, context.userId);
+  const now = options.now ?? new Date();
+
+  const pdf = await generateReceiptPdf({
+    referenceNumber: payment.referenceNumber,
+    publicReference: payment.publicReference,
+    version: version.version,
+    status: payment.status,
+    amount: Number(payment.amount),
+    currency: payment.currency,
+    method: payment.method,
+    reference: payment.reference ?? null,
+    paidAt: payment.paidAt,
+    declaredAt: payment.declaredAt.toISOString(),
+    declaredBy: result.declaredByName ?? 'Non renseigné',
+    validatedAt: payment.validatedAt ? payment.validatedAt.toISOString() : null,
+    validatedBy: result.validatedByName,
+    tenantName: result.tenantName,
+    apartmentName: result.apartmentName,
+    propertyName: result.propertyName,
+    organizationName: result.organizationName,
+    allocations: result.allocations.map((allocation) => ({
+      kind: allocation.rentInstallmentId ? ('RENT' as const) : ('CHARGE' as const),
+      amount: Number(allocation.amount),
+      receivableId: (allocation.rentInstallmentId ?? allocation.chargeAllocationId) as string,
+    })),
+    appUrl,
+    generatedAt: now.toISOString(),
+  });
+
+  return { pdf, payment };
 }
