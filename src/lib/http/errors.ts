@@ -21,6 +21,7 @@
 /** Codes d'erreur du produit. Sous-ensemble utilisé par les routes de ce lot. */
 export type ApiErrorCode =
   | 'VALIDATION_ERROR'
+  | 'AMOUNT_EXCEEDS_OUTSTANDING'
   | 'UNAUTHORIZED'
   | 'FORBIDDEN'
   | 'NOT_FOUND'
@@ -54,6 +55,7 @@ const BY_ERROR_NAME: Record<string, { status: number; code: ApiErrorCode }> = {
   ResourceOutOfScopeError: { status: 404, code: 'NOT_FOUND' },
   PropertyValidationError: { status: 422, code: 'VALIDATION_ERROR' },
   PropertyNameAlreadyUsedError: { status: 409, code: 'CONFLICT' },
+  PropertyCodeAlreadyUsedError: { status: 409, code: 'CONFLICT' },
   ArchivedPropertyError: { status: 409, code: 'CONFLICT' },
   ApartmentValidationError: { status: 422, code: 'VALIDATION_ERROR' },
   ApartmentNumberAlreadyUsedError: { status: 409, code: 'CONFLICT' },
@@ -113,12 +115,18 @@ const BY_ERROR_NAME: Record<string, { status: number; code: ApiErrorCode }> = {
   // conflit de doublon n'existe ici, la génération étant idempotente (DEC-028).
   RentGenerationLimitError: { status: 409, code: 'CONFLICT' },
 
+  AmountExceedsOutstandingError: { status: 422, code: 'AMOUNT_EXCEEDS_OUTSTANDING' },
+
   // Lien inutilisable : 404, jamais 410 ni 403. Inconnu, expiré, révoqué et consommé
   // doivent rester indiscernables (ADR-008), et seul 404 ne distingue rien.
   InvitationInvalidError: { status: 404, code: 'NOT_FOUND' },
 
   // Invitation destinée à un compte actif, présentée sans session de ce compte.
   InvitationLoginRequiredError: { status: 401, code: 'UNAUTHORIZED' },
+
+  PaymentValidationError: { status: 422, code: 'VALIDATION_ERROR' },
+  PaymentDateInFutureError: { status: 422, code: 'VALIDATION_ERROR' },
+  ReceiptNotAvailableError: { status: 422, code: 'VALIDATION_ERROR' },
 
   WeakPasswordError: { status: 422, code: 'VALIDATION_ERROR' },
 };

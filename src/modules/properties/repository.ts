@@ -49,10 +49,13 @@ export function isUniqueViolation(error: unknown, constraint: string): boolean {
   const code = (error as { code?: unknown }).code;
   const message = error instanceof Error ? error.message : '';
 
-  return code === UNIQUE_VIOLATION || message.includes(constraint);
+  if (message.includes(constraint)) return true;
+
+  return code === UNIQUE_VIOLATION && 'constraint' in error && error.constraint === constraint;
 }
 
 export const PROPERTY_NAME_CONSTRAINT = 'properties_org_name_unique';
+export const PROPERTY_CODE_CONSTRAINT = 'properties_org_code_unique';
 
 /**
  * Échappe les caractères génériques d'un motif `LIKE`.
@@ -90,11 +93,26 @@ export async function findPropertyByName(
   return row;
 }
 
+export async function findPropertyByCode(
+  db: PropertiesDatabase,
+  organizationId: string,
+  code: string,
+): Promise<Property | undefined> {
+  const [row] = await db
+    .select()
+    .from(properties)
+    .where(and(eq(properties.organizationId, organizationId), eq(properties.code, code)))
+    .limit(1);
+
+  return row;
+}
+
 export async function insertProperty(
   db: PropertiesDatabase,
   values: {
     organizationId: string;
     name: string;
+    code: string;
     address: string | null;
     city: string | null;
     district: string | null;

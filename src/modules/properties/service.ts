@@ -19,14 +19,17 @@ import {
 } from './domain';
 import {
   ArchivedPropertyError,
+  PropertyCodeAlreadyUsedError,
   PropertyNameAlreadyUsedError,
   PropertyValidationError,
 } from './errors';
 import {
   PROPERTY_NAME_CONSTRAINT,
+  PROPERTY_CODE_CONSTRAINT,
   archivePropertyRow,
   findPropertyById,
   findPropertyByName,
+  findPropertyByCode,
   insertProperty,
   isUniqueViolation,
   apartmentTallyByProperty,
@@ -179,11 +182,15 @@ export async function createProperty(
   const homonym = await findPropertyByName(db, data.organizationId, data.name);
 
   if (homonym) throw new PropertyNameAlreadyUsedError(data.name);
+  const duplicateCode = await findPropertyByCode(db, data.organizationId, data.code);
+
+  if (duplicateCode) throw new PropertyCodeAlreadyUsedError(data.code);
 
   try {
     const property = await insertProperty(db, {
       organizationId: data.organizationId,
       name: data.name,
+      code: data.code,
       address: data.address,
       city: data.city,
       district: data.district,
@@ -194,6 +201,9 @@ export async function createProperty(
   } catch (error) {
     if (isUniqueViolation(error, PROPERTY_NAME_CONSTRAINT)) {
       throw new PropertyNameAlreadyUsedError(data.name);
+    }
+    if (isUniqueViolation(error, PROPERTY_CODE_CONSTRAINT)) {
+      throw new PropertyCodeAlreadyUsedError(data.code);
     }
 
     throw error;

@@ -8,6 +8,7 @@ import { Button, buttonClasses } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/field';
 import { formatDate } from '@/lib/ui/format';
+import { buildMessengerShareUrl, buildWhatsAppShareUrl } from '@/lib/ui/share-links';
 
 /**
  * Lien d'invitation, à copier (DEC-026, parcours 4 étape 7).
@@ -96,6 +97,27 @@ export function InvitationLinkPanel({
         <Button type="button" size="lg" fullWidth onClick={copyLink}>
           Copier le lien
         </Button>
+
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <a
+            href={buildWhatsAppShareUrl(
+              `Bonjour. Voici votre lien pour activer votre espace ${name}: ${link}`,
+            )}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={buttonClasses('secondary', 'md', true)}
+          >
+            Partager sur WhatsApp
+          </a>
+          <a
+            href={buildMessengerShareUrl(link)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={buttonClasses('secondary', 'md', true)}
+          >
+            Partager sur Messenger
+          </a>
+        </div>
 
         {/* Annoncé par les lecteurs d'écran sans déplacer le focus. */}
         <p role="status" aria-live="polite" className="min-h-5 text-sm">

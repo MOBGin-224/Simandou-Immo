@@ -50,6 +50,48 @@
       "when": 1791585823187,
       "tag": "0006_charges",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791651261762,
+      "tag": "0007_lively_chimera",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791681930233,
+      "tag": "0008_dapper_terror",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791682009989,
+      "tag": "0009_ancient_wallop",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791728519081,
+      "tag": "0010_wonderful_killer_shrike",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1791736000000,
+      "tag": "0011_payment_dec056",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1791846560881,
+      "tag": "0012_secret_loki",
+      "breakpoints": true
     }
   ]
 }

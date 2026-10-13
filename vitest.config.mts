@@ -11,6 +11,10 @@ export default defineConfig({
     environment: 'node',
     include: ['tests/**/*.test.ts', 'src/**/*.test.ts'],
     globals: false,
+    // Réduit fortement le parallélisme : chaque fichier de test lance son propre
+    // PGlite, donc plusieurs workers simultanés saturent la mémoire. Deux
+    // workers suffisent pour conserver une exécution stable sans OOM.
+    maxWorkers: 2,
 
     /*
      * Délais élargis pour les tests adossés à PostgreSQL.

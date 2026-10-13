@@ -489,7 +489,7 @@ describe('Cas d usage du module Appartements', () => {
     it('range les références ensemble, quel que soit l étage', async () => {
       const property = await harness.db
         .insert(propertiesTable)
-        .values({ organizationId: SEED_IDS.organizationA, name: 'Ordre de tri' })
+        .values({ organizationId: SEED_IDS.organizationA, name: 'Ordre de tri', code: 'TRI' })
         .returning();
 
       const propertyId = property[0]!.id;
@@ -510,7 +510,11 @@ describe('Cas d usage du module Appartements', () => {
     it('relègue les logements archivés après les actifs', async () => {
       const property = await harness.db
         .insert(propertiesTable)
-        .values({ organizationId: SEED_IDS.organizationA, name: 'Ordre avec archive' })
+        .values({
+          organizationId: SEED_IDS.organizationA,
+          name: 'Ordre avec archive',
+          code: 'ARC',
+        })
         .returning();
 
       const propertyId = property[0]!.id;

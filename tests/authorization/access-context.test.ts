@@ -47,8 +47,8 @@ describe("Chargement du contexte d'accès", () => {
     ]);
 
     await db.insert(schema.properties).values([
-      { id: propertyA1, organizationId: orgA, name: 'Immeuble A1' },
-      { id: propertyA2, organizationId: orgA, name: 'Immeuble A2' },
+      { id: propertyA1, organizationId: orgA, name: 'Immeuble A1', code: 'IMA' },
+      { id: propertyA2, organizationId: orgA, name: 'Immeuble A2', code: 'IMB' },
     ]);
 
     await db.insert(schema.users).values([

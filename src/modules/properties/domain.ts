@@ -46,6 +46,7 @@ export type PropertyView = {
   id: string;
   organizationId: string;
   name: string;
+  code: string;
   address: string | null;
   city: string | null;
   district: string | null;
@@ -169,6 +170,7 @@ export function toPropertyView(
     id: property.id,
     organizationId: property.organizationId,
     name: property.name,
+    code: property.code,
     address: property.address,
     city: property.city,
     district: property.district,

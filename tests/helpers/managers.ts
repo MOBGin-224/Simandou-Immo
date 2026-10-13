@@ -41,6 +41,8 @@ export function freshPhone(): string {
 
 export type Harness = Pick<TestDatabase, 'db' | 'schema'>;
 
+let propertyCodeCounter = 0;
+
 /** Crée un immeuble de l'organisation A, ou de celle indiquée. */
 export async function addProperty(
   harness: Harness,
@@ -52,6 +54,7 @@ export async function addProperty(
     .values({
       organizationId: options.organizationId ?? SEED_IDS.organizationA,
       name,
+      code: `P${String.fromCharCode(65 + Math.floor(propertyCodeCounter / 26))}${String.fromCharCode(65 + (propertyCodeCounter++ % 26))}`,
       archivedAt: options.archived ? NOW : null,
     })
     .returning({ id: harness.schema.properties.id });

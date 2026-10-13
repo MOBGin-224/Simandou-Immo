@@ -141,6 +141,10 @@ Lorsqu'une contradiction est détectée, elle doit être corrigée dans le docum
 | DEC-052 | Charte graphique officielle, version 2.0 | VERROUILLÉE | aucun |
 | DEC-053 | Calendrier de génération des loyers | VERROUILLÉE | aucun |
 | DEC-054 | Répartition et cycle de vie d'une charge commune | DÉDUITE | aucun |
+| DEC-055 | Saisie manuelle des paiements au MVP | VERROUILLÉE | aucun |
+| DEC-056 | Déclaration et validation des paiements manuels | VERROUILLÉE | aucun |
+| DEC-057 | Reçus de paiement et vérification publique | VERROUILLÉE | aucun |
+
 
 ---
 
@@ -2249,3 +2253,250 @@ Toute fonctionnalité reste gouvernée par le Master Product Specification et le
 | 3.0 | 2026-10-08 | **Lot 9, tranche 9a exécutée : les loyers, côté données et API.** **DEC-053** tranchée par le fondateur avant d'écrire une ligne du générateur, sur trois questions qu'aucun document ne couvrait : le job ne crée que la période EN COURS et ne rattrape jamais l'historique, faute de quoi un parc existant verrait apparaître en impayés des loyers déjà encaissés hors de l'application ; AUCUN prorata, le montant attendu étant celui du contrat même pour un mois partiel, qu'un paiement partiel sait déjà représenter ; la date d'échéance est RABATTUE sur le dernier jour des mois courts, ce qui la garde dans la période qu'elle couvre. Migration `0005_loyers`, non destructrice : la table `rent_installments` de la section 19, dont `UNIQUE (lease_id, period_start)` porte à elle seule l'idempotence exigée par DEC-028, et sept contraintes qui refusent en base un solde qui ne serait pas la différence des deux montants, une période qui ne commencerait pas un premier du mois, et deux états de statut impossibles. Module `rents` avec `period.ts` entièrement pur, où vivent les trois règles de DEC-053 et rien d'autre. Sept routes : la liste filtrable, la fiche, la génération manuelle qui seule accepte une période passée, le total dû d'un locataire et le sien, et DEUX routes internes protégées par un secret, `generate-rents` et `mark-overdue-receivables`. Le garde de `/internal/*` est fermé par défaut, refuse en 404 plutôt qu'en 401 pour ne pas confirmer l'adresse, et compare le secret à temps constant ; `INTERNAL_JOB_SECRET` est facultative en développement et OBLIGATOIRE en production, son absence y signifiant que les loyers ne seraient jamais générés. Deux points de fond tenus : « À venir » n'est jamais stocké, c'est une dérivation calculée par le serveur et transmise à côté du statut réel (BR-037), et le passage à `OVERDUE` est le fait d'un job idempotent, la lecture n'écrivant rien, ce qu'un test vérifie en relisant la colonne après avoir affiché la liste. Le total dû est autorisé créance par créance et non par personne : une même personne pouvant louer dans deux immeubles dont un seul relève du gestionnaire, un total partiel serait faux et servirait à réclamer de l'argent. 1225 tests, 54 fichiers. Aucune décision verrouillée n'est rouverte. **Reste au Lot 9, tranche 9b : les écrans, et la BottomNavigation.** |
 | 3.1 | 2026-10-08 | **Lot 9, tranche 9b exécutée : les écrans, et la navigation principale. Le Lot 9 est complet.** Liste des loyers avec son total dû en tête, quatre onglets et la génération d'un geste ; fiche d'une échéance qui met le SOLDE en avant plutôt que le montant dû, un solde réduit par un acompte devant rester explicable ; espace locataire enrichi de ce qu'il doit, total calculé par le serveur comme la section 18 l'impose. **La BottomNavigation existe enfin**, et avec elle l'écran de compte : quatre entrées pour qui gère, deux pour le locataire, une seule source lue par la barre basse du téléphone et par la rangée d'onglets au-delà de 640 px. Trois absences sont délibérées et testées : pas d'« Accueil », qui doublerait les immeubles tant que les tableaux de bord n'existent pas (Lot 19) ; pas de « Maintenance », qui n'existera qu'au Lot 13 ; pas de « Baux », que l'architecture de l'information ne place pas au premier niveau. **Le compromis du logotype disparaît comme annoncé** : la déconnexion a rejoint l'écran de compte, l'en-tête n'a plus que deux éléments, et la marque s'affiche en entier à 360 px. **Quatre défauts trouvés en REGARDANT, qu'aucune vérification statique ni aucune mesure n'avait vus.** Les libellés de la barre basse étaient à 11 px, sous le minimum de 12 px de la charte. Un rôle cumulé (DEC-003) réclamait 215 px dans l'en-tête pour 156 disponibles à 360 px : celui-ci montre désormais le rôle qui GOUVERNE, comme le font déjà l'accueil et la navigation, l'énumération complète restant sur l'écran de compte. Un badge « En retard » passait sur deux lignes quand le logement portait un nom long, ce qui cassait la hauteur de 26 px fixée par la charte : tous les badges du produit sont désormais insécables. Et l'onglet « Impayés » affichait des lignes marquées « À venir », exact au sens de BR-039 mais faux au mot : il s'appelle « À régler ». **Un défaut préexistant corrigé au passage** : la fiche d'un bail liait son locataire par son `accessId` là où l'écran attend un `users.id` depuis DEC-051, donc le lien répondait « introuvable ». **Un parcours qui AGIT est ajouté au dépôt**, `scripts/mobile/parcours-loyers.ts` : il touche vraiment le bouton de génération à 360 px et vérifie que deux appuis ne doublent aucune dette, ce que `npm run mobile`, en lecture seule, ne pouvait pas faire. Vérifié à l'écran aussi : les deux jobs internes refusent en 404 sans secret et répondent avec, l'idempotence se lit dans leur compte rendu, et le total dû d'un locataire s'affiche dans son espace. Aucune décision verrouillée n'est rouverte. |
 | 3.2 | 2026-10-09 | **Lot 10 exécuté : les charges communes, seconde créance du MVP.** **DEC-054** enregistrée, DÉDUITE : six questions qu'aucun document ne tranchait, résolues sans rouvrir une décision verrouillée. La répartition porte sur les logements ACTIFS de l'immeuble, vacants et en travaux compris, un logement archivé étant sorti de l'exploitation (DEC-020) et sa part réduisant d'autant celle des logements desservis. Une charge ne se MODIFIE pas : elle s'annule et se recrée, BR-053 interdisant la correction silencieuse et l'API ne définissant aucune route de mise à jour, si bien que l'historique garde les deux versions. L'annulation relève de `charge.publish`, aucune permission n'étant inventée (DEC-025) ; l'aperçu, qui n'écrit rien, relève de `charge.read`. La raison d'annulation n'est pas stockée, faute de colonne dans la section 28, et rejoindra l'audit (Lot 20). Deux contraintes de date sont ajoutées par cohérence avec le loyer, période au premier du mois et échéance jamais antérieure à la période. Migration `0006_charges`, non destructrice : `charges` et `charge_allocations` des sections 28 à 31, dont `UNIQUE (charge_id, apartment_id)` rend la publication non rejouable EN BASE, et une contrainte qui refuse un bail sans personne redevable ou l'inverse, le logement vacant étant le seul cas de nullité prévu. **La publication est une transaction atomique dont le premier geste est un verrou** : le passage `DRAFT -> PUBLISHED` est conditionné dans le `WHERE` et pris AVANT le calcul, donc deux publications concurrentes se sérialisent et la seconde échoue sans avoir rien écrit, ce que l'API section 29 exige « y compris en cas de double-clic ». C'est la différence de nature avec la génération des loyers, idempotente par construction (DEC-028) : une répartition est un acte unique, et la rejouer doublerait la facture. Le moteur de répartition est un fichier PUR qui porte la règle d'arrondi de DEC-029 et rien d'autre, et l'invariant de BR-051 y est vérifié sur tous les restes possibles d'un parc de un à treize logements. **Ce qui est COMMUN aux deux créances quitte le module Loyers** : le module `receivables` porte les statuts, la dérivation « À venir », la définition d'une créance ouverte, l'ordre d'allocation de DEC-022, le total dû « loyers et charges confondus » (BR-039, BR-055) et le job `markOverdueReceivables`, qui balaie désormais les deux tables en une exécution et compte les deux moitiés séparément. Le module Loyers réexporte les listes sous leurs noms d'origine : rien de ce qui les lisait n'a eu à changer. Sept routes : la liste et la création, la fiche, l'aperçu qui n'écrit rien, la publication, l'annulation, la liste des créances de charge et `GET /me/charges`, dont la réponse est plus étroite que la vue interne, un locataire ne recevant ni le montant global de la facture ni la part des autres. Cinq écrans, dont deux confirmations : la fiche sert avant et après publication, l'aperçu devenant la répartition réelle, et l'écran de publication est le `ConfirmationSummary` de la section 65, décrit au mot. « Charges » prend la cinquième et dernière place de la navigation : le Lot 13 devra regrouper plutôt qu'ajouter. L'espace locataire montre ses parts avec l'explication du calcul qu'exige la section 31, et son total à payer réunit les deux créances. **Un second parcours qui AGIT rejoint le dépôt**, `scripts/mobile/parcours-charges.ts` : il saisit une facture jetable, la publie d'un vrai toucher à 360 px, puis revient sur l'écran de publication comme le ferait un gestionnaire qui appuie sur « retour », et vérifie que la répartition n'a pas doublé. **Quatre défauts trouvés en REGARDANT, qu'aucun test ni aucune mesure n'avait vus.** « 1 logement paient une unité de plus » et « 1 créance seront créées » accordaient un pluriel sur un singulier, le libellé étant composé par `pluralize` suivi d'un verbe figé. Une carte de charge fraîchement publiée affichait « 1 000 000 GNF » puis « dont 1 000 000 GNF à encaisser », répétant le même nombre à deux lignes d'intervalle : la mention n'apparaît plus que lorsqu'un paiement a été reçu. Le total à payer de l'espace locataire était resté DANS la carte « Mes loyers », où il annonçait 2 700 000 pour un loyer de 2 500 000 sans que rien n'explique l'écart : il a sa propre carte, au-dessus des deux listes. Et « Mois de octobre 2026 » manquait l'élision du français, défaut préexistant sur la fiche d'un loyer depuis le Lot 9, corrigé une fois pour les deux par `formatMonthOf`. Le schéma a été appliqué hors du processus de test, sur la base locale, et les sept routes parcourues à la main, dont le 409 d'une republication et le 404 de la liste des charges pour un locataire. 1365 tests, 62 fichiers. Aucune décision verrouillée n'est rouverte. |
+
+## DEC-055 : Saisie manuelle des paiements au MVP
+
+**Statut** : VERROUILLÉE
+
+**Date** : 10 octobre 2026
+
+**Décision du fondateur** :
+
+Trois règles régissent la saisie manuelle des paiements dans le cadre du Lot 11, en l'absence d'intégration avec un fournisseur de paiement numérique (DEC-034) :
+
+1. **Statut initial : CONFIRMED**.
+   Un paiement manuel naît directement au statut CONFIRMED, le gestionnaire attestant par sa saisie avoir reçu ou vérifié le paiement (espèces, virement, Mobile Money). Le solde dû des créances est réduit immédiatement. La traçabilité de l'auteur (`recorded_by_user_id`) et de la date d'enregistrement est conservée.
+
+2. **Référence transactionnelle facultative**.
+      Le champ `reference` est facultatif pour toutes les méthodes de paiement du MVP. Si renseignée, sa longueur et son format doivent être validés.
+
+3. **Absence de quittance au Lot 11**.
+   Aucun document formel, comptable, PDF ou imprimable n'est généré. La confirmation se limite à l'interface (confirmation de succès) et à l'historique des transactions. Les quittances relèvent strictement du Lot 12.
+
+**Appliqué dans** : Modèle de données (payments), flux de saisie, interfaces du Lot 11.
+
+---
+
+## DEC-056 : Déclaration et validation des paiements manuels
+
+**Statut** : VERROUILLÉE
+
+**Date** : 11 octobre 2026
+
+**Révise** : DEC-055 règles 1 et 3, DEC-016 (ajout de `DISPUTED`)
+
+**Décision du fondateur** :
+
+Le paiement manuel suit un workflow en deux temps. La personne qui déclare le paiement ne peut pas le valider elle-même ; le validateur effectif est inscrit dans l'historique.
+
+1. **Déclaration puis validation croisée** :
+   - le locataire déclare le paiement ; un gestionnaire ou le propriétaire le valide ;
+   - le gestionnaire déclare le paiement ; le locataire le valide ;
+   - le propriétaire déclare le paiement ; le locataire le valide.
+
+2. **Statuts** :
+   - un paiement déclaré naît `PENDING`, sans être comptabilisé dans les soldes ;
+   - après validation croisée, il devient `CONFIRMED` et ses allocations sont alors comptabilisées ;
+   - `DISPUTED` est ajouté aux statuts de paiement ; un paiement contesté n'est pas comptabilisé.
+
+3. **Double confirmation** : l'interface demande deux confirmations successives au même validateur avant la validation du paiement.
+
+4. **Preuve jointe facultative** : un seul fichier JPG, PNG ou PDF, de 5 Mo au maximum. Son stockage attend la décision DEC-033.
+
+5. **Sur-paiement** : un paiement dont le montant dépasse le solde dû reste refusé avec `AMOUNT_EXCEEDS_OUTSTANDING` (DEC-023).
+
+6. **Contestation** : un motif est obligatoire et choisi parmi `NOT_PAID`, `WRONG_AMOUNT`, `WRONG_DATE`, `WRONG_PERSON` ou `OTHER`.
+
+7. **Délai de validation** : si le paiement n'est pas validé dans les 48 heures, le propriétaire est notifié. Aucune validation automatique n'a lieu.
+
+8. **Notifications** : après validation, les notifications prévues sont envoyées aux parties concernées.
+
+9. **Quittance PDF** : un PDF A4 est généré à la demande et téléchargeable par le locataire, le gestionnaire et le propriétaire. Il porte le logo SIMANDOU IMMO, le numéro `[CODE-IMMEUBLE]-AAAA-NNNN`, un QR code, les identités, le montant, les dates, un bloc de signature, les créances réglées et les mentions légales. Sa taille est inférieure à 400 Ko.
+
+10. **Partage rapide** : une invitation et une quittance peuvent être partagées par WhatsApp ou Messenger.
+
+11. **Accessibilité** : le parcours destiné aux personnes analphabètes utilise de gros boutons, des choix OUI/NON et une authentification Face ID ou empreinte.
+
+12. **Règles d'interface** : bouton d'action en bas de l'écran, hauteur de 56 px ; montant en Manrope, 32 px ; dates au format JJ/MM/AAAA ; notifications auto-explicatives ; toute action irréversible demande un double clic.
+
+13. **Articulation avec DEC-034** : les paiements manuels et les paiements numériques coexistent ; le flux manuel n'attend pas la décision sur le fournisseur numérique.
+
+**Impact si changé** : workflow de paiement, statuts et schéma de données, validations et allocations, notifications, preuves, quittances et interfaces du Lot 11.
+
+---
+
+## DEC-057 : Reçus de paiement et vérification publique
+
+**Statut** : VERROUILLÉE
+**Date** : 12 octobre 2026
+**Dépend de** : DEC-016, DEC-020, DEC-055, DEC-056
+
+**Décision** :
+
+Un reçu PDF peut être généré pour un paiement manuel. Il est vérifiable 
+publiquement par un tiers via un QR code imprimé dessus. La vérification 
+n'expose que des informations minimales et n'accorde aucun accès aux 
+données métier privées.
+
+### 1. Conditions d'émission
+
+1.1. Un reçu de paiement ne peut être émis que pour un paiement au statut 
+CONFIRMED.
+
+1.2. Un paiement PENDING ou DISPUTED ne génère pas de reçu.
+
+1.3. Un paiement CONFIRMED qui est ensuite CANCELLED ne supprime pas le 
+reçu déjà émis. Un nouveau PDF marqué ANNULÉ est généré, avec sa propre 
+version, pour signaler que le reçu initial n'est plus valide.
+
+1.4. Aucune suppression physique de reçu. Les versions successives 
+coexistent, la plus récente est marquée active, les précédentes sont 
+marquées remplacées ou invalidées.
+
+### 2. Contenu du reçu PDF
+
+2.1. Le reçu affiche :
+   - Le logo SIMANDOU IMMO
+   - Le titre REÇU DE PAIEMENT ou REÇU DE PAIEMENT ANNULÉ selon le statut
+   - Le numéro de reçu (reference_number, format CODE-IMMEUBLE-AAAA-NNNN)
+   - Un QR code vers la page publique de vérification
+   - Les informations d'identification : locataire, appartement, immeuble
+   - Le montant, la devise, le moyen de paiement, la référence si fournie
+   - La date du paiement (paid_at)
+   - La date de déclaration (declared_at) et le déclarant
+   - La date de validation (validated_at) et le validateur si CONFIRMED
+   - Le détail des allocations : nature de la créance (loyer ou charge), 
+     période, montant alloué
+   - Les mentions légales : "Ce reçu atteste d'une déclaration et d'une 
+     validation dans SIMANDOU IMMO. Il ne remplace pas une quittance 
+     fiscale."
+   - Le numéro de version du document
+
+2.2. Le détail des allocations provient des allocations enregistrées au 
+moment de la génération. Il n'est pas recalculé depuis les soldes actuels 
+qui peuvent avoir évolué.
+
+2.3. Les montants affichés doivent être cohérents avec les allocations 
+persistées. Une incohérence bloque la génération et déclenche une erreur 
+d'intégrité. Aucun montant ne doit être fabriqué ou extrapolé.
+
+2.4. Le reçu n'affiche pas l'historique des autres paiements du locataire. 
+Un reçu prouve une opération, il n'est pas un relevé de compte. 
+L'historique complet reste accessible dans l'application.
+
+### 3. Page publique de vérification
+
+3.1. Une route /verify/[publicReference] est accessible sans 
+authentification. C'est une exception limitée à la règle d'autorisation 
+systématique côté serveur.
+
+3.2. La page publique affiche uniquement :
+   - La reconnaissance ou non du reçu : "Reçu reconnu" ou "Vérification 
+     impossible"
+   - Le statut actuel du paiement (PENDING, CONFIRMED, DISPUTED, CANCELLED)
+   - La validité du document (actif, remplacé, invalidé)
+   - Le montant et la devise
+   - La date du paiement
+   - La date de validation si elle existe
+   - Le numéro de version du document
+   - La date de la vérification
+
+3.3. La page publique n'affiche jamais :
+   - Le nom du locataire, ni même masqué
+   - Le téléphone, l'adresse, l'appartement ou l'immeuble
+   - Le détail des allocations
+   - Le motif d'une contestation
+   - L'identité du contestataire ou du validateur
+   - Aucune donnée personnelle
+
+3.4. La publicReference est distincte de l'identifiant interne du 
+paiement. Elle est non séquentielle et imprévisible. Elle ne peut pas 
+être devinée par énumération.
+
+3.5. Une référence inconnue, invalide ou non vérifiable donne une réponse 
+neutre : "Vérification impossible. Vérifiez la référence du document ou 
+contactez le gestionnaire."
+
+3.6. La route est protégée par un rate limit pour empêcher l'énumération 
+et les abus. Le seuil exact est un paramètre technique, pas une règle 
+métier.
+
+3.7. La page publique ne propose aucun formulaire de recherche, aucune 
+liste de reçus, aucun accès à d'autres ressources.
+
+3.8. La page publique ne prétend pas vérifier un mouvement d'argent chez 
+un opérateur mobile ou une banque. Elle vérifie uniquement ce qui est 
+enregistré dans SIMANDOU IMMO.
+
+### 4. Versions et corrections
+
+4.1. Une réimpression à contenu identique ne crée pas de nouvelle version. 
+Le reçu conserve sa version et son numéro.
+
+4.2. Une correction réelle (changement de montant, de période, de 
+bénéficiaire, correction d'erreur) crée une nouvelle version. L'ancienne 
+est conservée et marquée remplacée.
+
+4.3. Chaque version est traçable : auteur, date, raison dans l'historique 
+d'audit.
+
+4.4. Le numéro de version est imprimé sur le reçu et encodé dans le QR 
+code pour que la page publique sache quelle version a été présentée.
+
+4.5. Si un reçu présenté est une version remplacée, la page publique 
+indique "Ce reçu a été remplacé. Une version plus récente existe." sans 
+accuser ni alerter.
+
+4.6. Aucune empreinte SHA-256 n'est imposée par cette décision. Une 
+empreinte d'intégrité pourra être ajoutée par une décision ultérieure si 
+un besoin réel se présente.
+
+### 5. Contestations
+
+5.1. L'historique détaillé des contestations est conservé en base privée. 
+Accès réservé aux rôles autorisés selon les règles existantes.
+
+5.2. Le reçu affiche uniquement un résumé synthétique de l'état de 
+contestation : "Aucune contestation", "Contestation en cours", 
+"Contestation résolue", ou "Reçu invalidé par annulation".
+
+5.3. Le résumé ne révèle jamais : motif libre, identité du contestataire, 
+note de résolution, chronologie détaillée.
+
+5.4. Les événements de contestation ne sont jamais effacés ni écrasés. 
+L'historique reste accessible en interne selon les permissions applicables.
+
+5.5. Cette décision ne modifie pas DEC-016 ni DEC-056. DISPUTED reste 
+dans l'énumération payment_status conformément à DEC-056. Aucun nouveau 
+statut n'est ajouté.
+
+### 6. Articulation avec les décisions existantes
+
+6.1. DEC-016 définit les statuts canoniques. DEC-056 ajoute DISPUTED. 
+Cette décision ne modifie ni l'un ni l'autre.
+
+6.2. DEC-020 interdit la suppression physique. Les reçus, leurs versions 
+et leurs historiques suivent cette règle.
+
+6.3. DEC-055 prévoit qu'un reçu formel relève du Lot 12. Cette décision 
+précise les conditions et le contenu.
+
+6.4. Quand les quittances formelles seront implémentées (Lot 12), elles 
+auront leur propre cycle. Un reçu de paiement n'est pas une quittance. 
+Une quittance atteste le règlement complet d'une période. Un reçu atteste 
+un paiement précis.
+
+### 7. Éléments à trancher ultérieurement
+
+7.1. Format exact de la publicReference (dérivée du numéro de reçu, ou 
+générée séparément).
+
+7.2. Nombre de versions conservées par reçu.
+
+7.3. Rôles exacts autorisés à consulter l'historique détaillé des 
+contestations.
+
+7.4. Rendu visuel exact du filigrane ANNULÉ sur le PDF.
+
+**Impact si changé** : refonte du PDF, de la page publique, du schéma 
+de versions, du QR code, des tests.
