@@ -20,10 +20,12 @@ import { SEED_IDS, seed } from '../../../src/db/seed';
 import { UnauthenticatedError } from '../../../src/lib/auth/session';
 import { POST } from '../../../src/app/api/v1/payments/[id]/cancel/route';
 import { declarePayment, validatePayment } from '../../../src/modules/payments/service';
+import { emitReceipt } from '../../../src/modules/receipts';
 import { getTenantOutstanding } from '../../../src/modules/receivables/service';
 import { generateRents } from '../../../src/modules/rents/service';
 import { createTestDatabase, type TestDatabase } from '../../helpers/database';
 import {
+  addApartment,
   addBillableLease,
   contextOf,
   freshPhone,
@@ -31,6 +33,9 @@ import {
   passwordHasher,
   RENT_AMOUNT,
 } from '../../helpers/rents';
+
+/** Après la fenêtre de finalisation d'octobre 2026 (DEC-058, 3.2 : le 6 du mois suivant). */
+const AFTER_FINALIZATION = new Date('2026-11-10T00:00:00.000Z');
 
 describe('POST /api/v1/payments/[id]/cancel', () => {
   let harness: TestDatabase;
@@ -212,5 +217,68 @@ describe('POST /api/v1/payments/[id]/cancel', () => {
 
     expect(response.status).toBe(401);
     expect(result.error?.code).toBe('UNAUTHORIZED');
+  });
+
+  it('invalide la quittance active lors de l’annulation d’un paiement CONFIRMED (DEC-058)', async () => {
+    const apartmentId = await addApartment(harness, SEED_IDS.propertyA, 'CXL1');
+    const lease2 = await addBillableLease(harness, {
+      apartmentId,
+      tenantApartmentId: apartmentId,
+      ownerContext,
+      hashPassword: passwordHasher(harness),
+      phone: freshPhone(),
+      startDate: '2026-01-01',
+    });
+    const tenant2Context = await contextOf(harness, lease2.tenantUserId);
+
+    await generateRents(
+      harness.db,
+      ownerContext,
+      { propertyId: SEED_IDS.propertyA, period: '2026-10' },
+      { now: NOW },
+    );
+
+    const declared = await declarePayment(
+      harness.db,
+      {
+        apartmentId: lease2.apartmentId,
+        tenantId: lease2.tenantUserId,
+        amount: RENT_AMOUNT,
+        method: 'CASH',
+        paidAt: NOW.toISOString().slice(0, 10),
+      },
+      tenant2Context,
+      { now: NOW },
+    );
+    await validatePayment(harness.db, declared.payment.id, managerContext, { now: NOW });
+
+    const emitted = await emitReceipt(harness.db, lease2.leaseId, '2026-10-01', {
+      now: AFTER_FINALIZATION,
+    });
+
+    mocks.requireAccessContext.mockResolvedValueOnce(ownerContext);
+    const { response } = await post(declared.payment.id);
+
+    expect(response.status).toBe(200);
+
+    const [version] = await harness.db
+      .select()
+      .from(harness.schema.leaseReceiptVersions)
+      .where(eq(harness.schema.leaseReceiptVersions.id, emitted.currentVersion!.id));
+
+    expect(version?.status).toBe('INVALIDEE');
+    expect(version?.invalidationReason).toBe('Paiement annulé');
+    expect(version?.invalidationTriggerPaymentId).toBe(declared.payment.id);
+  });
+
+  it('annule un paiement CONFIRMED sans quittance associée sans erreur', async () => {
+    const declared = await declaredBy(tenantContext);
+    await validatePayment(harness.db, declared.payment.id, managerContext, { now: NOW });
+    mocks.requireAccessContext.mockResolvedValueOnce(ownerContext);
+
+    const { response, result } = await post(declared.payment.id);
+
+    expect(response.status).toBe(200);
+    expect(result.data?.status).toBe('CANCELLED');
   });
 });
