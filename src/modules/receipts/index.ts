@@ -9,6 +9,7 @@ export type {
   EligibleReceivable,
   MonthlyReceiptJobDetail,
   MonthlyReceiptJobResult,
+  PublicReceiptVerificationData,
   ReceiptServiceOptions,
 } from './service';
 export {
@@ -16,6 +17,7 @@ export {
   emitReceipt,
   generateMonthlyReceiptsJob,
   getLeaseReceiptById,
+  getPublicReceiptVerification,
   invalidateReceiptForPayment,
   listLeaseReceipts,
 } from './service';
@@ -26,4 +28,14 @@ export type {
   LeaseReceiptWithRelations,
 } from './repository';
 
-export { ReceiptAlreadyExistsError, ReceiptNotEligibleError, ReceiptNotFoundError } from './errors';
+export {
+  ReceiptAlreadyExistsError,
+  ReceiptNotEligibleError,
+  ReceiptNotFoundError,
+  ReceiptValidationError,
+  type FieldErrors,
+} from './errors';
+
+export { parseLeaseReceiptListQuery } from './schemas';
+
+export { generateReceiptPdf, type ReceiptPdfData, type ReceiptPdfReceivable } from './receipt-pdf';

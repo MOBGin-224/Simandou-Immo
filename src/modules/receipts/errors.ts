@@ -25,3 +25,13 @@ export class ReceiptNotFoundError extends Error {
     this.name = 'ReceiptNotFoundError';
   }
 }
+
+export type FieldErrors = Record<string, string[]>;
+
+/** Paramètres de requête invalides (page, statut, identifiants, période). */
+export class ReceiptValidationError extends Error {
+  constructor(readonly fieldErrors: FieldErrors) {
+    super('Les données fournies sont invalides.');
+    this.name = 'ReceiptValidationError';
+  }
+}

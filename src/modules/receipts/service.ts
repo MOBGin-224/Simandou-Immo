@@ -15,6 +15,7 @@ import { ReceiptNotEligibleError } from './errors';
 import {
   findLeaseReceiptByLeaseAndPeriod,
   findLeaseReceiptById,
+  findLeaseReceiptByPublicReference,
   findLeaseReceiptRelationsById,
   insertLeaseReceiptTx,
   invalidateReceiptVersionTx,
@@ -28,6 +29,46 @@ import { generateReceiptPublicReference, generateReceiptReference } from './sequ
 export type ReceiptServiceOptions = {
   now?: Date;
 };
+
+export type PublicReceiptVerificationData = {
+  isRecognized: true;
+  status: 'EMISE' | 'INVALIDEE';
+  period: string;
+  totalAttested: number;
+  currency: string;
+  emittedAt: string | null;
+  referenceNumber: string;
+  version: number;
+  verifiedAt: string;
+};
+
+/**
+ * Vérification publique d'une quittance par sa référence (DEC-058, 7.1 et
+ * 7.2). Données minimisées à l'identique de `getPublicVerification` du
+ * Lot 11 : jamais de locataire, d'adresse, d'appartement ni d'immeuble
+ * (7.3).
+ */
+export async function getPublicReceiptVerification(
+  db: ReceivablesDatabase,
+  publicReference: string,
+): Promise<PublicReceiptVerificationData | null> {
+  const result = await findLeaseReceiptByPublicReference(db, publicReference);
+  if (!result?.currentVersion) return null;
+
+  const { receipt, currentVersion } = result;
+
+  return {
+    isRecognized: true,
+    status: currentVersion.status,
+    period: receipt.periodStart,
+    totalAttested: Number(receipt.totalAttested),
+    currency: receipt.currency,
+    emittedAt: currentVersion.emittedAt?.toISOString() ?? null,
+    referenceNumber: receipt.referenceNumber,
+    version: currentVersion.version,
+    verifiedAt: new Date().toISOString(),
+  };
+}
 
 export type EligibleAllocation = {
   paymentId: string;

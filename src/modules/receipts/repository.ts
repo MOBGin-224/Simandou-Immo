@@ -170,6 +170,25 @@ export async function findLeaseReceiptByLeaseAndPeriod(
   return row ?? null;
 }
 
+/**
+ * Recherche par référence publique (DEC-058, 7.1), sans filtre de périmètre
+ * ni jointure autre que la version courante : réservée à la vérification
+ * publique, qui n'a ni utilisateur ni organisation.
+ */
+export async function findLeaseReceiptByPublicReference(
+  db: ReceivablesDatabase,
+  publicReference: string,
+): Promise<{ receipt: LeaseReceipt; currentVersion: LeaseReceiptVersion | null } | null> {
+  const [row] = await db
+    .select({ receipt: leaseReceipts, currentVersion: leaseReceiptVersions })
+    .from(leaseReceipts)
+    .leftJoin(leaseReceiptVersions, eq(leaseReceiptVersions.id, leaseReceipts.currentVersionId))
+    .where(eq(leaseReceipts.publicReference, publicReference))
+    .limit(1);
+
+  return row ?? null;
+}
+
 export async function listLeaseReceiptsForContext(
   db: ReceivablesDatabase,
   context: AccessContext,
