@@ -371,11 +371,23 @@ export default async function MyApartmentPage() {
         </div>
       </Card>
 
+      <Card className="flex flex-col gap-4">
+        <Overline>Mes quittances</Overline>
+        <p className="text-sm text-muted">
+          Consultez les quittances émises automatiquement chaque mois, une fois vos loyers et vos
+          charges réglés.
+        </p>
+
+        <Link href="/quittances" className={buttonClasses('secondary', 'md', true)}>
+          Voir mes quittances
+        </Link>
+      </Card>
+
       <Card className="flex flex-col gap-3">
         <Overline>Prochainement</Overline>
         <p className="text-sm text-muted">
-          Vos quittances et vos incidents apparaîtront ici. Ils arriveront avec les prochaines
-          étapes du produit, et rien ne vous est demandé en attendant.
+          Vos incidents apparaîtront ici. Ils arriveront avec les prochaines étapes du produit, et
+          rien ne vous est demandé en attendant.
         </p>
       </Card>
     </div>
