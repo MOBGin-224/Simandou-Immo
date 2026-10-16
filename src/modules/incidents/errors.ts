@@ -41,3 +41,13 @@ export class MissingReasonError extends Error {
     this.name = 'MissingReasonError';
   }
 }
+
+export type FieldErrors = Record<string, string[]>;
+
+/** Paramètres de requête ou de corps invalides (creation, modification, filtres). */
+export class IncidentValidationError extends Error {
+  constructor(readonly fieldErrors: FieldErrors) {
+    super('Les données fournies sont invalides.');
+    this.name = 'IncidentValidationError';
+  }
+}

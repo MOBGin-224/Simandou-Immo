@@ -1,8 +1,5 @@
 /**
  * Surface publique du module Incidents (Lot 13, DEC-059).
- *
- * Aucun service n'existe encore : seuls le dépôt et ses helpers sont
- * exportés à ce stade.
  */
 export type {
   IncidentCommentWithAuthor,
@@ -26,11 +23,46 @@ export {
 } from './repository';
 
 export {
+  addComment,
+  assignIncident,
+  createIncident,
+  getIncident,
+  listComments,
+  listHistory,
+  listIncidents,
+  transitionStatus,
+  updateIncident,
+} from './service';
+
+export {
   IncidentClosedError,
   IncidentNotFoundError,
+  IncidentValidationError,
   InvalidTransitionError,
   MissingAssignmentError,
   MissingReasonError,
+  type FieldErrors,
 } from './errors';
 
 export { ALLOWED_TRANSITIONS, isTransitionAllowed, type IncidentStatus } from './transitions';
+
+export {
+  addCommentSchema,
+  assignIncidentSchema,
+  createIncidentSchema,
+  listIncidentsQuerySchema,
+  parseAddComment,
+  parseAssignIncident,
+  parseCreateIncident,
+  parseListIncidentsQuery,
+  parseTransitionStatus,
+  parseUpdateIncident,
+  transitionStatusSchema,
+  updateIncidentSchema,
+  type AddCommentInput,
+  type AssignIncidentInput,
+  type CreateIncidentInput,
+  type ListIncidentsQuery,
+  type TransitionStatusInput,
+  type UpdateIncidentInput,
+} from './schemas';

@@ -129,6 +129,8 @@ const BY_ERROR_NAME: Record<string, { status: number; code: ApiErrorCode }> = {
   ReceiptNotAvailableError: { status: 422, code: 'VALIDATION_ERROR' },
   ReceiptValidationError: { status: 422, code: 'VALIDATION_ERROR' },
 
+  IncidentValidationError: { status: 422, code: 'VALIDATION_ERROR' },
+
   WeakPasswordError: { status: 422, code: 'VALIDATION_ERROR' },
 };
 
