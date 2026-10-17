@@ -81,6 +81,26 @@ export const INCIDENT_CATEGORY_LABELS: Record<IncidentCategory, string> = {
   OTHER: 'Autre',
 };
 
+export type CreateIncidentInput = {
+  title: string;
+  description: string;
+  priority: IncidentPriority;
+  category: IncidentCategory;
+  apartmentId: string;
+};
+
+/** Appelle l'API POST /api/v1/incidents pour déclarer un incident (DEC-059). */
+export async function createIncidentRequest(input: CreateIncidentInput): Promise<Response> {
+  return fetch('/api/v1/incidents', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify(input),
+  });
+}
+
 /** Appelle l'API GET /api/v1/incidents pour lister les incidents avec filtres. */
 export async function listIncidentsRequest(filters: ListIncidentsFilters = {}): Promise<Response> {
   const params = new URLSearchParams();
