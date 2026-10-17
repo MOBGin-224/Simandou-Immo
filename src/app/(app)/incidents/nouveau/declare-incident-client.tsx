@@ -1,14 +1,11 @@
 'use client';
 
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 import { Alert } from '@/components/ui/alert';
-import { buttonClasses, Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Field, Input, Textarea } from '@/components/ui/field';
-import { PageHeader } from '@/components/ui/page-header';
-import { cn } from '@/lib/ui/cn';
 import {
   createIncidentRequest,
   INCIDENT_CATEGORY_LABELS,
@@ -26,11 +23,6 @@ export type DeclareIncidentClientProps = {
   apartments: ApartmentChoice[];
 };
 
-type DeclaredIncidentSuccess = {
-  id: string;
-  title: string;
-};
-
 const CATEGORY_OPTIONS: IncidentCategory[] = [
   'PLUMBING',
   'ELECTRICITY',
@@ -45,6 +37,8 @@ export default function DeclareIncidentClient({
   fixedApartment,
   apartments,
 }: DeclareIncidentClientProps) {
+  const router = useRouter();
+
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState<IncidentCategory>('OTHER');
@@ -54,7 +48,6 @@ export default function DeclareIncidentClient({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]> | null>(null);
-  const [declaredIncident, setDeclaredIncident] = useState<DeclaredIncidentSuccess | null>(null);
 
   const selectClasses =
     'min-h-11 w-full rounded-md border border-line bg-surface px-3 text-base text-ink focus:border-action focus:outline-none';
@@ -90,44 +83,16 @@ export default function DeclareIncidentClient({
           body?.error?.message ??
             'Impossible de déclarer cet incident. Veuillez vérifier votre saisie.',
         );
+        setIsSubmitting(false);
       } else {
-        setDeclaredIncident({ id: body.data.incident.id, title: body.data.incident.title });
+        // La fiche de détail existe désormais (Lot 13, écran de détail) :
+        // redirection directe, l'incident vient d'y être créé.
+        router.push(`/incidents/${encodeURIComponent(body.data.incident.id)}`);
       }
     } catch {
       setErrorMessage('Une erreur réseau est survenue. Veuillez vérifier votre connexion.');
-    } finally {
       setIsSubmitting(false);
     }
-  }
-
-  if (declaredIncident) {
-    return (
-      <div className="flex max-w-xl flex-col gap-6">
-        <PageHeader
-          title="Incident déclaré"
-          description="Votre déclaration a été transmise à votre gestionnaire ou propriétaire."
-        />
-
-        <Card className="flex flex-col gap-4 border-success/30 p-5">
-          <p className="text-sm text-ink">
-            « {declaredIncident.title} » a bien été enregistré. Vous pouvez suivre son avancement
-            depuis la liste des incidents.
-          </p>
-
-          {/*
-           * TODO(Lot 13, écran suivant) : rediriger vers /incidents/[id] une
-           * fois la fiche de détail créée. En attendant, la liste est la
-           * seule destination disponible.
-           */}
-          <Link
-            href="/incidents"
-            className={cn(buttonClasses('primary', 'lg', true), 'min-h-14 font-semibold')}
-          >
-            Retour aux incidents
-          </Link>
-        </Card>
-      </div>
-    );
   }
 
   const noApartmentAvailable = !fixedApartment && apartments.length === 0;

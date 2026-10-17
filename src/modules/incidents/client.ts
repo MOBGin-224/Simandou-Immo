@@ -45,6 +45,52 @@ export type IncidentWithRelations = {
   assignedToName: string | null;
 };
 
+/**
+ * Transitions autorisées du cycle de l'incident (DEC-017, DEC-059).
+ *
+ * Donnée de référence publique, dupliquée ici sans dépendance serveur :
+ * `src/modules/incidents/transitions.ts` en est la source côté backend, et
+ * les deux doivent rester identiques.
+ */
+export const ALLOWED_TRANSITIONS: Record<IncidentStatus, IncidentStatus[]> = {
+  OPEN: ['ASSIGNED', 'IN_PROGRESS', 'CLOSED'],
+  ASSIGNED: ['IN_PROGRESS', 'ON_HOLD', 'CLOSED'],
+  IN_PROGRESS: ['ON_HOLD', 'RESOLVED', 'CLOSED'],
+  ON_HOLD: ['IN_PROGRESS', 'CLOSED'],
+  RESOLVED: ['CLOSED', 'IN_PROGRESS'],
+  CLOSED: [],
+};
+
+export type IncidentStatusHistoryEntry = {
+  id: string;
+  incidentId: string;
+  fromStatus: IncidentStatus | null;
+  toStatus: IncidentStatus;
+  byUserId: string;
+  reason: string | null;
+  createdAt: string;
+};
+
+export type IncidentComment = {
+  id: string;
+  incidentId: string;
+  authorUserId: string;
+  content: string;
+  createdAt: string;
+};
+
+export type IncidentCommentWithAuthor = {
+  comment: IncidentComment;
+  authorName: string;
+};
+
+export type UpdateIncidentFields = Partial<{
+  title: string;
+  description: string;
+  priority: IncidentPriority;
+  category: IncidentCategory;
+}>;
+
 export type ListIncidentsFilters = {
   page?: number;
   pageSize?: number;
@@ -129,5 +175,79 @@ export async function getIncidentRequest(incidentId: string): Promise<Response> 
   return fetch(`/api/v1/incidents/${encodeURIComponent(incidentId)}`, {
     method: 'GET',
     headers: { Accept: 'application/json' },
+  });
+}
+
+/** Appelle l'API PATCH /api/v1/incidents/[id] pour modifier les champs descriptifs (DEC-059, 4.5). */
+export async function updateIncidentRequest(
+  incidentId: string,
+  fields: UpdateIncidentFields,
+): Promise<Response> {
+  return fetch(`/api/v1/incidents/${encodeURIComponent(incidentId)}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify(fields),
+  });
+}
+
+/** Appelle l'API PATCH /api/v1/incidents/[id]/status pour une transition (DEC-017). */
+export async function transitionStatusRequest(
+  incidentId: string,
+  toStatus: IncidentStatus,
+  reason: string | null = null,
+): Promise<Response> {
+  return fetch(`/api/v1/incidents/${encodeURIComponent(incidentId)}/status`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify({ toStatus, reason: reason ?? undefined }),
+  });
+}
+
+/** Appelle l'API PATCH /api/v1/incidents/[id]/assignment pour affecter l'incident (DEC-059, 4.4). */
+export async function assignIncidentRequest(
+  incidentId: string,
+  assignedToUserId: string,
+): Promise<Response> {
+  return fetch(`/api/v1/incidents/${encodeURIComponent(incidentId)}/assignment`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify({ assignedToUserId }),
+  });
+}
+
+/** Appelle l'API GET /api/v1/incidents/[id]/history pour l'historique des statuts. */
+export async function listIncidentHistoryRequest(incidentId: string): Promise<Response> {
+  return fetch(`/api/v1/incidents/${encodeURIComponent(incidentId)}/history`, {
+    method: 'GET',
+    headers: { Accept: 'application/json' },
+  });
+}
+
+/** Appelle l'API GET /api/v1/incidents/[id]/comments pour lister les commentaires. */
+export async function listCommentsRequest(incidentId: string): Promise<Response> {
+  return fetch(`/api/v1/incidents/${encodeURIComponent(incidentId)}/comments`, {
+    method: 'GET',
+    headers: { Accept: 'application/json' },
+  });
+}
+
+/** Appelle l'API POST /api/v1/incidents/[id]/comments pour ajouter un commentaire (DEC-059, 4.6). */
+export async function addCommentRequest(incidentId: string, content: string): Promise<Response> {
+  return fetch(`/api/v1/incidents/${encodeURIComponent(incidentId)}/comments`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify({ content }),
   });
 }
