@@ -19,6 +19,12 @@ import { SEED_IDS, seed } from '../../src/db/seed';
 import { UnauthenticatedError } from '../../src/lib/auth/session';
 import { GET as GET_LIST, POST } from '../../src/app/api/v1/incidents/route';
 import { GET as GET_DETAIL, PATCH } from '../../src/app/api/v1/incidents/[id]/route';
+import { PATCH as PATCH_STATUS } from '../../src/app/api/v1/incidents/[id]/status/route';
+import { PATCH as PATCH_ASSIGNMENT } from '../../src/app/api/v1/incidents/[id]/assignment/route';
+import {
+  GET as GET_COMMENTS,
+  POST as POST_COMMENT,
+} from '../../src/app/api/v1/incidents/[id]/comments/route';
 import { assignIncident, transitionStatus } from '../../src/modules/incidents/service';
 import { createTestDatabase, type TestDatabase } from '../helpers/database';
 import {
@@ -131,6 +137,68 @@ describe('API des incidents (DEC-059), routes CRUD de base', () => {
     );
     const payload = (await response.json()) as {
       data?: IncidentBody;
+      error?: { code: string };
+    };
+    return { response, payload };
+  }
+
+  async function patchStatus(id: string, body: unknown) {
+    const response = await PATCH_STATUS(
+      new Request(`https://immo.test/api/v1/incidents/${id}/status`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      }),
+      { params: Promise.resolve({ id }) },
+    );
+    const payload = (await response.json()) as {
+      data?: IncidentBody;
+      error?: { code: string };
+    };
+    return { response, payload };
+  }
+
+  async function patchAssignment(id: string, body: unknown) {
+    const response = await PATCH_ASSIGNMENT(
+      new Request(`https://immo.test/api/v1/incidents/${id}/assignment`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      }),
+      { params: Promise.resolve({ id }) },
+    );
+    const payload = (await response.json()) as {
+      data?: IncidentBody;
+      error?: { code: string };
+    };
+    return { response, payload };
+  }
+
+  type CommentBody = { comment: { content: string }; authorName: string };
+
+  async function getComments(id: string) {
+    const response = await GET_COMMENTS(
+      new Request(`https://immo.test/api/v1/incidents/${id}/comments`),
+      { params: Promise.resolve({ id }) },
+    );
+    const payload = (await response.json()) as {
+      data?: CommentBody[];
+      error?: { code: string };
+    };
+    return { response, payload };
+  }
+
+  async function postComment(id: string, body: unknown) {
+    const response = await POST_COMMENT(
+      new Request(`https://immo.test/api/v1/incidents/${id}/comments`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      }),
+      { params: Promise.resolve({ id }) },
+    );
+    const payload = (await response.json()) as {
+      data?: CommentBody;
       error?: { code: string };
     };
     return { response, payload };
@@ -440,6 +508,320 @@ describe('API des incidents (DEC-059), routes CRUD de base', () => {
 
       const { response } = await patch('00000000-0000-4000-8000-000000000000', {
         title: 'Peu importe',
+      });
+
+      expect(response.status).toBe(401);
+    });
+  });
+
+  describe('PATCH /api/v1/incidents/[id]/status', () => {
+    it('le MANAGER sur son périmètre affecte puis transite OPEN -> ASSIGNED -> 200', async () => {
+      mocks.requireAccessContext.mockResolvedValueOnce(ownerContext);
+      const created = await createViaApi(validBody());
+      const id = created.payload.data?.incident.id as string;
+
+      mocks.requireAccessContext.mockResolvedValueOnce(managerContext);
+      const { response: assignResponse } = await patchAssignment(id, {
+        assignedToUserId: secondManagerUserId,
+      });
+      expect(assignResponse.status).toBe(200);
+
+      mocks.requireAccessContext.mockResolvedValueOnce(managerContext);
+      const { response, payload } = await patchStatus(id, { toStatus: 'ASSIGNED' });
+
+      expect(response.status).toBe(200);
+      expect(payload.data?.incident.status).toBe('ASSIGNED');
+    });
+
+    it('le MANAGER transite IN_PROGRESS -> RESOLVED -> 200', async () => {
+      mocks.requireAccessContext.mockResolvedValueOnce(ownerContext);
+      const created = await createViaApi(validBody());
+      const id = created.payload.data?.incident.id as string;
+
+      mocks.requireAccessContext.mockResolvedValueOnce(managerContext);
+      await patchStatus(id, { toStatus: 'IN_PROGRESS' });
+
+      mocks.requireAccessContext.mockResolvedValueOnce(managerContext);
+      const { response, payload } = await patchStatus(id, { toStatus: 'RESOLVED' });
+
+      expect(response.status).toBe(200);
+      expect(payload.data?.incident.status).toBe('RESOLVED');
+    });
+
+    it('RESOLVED -> IN_PROGRESS sans motif répond 422', async () => {
+      mocks.requireAccessContext.mockResolvedValueOnce(ownerContext);
+      const created = await createViaApi(validBody());
+      const id = created.payload.data?.incident.id as string;
+
+      mocks.requireAccessContext.mockResolvedValueOnce(ownerContext);
+      await patchStatus(id, { toStatus: 'IN_PROGRESS' });
+      mocks.requireAccessContext.mockResolvedValueOnce(ownerContext);
+      await patchStatus(id, { toStatus: 'RESOLVED' });
+
+      mocks.requireAccessContext.mockResolvedValueOnce(ownerContext);
+      const { response, payload } = await patchStatus(id, { toStatus: 'IN_PROGRESS' });
+
+      expect(response.status).toBe(422);
+      expect(payload.error?.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('RESOLVED -> IN_PROGRESS avec motif répond 200', async () => {
+      mocks.requireAccessContext.mockResolvedValueOnce(ownerContext);
+      const created = await createViaApi(validBody());
+      const id = created.payload.data?.incident.id as string;
+
+      mocks.requireAccessContext.mockResolvedValueOnce(ownerContext);
+      await patchStatus(id, { toStatus: 'IN_PROGRESS' });
+      mocks.requireAccessContext.mockResolvedValueOnce(ownerContext);
+      await patchStatus(id, { toStatus: 'RESOLVED' });
+
+      mocks.requireAccessContext.mockResolvedValueOnce(ownerContext);
+      const { response, payload } = await patchStatus(id, {
+        toStatus: 'IN_PROGRESS',
+        reason: 'Le problème persiste.',
+      });
+
+      expect(response.status).toBe(200);
+      expect(payload.data?.incident.status).toBe('IN_PROGRESS');
+    });
+
+    it('CLOSED -> OPEN répond 422', async () => {
+      mocks.requireAccessContext.mockResolvedValueOnce(ownerContext);
+      const created = await createViaApi(validBody());
+      const id = created.payload.data?.incident.id as string;
+
+      mocks.requireAccessContext.mockResolvedValueOnce(ownerContext);
+      await patchStatus(id, { toStatus: 'CLOSED' });
+
+      mocks.requireAccessContext.mockResolvedValueOnce(ownerContext);
+      const { response, payload } = await patchStatus(id, { toStatus: 'OPEN' });
+
+      expect(response.status).toBe(422);
+      expect(payload.error?.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('OPEN -> ASSIGNED sans affectation préalable répond 422', async () => {
+      mocks.requireAccessContext.mockResolvedValueOnce(ownerContext);
+      const created = await createViaApi(validBody());
+      const id = created.payload.data?.incident.id as string;
+
+      mocks.requireAccessContext.mockResolvedValueOnce(ownerContext);
+      const { response, payload } = await patchStatus(id, { toStatus: 'ASSIGNED' });
+
+      expect(response.status).toBe(422);
+      expect(payload.error?.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('un TENANT qui tente une transition répond 403', async () => {
+      const tenantContext = await contextOf(harness, lease.tenantUserId);
+      mocks.requireAccessContext.mockResolvedValueOnce(tenantContext);
+      const created = await createViaApi(validBody());
+      const id = created.payload.data?.incident.id as string;
+
+      mocks.requireAccessContext.mockResolvedValueOnce(tenantContext);
+      const { response } = await patchStatus(id, { toStatus: 'IN_PROGRESS' });
+
+      expect(response.status).toBe(403);
+    });
+
+    it('répond 401 sans authentification', async () => {
+      mocks.requireAccessContext.mockRejectedValueOnce(new UnauthenticatedError());
+
+      const { response } = await patchStatus('00000000-0000-4000-8000-000000000000', {
+        toStatus: 'IN_PROGRESS',
+      });
+
+      expect(response.status).toBe(401);
+    });
+  });
+
+  describe('PATCH /api/v1/incidents/[id]/assignment', () => {
+    it('le MANAGER affecte à un gestionnaire de l organisation -> 200', async () => {
+      mocks.requireAccessContext.mockResolvedValueOnce(managerContext);
+      const created = await createViaApi(validBody());
+      const id = created.payload.data?.incident.id as string;
+
+      mocks.requireAccessContext.mockResolvedValueOnce(managerContext);
+      const { response, payload } = await patchAssignment(id, {
+        assignedToUserId: secondManagerUserId,
+      });
+
+      expect(response.status).toBe(200);
+      expect(payload.data?.incident.id).toBe(id);
+    });
+
+    it('le MANAGER affecte à un utilisateur d une autre organisation -> 404', async () => {
+      mocks.requireAccessContext.mockResolvedValueOnce(managerContext);
+      const created = await createViaApi(validBody());
+      const id = created.payload.data?.incident.id as string;
+
+      mocks.requireAccessContext.mockResolvedValueOnce(managerContext);
+      const { response } = await patchAssignment(id, { assignedToUserId: SEED_IDS.ownerB });
+
+      expect(response.status).toBe(404);
+    });
+
+    it('un TENANT qui tente d affecter répond 403', async () => {
+      const tenantContext = await contextOf(harness, lease.tenantUserId);
+      mocks.requireAccessContext.mockResolvedValueOnce(tenantContext);
+      const created = await createViaApi(validBody());
+      const id = created.payload.data?.incident.id as string;
+
+      mocks.requireAccessContext.mockResolvedValueOnce(tenantContext);
+      const { response } = await patchAssignment(id, {
+        assignedToUserId: secondManagerUserId,
+      });
+
+      expect(response.status).toBe(403);
+    });
+
+    it('un incident CLOSED répond 422', async () => {
+      mocks.requireAccessContext.mockResolvedValueOnce(ownerContext);
+      const created = await createViaApi(validBody());
+      const id = created.payload.data?.incident.id as string;
+
+      mocks.requireAccessContext.mockResolvedValueOnce(ownerContext);
+      await patchStatus(id, { toStatus: 'CLOSED' });
+
+      mocks.requireAccessContext.mockResolvedValueOnce(ownerContext);
+      const { response, payload } = await patchAssignment(id, {
+        assignedToUserId: secondManagerUserId,
+      });
+
+      expect(response.status).toBe(422);
+      expect(payload.error?.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('répond 401 sans authentification', async () => {
+      mocks.requireAccessContext.mockRejectedValueOnce(new UnauthenticatedError());
+
+      const { response } = await patchAssignment('00000000-0000-4000-8000-000000000000', {
+        assignedToUserId: secondManagerUserId,
+      });
+
+      expect(response.status).toBe(401);
+    });
+  });
+
+  describe('GET /api/v1/incidents/[id]/comments', () => {
+    it('le OWNER voit les commentaires', async () => {
+      mocks.requireAccessContext.mockResolvedValueOnce(ownerContext);
+      const created = await createViaApi(validBody());
+      const id = created.payload.data?.incident.id as string;
+
+      mocks.requireAccessContext.mockResolvedValueOnce(ownerContext);
+      await postComment(id, { content: 'Premier commentaire.' });
+
+      mocks.requireAccessContext.mockResolvedValueOnce(ownerContext);
+      const { response, payload } = await getComments(id);
+
+      expect(response.status).toBe(200);
+      expect(payload.data?.some((row) => row.comment.content === 'Premier commentaire.')).toBe(
+        true,
+      );
+    });
+
+    it('le locataire concerné voit les commentaires', async () => {
+      const tenantContext = await contextOf(harness, lease.tenantUserId);
+      mocks.requireAccessContext.mockResolvedValueOnce(tenantContext);
+      const created = await createViaApi(validBody());
+      const id = created.payload.data?.incident.id as string;
+
+      mocks.requireAccessContext.mockResolvedValueOnce(tenantContext);
+      await postComment(id, { content: 'Merci de votre visite.' });
+
+      mocks.requireAccessContext.mockResolvedValueOnce(tenantContext);
+      const { response, payload } = await getComments(id);
+
+      expect(response.status).toBe(200);
+      expect(payload.data?.length ?? 0).toBeGreaterThan(0);
+    });
+
+    it('un utilisateur hors périmètre répond 404', async () => {
+      mocks.requireAccessContext.mockResolvedValueOnce(ownerContext);
+      const created = await createViaApi(validBody());
+      const id = created.payload.data?.incident.id as string;
+
+      mocks.requireAccessContext.mockResolvedValueOnce(otherOwnerContext);
+      const { response } = await getComments(id);
+
+      expect(response.status).toBe(404);
+    });
+
+    it('répond 401 sans authentification', async () => {
+      mocks.requireAccessContext.mockRejectedValueOnce(new UnauthenticatedError());
+
+      const { response } = await getComments('00000000-0000-4000-8000-000000000000');
+
+      expect(response.status).toBe(401);
+    });
+  });
+
+  describe('POST /api/v1/incidents/[id]/comments', () => {
+    it('le MANAGER du périmètre commente -> 201', async () => {
+      mocks.requireAccessContext.mockResolvedValueOnce(ownerContext);
+      const created = await createViaApi(validBody());
+      const id = created.payload.data?.incident.id as string;
+
+      mocks.requireAccessContext.mockResolvedValueOnce(managerContext);
+      const { response, payload } = await postComment(id, { content: 'Le plombier est passé.' });
+
+      expect(response.status).toBe(201);
+      expect(payload.data?.comment.content).toBe('Le plombier est passé.');
+    });
+
+    it('le TENANT concerné commente -> 201', async () => {
+      const tenantContext = await contextOf(harness, lease.tenantUserId);
+      mocks.requireAccessContext.mockResolvedValueOnce(tenantContext);
+      const created = await createViaApi(validBody());
+      const id = created.payload.data?.incident.id as string;
+
+      mocks.requireAccessContext.mockResolvedValueOnce(tenantContext);
+      const { response } = await postComment(id, { content: 'Merci de votre visite.' });
+
+      expect(response.status).toBe(201);
+    });
+
+    it('un contenu vide répond 422', async () => {
+      mocks.requireAccessContext.mockResolvedValueOnce(ownerContext);
+      const created = await createViaApi(validBody());
+      const id = created.payload.data?.incident.id as string;
+
+      mocks.requireAccessContext.mockResolvedValueOnce(ownerContext);
+      const { response, payload } = await postComment(id, { content: '' });
+
+      expect(response.status).toBe(422);
+      expect(payload.error?.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('un contenu de plus de 2000 caractères répond 422', async () => {
+      mocks.requireAccessContext.mockResolvedValueOnce(ownerContext);
+      const created = await createViaApi(validBody());
+      const id = created.payload.data?.incident.id as string;
+
+      mocks.requireAccessContext.mockResolvedValueOnce(ownerContext);
+      const { response, payload } = await postComment(id, { content: 'a'.repeat(2001) });
+
+      expect(response.status).toBe(422);
+      expect(payload.error?.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('un utilisateur hors périmètre répond 404', async () => {
+      mocks.requireAccessContext.mockResolvedValueOnce(ownerContext);
+      const created = await createViaApi(validBody());
+      const id = created.payload.data?.incident.id as string;
+
+      mocks.requireAccessContext.mockResolvedValueOnce(otherOwnerContext);
+      const { response } = await postComment(id, { content: 'Intrusion.' });
+
+      expect(response.status).toBe(404);
+    });
+
+    it('répond 401 sans authentification', async () => {
+      mocks.requireAccessContext.mockRejectedValueOnce(new UnauthenticatedError());
+
+      const { response } = await postComment('00000000-0000-4000-8000-000000000000', {
+        content: 'Peu importe.',
       });
 
       expect(response.status).toBe(401);

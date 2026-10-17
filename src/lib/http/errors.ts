@@ -138,6 +138,16 @@ const BY_ERROR_NAME: Record<string, { status: number; code: ApiErrorCode }> = {
   // sa requête, 422 et non 409.
   IncidentClosedError: { status: 422, code: 'VALIDATION_ERROR' },
 
+  // La transition demandée ne figure pas dans ALLOWED_TRANSITIONS (DEC-017) :
+  // l'appelant corrige le statut cible, 422 et non 409.
+  InvalidTransitionError: { status: 422, code: 'VALIDATION_ERROR' },
+
+  // Le passage à ASSIGNED exige une affectation déjà renseignée (DEC-059, 4.4).
+  MissingAssignmentError: { status: 422, code: 'VALIDATION_ERROR' },
+
+  // RESOLVED -> IN_PROGRESS exige un motif (DEC-059, 6.3 et 8.3).
+  MissingReasonError: { status: 422, code: 'VALIDATION_ERROR' },
+
   WeakPasswordError: { status: 422, code: 'VALIDATION_ERROR' },
 };
 
