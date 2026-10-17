@@ -113,7 +113,11 @@ export const listIncidentsQuerySchema = z.object({
   propertyId: z.uuid('Identifiant invalide.').optional(),
   apartmentId: z.uuid('Identifiant invalide.').optional(),
   assignedToUserId: z.uuid('Identifiant invalide.').optional(),
-  toProcess: z.coerce.boolean().optional(),
+  /** Filtre virtuel status IN (OPEN, ASSIGNED). Faux par défaut. */
+  toProcess: z
+    .union([z.string(), z.boolean(), z.null()])
+    .optional()
+    .transform((value) => value === true || value === 'true' || value === '1'),
 });
 
 export type ListIncidentsQuery = z.output<typeof listIncidentsQuerySchema>;

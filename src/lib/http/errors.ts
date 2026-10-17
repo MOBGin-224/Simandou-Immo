@@ -131,6 +131,13 @@ const BY_ERROR_NAME: Record<string, { status: number; code: ApiErrorCode }> = {
 
   IncidentValidationError: { status: 422, code: 'VALIDATION_ERROR' },
 
+  // Hors périmètre ou inexistant : 404, jamais 403 (DEC-059, section 9.3).
+  IncidentNotFoundError: { status: 404, code: 'NOT_FOUND' },
+
+  // Un incident CLOSED ne se modifie plus (DEC-059, 4.5) : l'appelant corrige
+  // sa requête, 422 et non 409.
+  IncidentClosedError: { status: 422, code: 'VALIDATION_ERROR' },
+
   WeakPasswordError: { status: 422, code: 'VALIDATION_ERROR' },
 };
 
