@@ -42,10 +42,9 @@ import { describeApartment, getMyTenantSpace } from '@/modules/tenants';
  * pouvoir expliquer après un paiement partiel. Chaque part de charge porte son
  * explication, comme la section 31 l'exige.
  *
- * **Et il dit ce qui n'existe pas encore.** « Paiements », « Quittances » et
- * « Mes incidents » sont des destinations de l'architecture cible que les lots
- * suivants rempliront. Les afficher vides laisserait croire à une panne ; les
- * annoncer explique l'attente.
+ * **Depuis le Lot 13, il ouvre aussi « Mes incidents »** (DEC-059), sur le même
+ * modèle que « Mes paiements » et « Mes quittances » : une carte qui explique à
+ * quoi sert la destination et y mène, sans rien y précharger ici.
  *
  * La page n'existe pas pour qui n'est pas locataire : un propriétaire ou un
  * gestionnaire n'a pas d'espace locataire, et c'est la liste des locataires qui
@@ -383,12 +382,21 @@ export default async function MyApartmentPage() {
         </Link>
       </Card>
 
-      <Card className="flex flex-col gap-3">
-        <Overline>Prochainement</Overline>
+      <Card className="flex flex-col gap-4">
+        <Overline>Mes incidents</Overline>
         <p className="text-sm text-muted">
-          Vos incidents apparaîtront ici. Ils arriveront avec les prochaines étapes du produit, et
-          rien ne vous est demandé en attendant.
+          Déclarez un problème dans votre logement, ou suivez l&apos;avancement de ceux que vous
+          avez déjà signalés.
         </p>
+
+        <div className="flex flex-col gap-3">
+          <Link href="/incidents/nouveau" className={buttonClasses('primary', 'md', true)}>
+            Déclarer un incident
+          </Link>
+          <Link href="/incidents" className={buttonClasses('secondary', 'md', true)}>
+            Voir mes incidents
+          </Link>
+        </div>
       </Card>
     </div>
   );

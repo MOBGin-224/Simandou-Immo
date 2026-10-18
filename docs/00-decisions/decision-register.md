@@ -145,6 +145,7 @@ Lorsqu'une contradiction est détectée, elle doit être corrigée dans le docum
 | DEC-056 | Déclaration et validation des paiements manuels | VERROUILLÉE | aucun |
 | DEC-057 | Reçus de paiement et vérification publique | VERROUILLÉE | aucun |
 | DEC-058 | Quittances formelles (Lot 12) | VERROUILLÉE | aucun |
+| DEC-059 | Cadre du Lot 13 Incidents | VERROUILLÉE | aucun |
 
 
 ---
@@ -2708,3 +2709,280 @@ motif d'invalidation.
 
 **Impact si changé** : refonte du modèle métier, du job de génération, du 
 PDF, de la page publique, des tests.
+
+---
+
+## DEC-059 : Cadre du Lot 13 Incidents
+
+**Statut** : VERROUILLÉE
+**Date** : 16 octobre 2026
+**Dépend de** : DEC-013, DEC-017, DEC-018, DEC-020, DEC-021, DEC-033, DEC-058
+
+**Décision** :
+
+Le Lot 13 implémente la déclaration, le suivi et la résolution des 
+incidents. Cette décision cadre le périmètre, le modèle, les permissions 
+et les règles métier. Elle ne modifie ni DEC-017 (cycle incident) ni 
+DEC-018 (cycle intervention) ni DEC-021 (enums).
+
+### 1. Périmètre du Lot 13
+
+1.1. Le Lot 13 couvre : déclaration d'un incident par un locataire ou un 
+gestionnaire, suivi des statuts, commentaires partagés, affectation à un 
+utilisateur de l'organisation, historique des changements.
+
+1.2. Le Lot 13 n'inclut PAS les interventions. Elles relèvent du Lot 14.
+
+1.3. Le Lot 13 n'inclut PAS les photos. Le ticket MVP-BACKLOG-055 
+mentionne un champ "photos" mais DEC-033 (stockage objet) est OUVERTE et 
+bloque explicitement les photos d'incident. Le champ photos est déclaré 
+hors périmètre jusqu'à résolution de DEC-033.
+
+1.4. Aucune table, colonne ou mécanisme provisoire ne doit simuler un 
+stockage de photos. Quand DEC-033 sera tranchée, les photos feront 
+l'objet d'une décision dédiée avec leurs propres critères d'acceptation.
+
+### 2. Modèle de données
+
+2.1. Table incidents :
+
+- id uuid PK defaultRandom
+- organizationId uuid NOT NULL FK organizations RESTRICT
+- propertyId uuid NOT NULL FK properties RESTRICT
+- apartmentId uuid NOT NULL FK apartments RESTRICT
+- createdByUserId uuid NOT NULL FK users RESTRICT
+- title varchar(200) NOT NULL
+- description text NOT NULL
+- priority enum incident_priority NOT NULL (LOW, NORMAL, URGENT)
+- status enum incident_status NOT NULL DEFAULT 'OPEN'
+- category text NOT NULL avec CHECK sur les 5 valeurs (voir 3.1)
+- assignedToUserId uuid NULL FK users RESTRICT
+- assignedAt timestamptz NULL
+- assignedByUserId uuid NULL FK users RESTRICT
+- resolvedAt timestamptz NULL
+- closedAt timestamptz NULL
+- createdAt timestamptz NOT NULL defaultNow
+- updatedAt timestamptz NOT NULL defaultNow
+
+Contraintes :
+- CHECK : assignedToUserId, assignedAt et assignedByUserId sont tous 
+  NULL ensemble, ou tous non NULL ensemble (cohérence de l'affectation).
+- CHECK : si status = 'ASSIGNED', assignedToUserId IS NOT NULL.
+- CHECK : si status = 'CLOSED', closedAt IS NOT NULL.
+- CHECK : si status = 'RESOLVED' ou 'CLOSED', resolvedAt IS NOT NULL.
+- Index sur (organizationId, status) pour les listes filtrées.
+- Index sur (propertyId, status).
+- Index sur (assignedToUserId, status) pour "mes incidents".
+
+2.2. Table incident_status_history :
+
+- id uuid PK defaultRandom
+- incidentId uuid NOT NULL FK incidents RESTRICT
+- fromStatus enum incident_status NULL (NULL pour la création)
+- toStatus enum incident_status NOT NULL
+- byUserId uuid NOT NULL FK users RESTRICT
+- reason text NULL (obligatoire si fromStatus = 'RESOLVED' et 
+  toStatus = 'IN_PROGRESS', voir 6.3)
+- createdAt timestamptz NOT NULL defaultNow
+
+Contraintes :
+- Index sur (incidentId, createdAt DESC).
+
+2.3. Table incident_comments :
+
+- id uuid PK defaultRandom
+- incidentId uuid NOT NULL FK incidents RESTRICT
+- authorUserId uuid NOT NULL FK users RESTRICT
+- content text NOT NULL (longueur 1 à 2000)
+- createdAt timestamptz NOT NULL defaultNow
+
+Contraintes :
+- Index sur (incidentId, createdAt ASC).
+
+### 3. Catégories d'incident (incident_category)
+
+3.1. Cinq valeurs, en text + CHECK conformément à DEC-021 :
+
+| Valeur stockée | Libellé UI |
+|---|---|
+| PLUMBING | Plomberie |
+| ELECTRICITY | Électricité |
+| AIR_CONDITIONING | Climatisation |
+| LOCKS_AND_KEYS | Serrurerie |
+| OTHER | Autre |
+
+3.2. La catégorie est obligatoire à la création. OTHER est la valeur 
+utilisée quand le problème ne correspond à aucune autre catégorie.
+
+3.3. Validation en base (CHECK) ET côté serveur (Zod). La contrainte SQL 
+est un garde-fou, pas un substitut à la validation applicative.
+
+### 4. Permissions et visibilité
+
+4.1. Création :
+
+- TENANT : peut créer un incident uniquement sur un logement auquel il 
+  a un accès actif (bail en cours ou historique récent sur ce logement).
+- MANAGER : peut créer un incident sur les immeubles de son périmètre.
+- OWNER : peut créer un incident sur son organisation.
+
+4.2. Lecture :
+
+- TENANT voit ses propres incidents (créés par lui ou concernant son 
+  logement actif).
+- MANAGER voit les incidents des immeubles de son périmètre.
+- OWNER voit tous les incidents de son organisation.
+
+4.3. Transitions de statut :
+
+- TENANT : ne peut déclencher AUCUNE transition.
+- MANAGER (sur son périmètre) : peut déclencher les transitions 
+  autorisées par DEC-017.
+- OWNER : peut déclencher les transitions autorisées par DEC-017.
+- Aucun rôle ne peut déclencher une transition non listée dans DEC-017.
+- OWNER ne peut PAS contourner DEC-017. Toute transition non listée 
+  reste refusée, quel que soit le rôle.
+
+4.4. Affectation :
+
+- Seuls MANAGER (sur son périmètre) et OWNER peuvent affecter ou 
+  réaffecter un incident.
+- L'affectation est obligatoire pour passer au statut ASSIGNED.
+- La réaffectation est possible tant que l'incident n'est pas CLOSED.
+- L'affectation enregistre la personne affectée, l'auteur de l'affectation 
+  et l'horodatage.
+
+4.5. Modification des champs descriptifs :
+
+- Le TENANT créateur peut modifier titre, description, catégorie et 
+  priorité tant que l'incident est OPEN.
+- Au-delà de OPEN, seuls MANAGER et OWNER peuvent modifier ces champs, 
+  tant que l'incident n'est pas CLOSED.
+- Une fois CLOSED, aucun champ n'est modifiable.
+
+4.6. Commentaires :
+
+- Tous les utilisateurs ayant accès à l'incident peuvent poster un 
+  commentaire.
+- Les commentaires sont partagés : tout utilisateur ayant accès à 
+  l'incident voit tous les commentaires.
+- Pas de notes privées au MVP.
+
+### 5. Priorité
+
+5.1. Le TENANT choisit la priorité initiale (LOW, NORMAL, URGENT) à la 
+création.
+
+5.2. MANAGER et OWNER peuvent modifier la priorité tant que l'incident 
+n'est pas CLOSED.
+
+5.3. Les trois niveaux LOW, NORMAL, URGENT suffisent au MVP. Aucun 
+niveau supplémentaire n'est ajouté.
+
+### 6. Historique et traçabilité
+
+6.1. Chaque transition de statut crée une ligne dans 
+incident_status_history.
+
+6.2. La ligne contient : statut précédent, nouveau statut, auteur, date.
+
+6.3. Un motif est OBLIGATOIRE quand fromStatus = 'RESOLVED' et 
+toStatus = 'IN_PROGRESS' (cas où un incident déjà marqué résolu doit 
+revenir en cours, parce que le problème persiste ou revient).
+
+6.4. Les incidents ne sont jamais supprimés (DEC-013). Aucun DELETE 
+physique.
+
+### 7. Absence d'automatismes entre incident et intervention
+
+7.1. Aucun changement automatique du statut d'un incident à la suite 
+d'une opération sur une intervention.
+
+7.2. Tout changement de statut d'incident reste manuel et doit respecter 
+les transitions autorisées par DEC-017.
+
+7.3. Les automatisations éventuelles entre incidents et interventions 
+feront l'objet d'une décision dédiée au Lot 14, avec des critères 
+explicites.
+
+7.4. La relation obligatoire ou facultative entre une intervention et un 
+incident n'est PAS tranchée par DEC-059. Elle relève du Lot 14.
+
+### 8. Cas de la résolution insuffisante
+
+8.1. Si un incident est marqué RESOLVED mais que le problème persiste, 
+le parcours autorisé est la transition RESOLVED → IN_PROGRESS prévue par 
+DEC-017.
+
+8.2. La transition CLOSED → OPEN reste interdite (DEC-017). Un incident 
+clôturé ne se rouvre pas. Si un nouveau problème survient après la 
+clôture, un nouvel incident est créé.
+
+8.3. Un motif textuel est obligatoire pour la transition RESOLVED → 
+IN_PROGRESS (voir 6.3).
+
+### 9. Routes API
+
+9.1. Routes à implémenter :
+
+| Route | Finalité |
+|---|---|
+| POST /api/v1/incidents | Créer un incident |
+| GET /api/v1/incidents | Lister avec filtres et pagination |
+| GET /api/v1/incidents/[id] | Détail |
+| PATCH /api/v1/incidents/[id] | Modifier les champs descriptifs |
+| PATCH /api/v1/incidents/[id]/status | Transition de statut |
+| PATCH /api/v1/incidents/[id]/assignment | Affecter ou réaffecter |
+| GET /api/v1/incidents/[id]/comments | Lister les commentaires |
+| POST /api/v1/incidents/[id]/comments | Ajouter un commentaire |
+
+9.2. Chaque route applique le périmètre côté serveur avant toute réponse.
+
+9.3. Connaître l'identifiant d'un incident ne donne jamais accès à un 
+incident hors périmètre. La réponse est 404, pas 403 (ne pas révéler 
+l'existence).
+
+### 10. Filtres et liste
+
+10.1. Filtres supportés pour GET /api/v1/incidents :
+
+- status (un ou plusieurs)
+- priority
+- category
+- propertyId
+- apartmentId
+- assignedToUserId
+- Filtre virtuel "à traiter" = status IN (OPEN, ASSIGNED) pour le 
+  tableau de bord gestionnaire.
+
+10.2. Pagination : page par défaut 1, taille 20.
+
+10.3. Tri par défaut : createdAt DESC.
+
+### 11. Écrans UI
+
+11.1. Écrans à créer :
+
+- /incidents (liste avec filtres)
+- /incidents/nouveau (déclaration)
+- /incidents/[id] (détail avec historique, commentaires, actions)
+
+11.2. Sur /mon-logement, ajouter une carte "Mes incidents" avec un lien 
+vers /incidents (modèle : carte "Mes paiements" du Lot 11).
+
+11.3. Mobile first, largeur de référence 360 px.
+
+### 12. Points reportés
+
+12.1. Photos d'incident : reportées après DEC-033.
+
+12.2. Interventions : relèvent du Lot 14.
+
+12.3. Relation obligatoire ou facultative entre intervention et incident : 
+tranchée au Lot 14.
+
+12.4. Notifications aux participants lors d'un changement de statut : 
+relèvent du Lot 17 (Notifications).
+
+**Impact si changé** : modèle de données, permissions, routes API, 
+écrans, tests du Lot 13.

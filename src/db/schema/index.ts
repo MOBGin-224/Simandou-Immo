@@ -40,3 +40,8 @@ export * from './payments';
  * Périmètre du Lot 12 : quittances formelles (MVP-BACKLOG-048, DEC-058).
  */
 export * from './receipts';
+
+/**
+ * Périmètre du Lot 13 : incidents, historique et commentaires (DEC-059).
+ */
+export * from './incidents';

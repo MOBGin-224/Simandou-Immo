@@ -143,6 +143,7 @@ describe('Liste des gestionnaires', () => {
       const listA = await listManagers(harness.db, owner, OPTIONS);
 
       expect(listA.managers.some((item) => item.id === accessId)).toBe(false);
+      expect(listA.managers.some((item) => item.userId === foreign.id)).toBe(false);
     });
   });
 
@@ -156,6 +157,23 @@ describe('Liste des gestionnaires', () => {
       expect(seeded?.fullName).toBe('Mamadou Diallo');
       expect(seeded?.status).toBe('ACTIVE');
       expect(seeded?.properties.map((property) => property.id)).toEqual([SEED_IDS.propertyA]);
+    });
+
+    /** DEC-059 : l'affectation d'incident cible la personne, pas l'accès. */
+    it('expose userId, distinct de id, pour un accès comme pour une invitation', async () => {
+      const issued = await invite('Invité avec userId');
+      const list = await listManagers(harness.db, owner, OPTIONS);
+
+      const access = list.managers.find((item) => item.id === SEED_IDS.accessManagerA);
+      const invitation = list.managers.find((item) => item.id === issued.invitation.id);
+
+      expect(access?.userId).toBe(SEED_IDS.managerA);
+      expect(access?.userId).not.toBe(access?.id);
+      expect(access?.userId).toMatch(/^[0-9a-f-]{36}$/i);
+
+      expect(invitation?.userId).toBeDefined();
+      expect(invitation?.userId).not.toBe(invitation?.id);
+      expect(invitation?.userId).toMatch(/^[0-9a-f-]{36}$/i);
     });
 
     it('distingue un accès d une invitation, par leur type', async () => {
