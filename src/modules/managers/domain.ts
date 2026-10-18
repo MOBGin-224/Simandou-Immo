@@ -29,6 +29,13 @@ export type ManagerListItem = {
   kind: ManagerListKind;
   /** `user_access.id` pour un accès, `invitations.id` pour une invitation. */
   id: string;
+  /**
+   * Identifiant de la personne (`users.id`), distinct de `id` qui est
+   * `user_access.id` ou `invitations.id`. Nécessaire pour l'affectation
+   * d'incidents (DEC-059) et d'autres actions qui ciblent la personne
+   * elle-même.
+   */
+  userId: string;
   organizationId: string;
   organizationName: string;
   fullName: string;

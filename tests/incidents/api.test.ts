@@ -21,6 +21,8 @@ import { GET as GET_LIST, POST } from '../../src/app/api/v1/incidents/route';
 import { GET as GET_DETAIL, PATCH } from '../../src/app/api/v1/incidents/[id]/route';
 import { PATCH as PATCH_STATUS } from '../../src/app/api/v1/incidents/[id]/status/route';
 import { PATCH as PATCH_ASSIGNMENT } from '../../src/app/api/v1/incidents/[id]/assignment/route';
+import { GET as GET_MANAGERS } from '../../src/app/api/v1/managers/route';
+import type { ManagerListItem } from '../../src/modules/managers/client';
 import {
   GET as GET_COMMENTS,
   POST as POST_COMMENT,
@@ -169,6 +171,15 @@ describe('API des incidents (DEC-059), routes CRUD de base', () => {
     );
     const payload = (await response.json()) as {
       data?: IncidentBody;
+      error?: { code: string };
+    };
+    return { response, payload };
+  }
+
+  async function listManagersViaApi() {
+    const response = await GET_MANAGERS();
+    const payload = (await response.json()) as {
+      data?: ManagerListItem[];
       error?: { code: string };
     };
     return { response, payload };
@@ -700,6 +711,39 @@ describe('API des incidents (DEC-059), routes CRUD de base', () => {
       });
 
       expect(response.status).toBe(401);
+    });
+  });
+
+  describe('Intégration : GET /api/v1/managers -> PATCH /api/v1/incidents/[id]/assignment (DEC-059)', () => {
+    it("affecte l'incident au manager.userId reçu de la liste des gestionnaires", async () => {
+      mocks.requireAccessContext.mockResolvedValueOnce(managerContext);
+      const created = await createViaApi(validBody());
+      const id = created.payload.data?.incident.id as string;
+
+      mocks.requireAccessContext.mockResolvedValueOnce(ownerContext);
+      const { response: managersResponse, payload: managersPayload } = await listManagersViaApi();
+      expect(managersResponse.status).toBe(200);
+
+      const target = managersPayload.data?.find(
+        (item) => item.kind === 'ACCESS' && item.userId === secondManagerUserId,
+      );
+      expect(target?.userId).toBe(secondManagerUserId);
+
+      mocks.requireAccessContext.mockResolvedValueOnce(managerContext);
+      const { response: assignResponse, payload: assignPayload } = await patchAssignment(id, {
+        assignedToUserId: target?.userId,
+      });
+
+      expect(assignResponse.status).toBe(200);
+      expect(assignPayload.data?.incident.id).toBe(id);
+
+      mocks.requireAccessContext.mockResolvedValueOnce(ownerContext);
+      const { payload: detailPayload } = await detail(id);
+
+      expect(
+        (detailPayload.data as unknown as { incident: { assignedToUserId: string | null } })
+          .incident.assignedToUserId,
+      ).toBe(secondManagerUserId);
     });
   });
 

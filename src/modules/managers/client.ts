@@ -19,13 +19,18 @@ export {
  * Élément de `GET /api/v1/managers`, forme minimale pour un sélecteur.
  *
  * `id` est `user_access.id` pour un accès et `invitations.id` pour une
- * invitation (DEC-041) : ni l'un ni l'autre n'est `users.id`. L'API ne publie
- * aucun champ `userId`, le domaine du module l'arrêtant volontairement à la
- * frontière de l'accès.
+ * invitation (DEC-041) : ni l'un ni l'autre n'est `users.id`.
  */
 export type ManagerListItem = {
   kind: ManagerListKind;
   id: string;
+  /**
+   * Identifiant de la personne (`users.id`), distinct de `id` qui est
+   * `user_access.id` ou `invitations.id`. Nécessaire pour l'affectation
+   * d'incidents (DEC-059) et d'autres actions qui ciblent la personne
+   * elle-même.
+   */
+  userId: string;
   organizationId: string;
   organizationName: string;
   fullName: string;

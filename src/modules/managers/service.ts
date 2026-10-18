@@ -777,6 +777,7 @@ export async function listManagers(
     return {
       kind: 'ACCESS',
       id: row.accessId,
+      userId: row.userId,
       organizationId: row.organizationId,
       organizationName: row.organizationName,
       fullName: row.fullName,
@@ -799,6 +800,7 @@ export async function listManagers(
     return {
       kind: 'INVITATION',
       id: row.invitationId,
+      userId: row.userId,
       organizationId: row.organizationId,
       organizationName: row.organizationName,
       fullName: row.fullName,

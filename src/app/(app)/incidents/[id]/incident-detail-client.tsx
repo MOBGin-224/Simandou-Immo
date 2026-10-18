@@ -511,20 +511,6 @@ export default function IncidentDetailClient({
             <div className="flex flex-col gap-3">
               {managersError ? <Alert tone="warning">{managersError}</Alert> : null}
 
-              {/*
-               * TODO : GET /api/v1/managers n'expose que `user_access.id`,
-               * pas `users.id` (voir `managers/client.ts`). L'affectation ci-
-               * dessous échouera donc tant que cette API n'exposera pas
-               * l'identifiant utilisateur attendu par
-               * `PATCH /api/v1/incidents/[id]/assignment`. Signalé au
-               * fondateur ; ne pas corriger ici (service hors périmètre de
-               * cette tâche).
-               */}
-              <Alert tone="warning">
-                L&apos;API des gestionnaires n&apos;expose pas encore l&apos;identifiant requis par
-                l&apos;affectation : cette action échouera jusqu&apos;à sa mise à jour.
-              </Alert>
-
               <select
                 value={selectedManagerId}
                 onChange={(event) => setSelectedManagerId(event.target.value)}
@@ -532,7 +518,7 @@ export default function IncidentDetailClient({
               >
                 <option value="">Choisir une personne</option>
                 {managers.map((manager) => (
-                  <option key={manager.id} value={manager.id}>
+                  <option key={manager.userId} value={manager.userId}>
                     {manager.fullName}
                   </option>
                 ))}
