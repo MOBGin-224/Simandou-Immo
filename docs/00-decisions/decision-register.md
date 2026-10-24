@@ -146,6 +146,7 @@ Lorsqu'une contradiction est détectée, elle doit être corrigée dans le docum
 | DEC-057 | Reçus de paiement et vérification publique | VERROUILLÉE | aucun |
 | DEC-058 | Quittances formelles (Lot 12) | VERROUILLÉE | aucun |
 | DEC-059 | Cadre du Lot 13 Incidents | VERROUILLÉE | aucun |
+| DEC-060 | Cadre du Lot 14 Interventions | VERROUILLÉE | aucun |
 
 
 ---
@@ -2986,3 +2987,340 @@ relèvent du Lot 17 (Notifications).
 
 **Impact si changé** : modèle de données, permissions, routes API, 
 écrans, tests du Lot 13.
+
+---
+
+## DEC-060 : Cadre du Lot 14 Interventions
+
+**Statut** : VERROUILLÉE
+**Date** : 24 octobre 2026
+**Dépend de** : DEC-013, DEC-014, DEC-017, DEC-018, DEC-020, DEC-021, 
+DEC-033, DEC-059
+
+**Décision** :
+
+Le Lot 14 implémente le suivi opérationnel des interventions, liées ou 
+non à un incident. Cette décision cadre le périmètre, le modèle, les 
+permissions et les règles métier. Elle complète DEC-018 (qui ne fixait 
+que la liste des statuts) sur les transitions, les rôles, les dates et 
+l'historique.
+
+### 1. Périmètre du Lot 14
+
+1.1. Le Lot 14 couvre : création d'une intervention (liée à un incident 
+ou autonome), suivi de son cycle de statuts, saisie des coûts (estimation 
+et réel), affectation à un responsable interne, historique des transitions.
+
+1.2. Le Lot 14 n'inclut PAS les dépenses. Une intervention porte ses 
+coûts (estimation, coût réel) comme données opérationnelles. Le Lot 15 
+(Dépenses) décidera séparément de la comptabilisation et de la relation 
+dépense-intervention.
+
+1.3. Le Lot 14 n'inclut PAS les photos. Ni le ticket MVP-BACKLOG-058 ni 
+DEC-033 ne les mentionnent pour les interventions. Aucune table, colonne 
+ou mécanisme provisoire ne doit simuler un stockage de photos.
+
+1.4. Le Lot 14 n'ajoute PAS de champ priorité à l'intervention. La 
+priorité appartient à l'incident (DEC-017). Une intervention préventive 
+sans incident n'a pas de priorité au MVP.
+
+### 2. Modèle de données
+
+2.1. Table interventions :
+
+- id uuid PK defaultRandom
+- organizationId uuid NOT NULL FK organizations RESTRICT
+- propertyId uuid NOT NULL FK properties RESTRICT
+- apartmentId uuid NULL FK apartments RESTRICT
+- incidentId uuid NULL FK incidents RESTRICT
+- createdByUserId uuid NOT NULL FK users RESTRICT
+- assignedToUserId uuid NULL FK users RESTRICT
+- title varchar(200) NOT NULL
+- description text NOT NULL
+- providerName varchar(200) NULL
+- providerPhone varchar(30) NULL
+- status enum intervention_status NOT NULL DEFAULT 'PLANNED'
+- plannedFor date NULL (date civile prévue, saisie manuelle)
+- startedAt timestamptz NULL (renseignée par le serveur au passage à 
+  IN_PROGRESS)
+- completedAt timestamptz NULL (renseignée par le serveur au passage à 
+  COMPLETED)
+- cancelledAt timestamptz NULL (renseignée par le serveur au passage à 
+  CANCELLED)
+- estimatedCost bigint NULL
+- actualCost bigint NULL
+- createdAt timestamptz NOT NULL defaultNow
+- updatedAt timestamptz NOT NULL defaultNow
+
+Contraintes (toutes en CHECK) :
+- estimated_cost_non_negative : estimated_cost IS NULL OR estimated_cost >= 0
+- actual_cost_non_negative : actual_cost IS NULL OR actual_cost >= 0
+- completed_requires_completed_at : status <> 'COMPLETED' OR completed_at IS NOT NULL
+- completed_requires_actual_cost : status <> 'COMPLETED' OR actual_cost IS NOT NULL
+- cancelled_requires_cancelled_at : status <> 'CANCELLED' OR cancelled_at IS NOT NULL
+- in_progress_requires_started_at : status <> 'IN_PROGRESS' OR started_at IS NOT NULL
+- property_required_for_incident : incident_id IS NULL OR property_id IS NOT NULL
+
+Note : pas de contrainte SQL sur la devise. Les montants sont toujours en 
+GNF entier (DEC-014). Aucune colonne currency au MVP.
+
+2.2. Table intervention_status_history :
+
+- id uuid PK defaultRandom
+- interventionId uuid NOT NULL FK interventions RESTRICT
+- fromStatus enum intervention_status NULL (NULL pour la création)
+- toStatus enum intervention_status NOT NULL
+- byUserId uuid NOT NULL FK users RESTRICT
+- reason text NULL (obligatoire pour CANCELLED, voir 4.4)
+- createdAt timestamptz NOT NULL defaultNow
+
+Contraintes :
+- Index sur (interventionId, createdAt DESC).
+
+### 3. Localisation et lien avec l'incident
+
+3.1. Une intervention est toujours rattachée à un immeuble (propertyId 
+NOT NULL).
+
+3.2. Une intervention peut concerner un appartement précis (apartmentId 
+renseigné) ou les parties communes (apartmentId NULL).
+
+3.3. Une intervention peut être liée à un incident (incidentId renseigné) 
+ou exister de façon autonome pour de la maintenance préventive (incidentId 
+NULL).
+
+3.4. Si incidentId est renseigné, le serveur vérifie que propertyId et 
+apartmentId correspondent exactement à ceux de l'incident. Une 
+intervention ne peut pas cibler un autre immeuble que son incident.
+
+3.5. Un incident peut avoir plusieurs interventions (déjà posé par 
+DEC-018).
+
+### 4. Cycle de vie et transitions
+
+4.1. Quatre statuts (DEC-018) : PLANNED, IN_PROGRESS, COMPLETED, CANCELLED.
+
+4.2. Transitions autorisées, à respecter strictement :
+
+```text
+PLANNED     -> IN_PROGRESS | CANCELLED
+IN_PROGRESS -> COMPLETED | CANCELLED
+COMPLETED   -> (terminal)
+CANCELLED   -> (terminal)
+```
+
+Toute transition non listée est refusée par le backend.
+
+4.3. Une intervention ne peut PAS passer directement de PLANNED à 
+COMPLETED. Le passage par IN_PROGRESS est obligatoire.
+
+4.4. La transition vers CANCELLED exige un motif textuel obligatoire (1 à 
+1000 caractères). Le motif est stocké dans intervention_status_history.
+
+4.5. La transition vers COMPLETED exige que actualCost soit renseigné. 
+Contrôle serveur + contrainte SQL (2.1).
+
+4.6. COMPLETED et CANCELLED sont terminaux. Aucune transition sortante, 
+aucune modification des champs après ces statuts.
+
+4.7. L'historique des transitions est écrit dans la même transaction que 
+la mise à jour du statut. Si l'historique échoue, la transition est 
+annulée.
+
+4.8. Les transitions concurrentes sont sérialisées par un SELECT ... FOR 
+UPDATE sur la ligne de l'intervention, dans la transaction. Deux requêtes 
+simultanées ne peuvent pas produire deux transitions incompatibles.
+
+### 5. Dates
+
+5.1. plannedFor : date civile nullable, saisie par l'utilisateur autorisé 
+à la création ou à la modification. Aucune contrainte de cohérence avec 
+les timestamps serveur.
+
+5.2. startedAt, completedAt, cancelledAt : timestamptz renseignés 
+automatiquement par le serveur lors de la transition correspondante. 
+Jamais effacés.
+
+5.3. Le champ updatedAt est mis à jour à chaque modification de 
+l'intervention.
+
+### 6. Intervenant et responsable interne
+
+6.1. Deux notions distinctes :
+
+- L'intervenant (providerName, providerPhone) est la personne ou 
+  l'entreprise qui exécute l'intervention. Ces champs sont NULL à la 
+  création et peuvent être renseignés/modifiés tant que l'intervention 
+  n'est pas terminale. Une intervention peut exister avant que 
+  l'intervenant soit connu.
+- Le responsable interne (assignedToUserId) est l'utilisateur de 
+  l'organisation qui suit l'intervention côté gestion. Optionnel au MVP.
+
+6.2. Aucune table providers séparée. Un prestataire externe est un nom 
+libre + un téléphone. La réutilisation des prestataires, la création 
+d'une entité dédiée, seront étudiées post-MVP.
+
+### 7. Montants
+
+7.1. estimatedCost et actualCost sont des bigint nullable, en GNF 
+entier, conformes à DEC-014.
+
+7.2. Pas de colonne currency. La devise est fixée à GNF par convention 
+produit (comme pour les paiements, charges, quittances).
+
+7.3. Les montants négatifs sont refusés (contrainte SQL + validation 
+serveur Zod).
+
+7.4. actualCost obligatoire pour COMPLETED. Il peut valoir zéro (une 
+intervention peut n'avoir rien coûté).
+
+7.5. estimatedCost et actualCost sont des données opérationnelles. Ils 
+ne génèrent PAS de dépense, ne modifient PAS les comptes, ne déclenchent 
+PAS d'écriture comptable. L'articulation avec le Lot 15 sera tranchée 
+séparément.
+
+### 8. Permissions et visibilité
+
+8.1. Création :
+
+- MANAGER (sur son périmètre) peut créer.
+- OWNER (sur son organisation) peut créer.
+- TENANT ne crée pas d'intervention.
+
+8.2. Lecture (deux niveaux) :
+
+- MANAGER et OWNER voient l'intervention complète : coûts, prestataire, 
+  téléphone, historique, dates.
+- TENANT voit uniquement les interventions liées à ses incidents ou à 
+  son logement actif (apartmentId = son logement). Il voit : titre, 
+  description, statut, dates de début et de fin si terminée. Il ne voit 
+  PAS : les coûts, le prestataire, le téléphone, l'historique détaillé.
+
+8.3. Modification (PATCH) :
+
+- MANAGER et OWNER uniquement.
+- Refus si intervention COMPLETED ou CANCELLED.
+- Les champs modifiables dépendent du statut :
+  - PLANNED : title, description, providerName, providerPhone, plannedFor, 
+    estimatedCost, apartmentId, assignedToUserId
+  - IN_PROGRESS : providerName, providerPhone, estimatedCost (pas de 
+    modification de title ni description ni apartmentId)
+
+8.4. Transitions :
+
+- MANAGER et OWNER uniquement.
+- Refus au TENANT.
+
+8.5. Affectation (assignedToUserId) :
+
+- MANAGER (sur son périmètre) peut affecter à un utilisateur de son 
+  organisation.
+- OWNER peut affecter à n'importe quel utilisateur de son organisation.
+- La cible doit appartenir à la même organisation que l'intervention.
+
+### 9. Historique
+
+9.1. Chaque transition de statut crée une ligne dans 
+intervention_status_history.
+
+9.2. La ligne contient : statut précédent, nouveau statut, auteur, date, 
+motif (si CANCELLED).
+
+9.3. La ligne de création (passage à PLANNED) a fromStatus = NULL.
+
+9.4. L'historique n'est jamais supprimé (DEC-013, DEC-020).
+
+9.5. Les modifications de champs (title, description, provider, coûts) ne 
+sont PAS tracées dans l'historique au MVP. Seules les transitions de 
+statut le sont. Un système d'audit généralisé pourra être décidé au Lot 20 
+(Activity & Audit).
+
+### 10. Routes API
+
+10.1. Routes à implémenter :
+
+| Route | Finalité |
+|---|---|
+| POST /api/v1/interventions | Créer une intervention |
+| GET /api/v1/interventions | Lister avec filtres et pagination |
+| GET /api/v1/interventions/[id] | Détail |
+| PATCH /api/v1/interventions/[id] | Modifier les champs (validation par champ selon statut) |
+| PATCH /api/v1/interventions/[id]/status | Transition de statut |
+| GET /api/v1/interventions/[id]/history | Historique des transitions |
+
+10.2. Le GET détail renvoie une version complète pour MANAGER/OWNER, une 
+version minimisée pour TENANT (sans coûts, sans prestataire).
+
+10.3. Chaque route applique le périmètre côté serveur avant toute 
+réponse. 404 (pas 403) si hors périmètre.
+
+### 11. Filtres et liste
+
+11.1. Filtres pour GET /api/v1/interventions :
+
+- status
+- propertyId
+- apartmentId
+- incidentId
+- assignedToUserId
+
+11.2. Pagination : page par défaut 1, taille 20.
+
+11.3. Tri : createdAt DESC, id DESC en secondaire pour stabilité.
+
+11.4. Le TENANT voit uniquement les interventions liées à ses incidents 
+ou à son logement actif.
+
+### 12. Écrans UI
+
+12.1. Écrans à créer :
+
+- /interventions (liste avec filtres)
+- /interventions/nouvelle (création)
+- /interventions/[id] (détail avec historique et actions)
+
+12.2. Sur /mon-logement, ajouter une carte "Interventions" avec lien 
+vers /interventions (affichage conditionnel : ne s'affiche que s'il y a 
+au moins une intervention liée au locataire, ou avec un message d'état 
+vide).
+
+12.3. Sur /incidents/[id], ajouter une section "Interventions liées" 
+listant les interventions rattachées à l'incident, avec un lien vers 
+chacune et un bouton "Créer une intervention pour cet incident" (si 
+MANAGER ou OWNER).
+
+12.4. Mobile first, largeur de référence 360 px.
+
+### 13. Idempotence et concurrence
+
+13.1. Les transitions de statut utilisent SELECT ... FOR UPDATE dans la 
+transaction pour sérialiser les écritures concurrentes.
+
+13.2. Un doublon de requête (deux PATCH identiques) sur une transition 
+ne doit jamais produire deux lignes dans l'historique. Si le statut est 
+déjà le statut cible, la transition est refusée (InvalidTransitionError).
+
+13.3. La création d'une intervention n'est pas idempotente. Deux POST 
+successifs créent deux interventions. Un mécanisme d'idempotency-key 
+n'est pas requis au MVP.
+
+### 14. Points reportés
+
+14.1. Photos d'intervention : hors périmètre, à décider après DEC-033.
+
+14.2. Dépenses liées à une intervention : Lot 15, avec sa propre décision 
+sur la cardinalité (une intervention, plusieurs dépenses possible).
+
+14.3. Prestataires comme entité séparée : post-MVP, si le besoin de 
+réutilisation se confirme.
+
+14.4. Priorité sur l'intervention : pas de champ au MVP.
+
+14.5. Système d'audit généralisé (traçabilité de toutes les 
+modifications de champs) : Lot 20.
+
+14.6. Comportement de apartments.under_maintenance : inchangé. Aucun 
+lien automatique avec les interventions.
+
+**Impact si changé** : modèle de données, transitions, permissions, 
+routes API, écrans, tests du Lot 14.
