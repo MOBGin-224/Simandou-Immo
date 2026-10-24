@@ -141,18 +141,26 @@ function projectionForContext(
 }
 
 /**
- * La projection d'une LISTE ne peut pas se décider à partir d'une seule
- * ressource déjà chargée : elle doit valoir pour tout le périmètre consulté.
- * Un utilisateur qui porte MANAGER ou OWNER dans AU MOINS une organisation
- * reçoit la vue complète pour ce qu'il y voit ; un TENANT pur reçoit la vue
- * minimisée. Le dépôt, lui, continue de filtrer la visibilité ligne par ligne.
+ * Réduit une ligne complète à la vue minimisée (DEC-060, 8.2), pour une
+ * personne qui ne porte MANAGER ni OWNER dans l'organisation de CETTE ligne.
+ * Même liste de champs que `projectIntervention` du dépôt.
  */
-function projectionForListing(context: AccessContext): 'full' | 'minimal' {
-  const hasManagerOrOwnerMembership = context.memberships.some(
-    (membership) => membership.role === 'MANAGER' || membership.role === 'OWNER',
-  );
-
-  return hasManagerOrOwnerMembership ? 'full' : 'minimal';
+function toMinimalProjection(full: InterventionFull): InterventionMinimal {
+  return {
+    id: full.id,
+    title: full.title,
+    description: full.description,
+    status: full.status,
+    plannedFor: full.plannedFor,
+    startedAt: full.startedAt,
+    completedAt: full.completedAt,
+    cancelledAt: full.cancelledAt,
+    createdAt: full.createdAt,
+    updatedAt: full.updatedAt,
+    apartmentNumber: full.apartmentNumber,
+    propertyName: full.propertyName,
+    incidentTitle: full.incidentTitle,
+  };
 }
 
 async function loadFullOrThrow(
@@ -257,12 +265,32 @@ export async function getIntervention(
   return minimal;
 }
 
+/**
+ * Un même appelant peut être OWNER d'une organisation et TENANT d'une autre
+ * (DEC-003) : une liste mêle alors des lignes qui lui sont visibles pour des
+ * raisons différentes. La projection NE PEUT PAS être décidée une seule fois
+ * pour tout l'appel, sous peine d'exposer les coûts et le prestataire d'une
+ * ligne qu'il ne voit que par son statut de TENANT (DEC-060, 8.2). Le dépôt
+ * est donc toujours interrogé en 'full', et chaque ligne est réduite
+ * individuellement selon SON organisation.
+ */
 export async function listInterventions(
   db: InterventionsDatabase,
   context: AccessContext,
   filters: InterventionListFilters = {},
 ): Promise<InterventionListResult> {
-  return listInterventionsForContext(db, context, filters, projectionForListing(context));
+  const result = await listInterventionsForContext(db, context, filters, 'full');
+
+  return {
+    ...result,
+    interventions: result.interventions.map((row) => {
+      // Le dépôt a reçu 'full' explicitement ci-dessus : chaque ligne EST une
+      // `InterventionFull`, quel que soit le type d'union que porte le dépôt.
+      const full = row as InterventionFull;
+
+      return projectionForContext(context, full) === 'full' ? full : toMinimalProjection(full);
+    }),
+  };
 }
 
 /**
@@ -304,6 +332,43 @@ export async function updateIntervention(
         ),
       );
     }
+  }
+
+  /**
+   * Les mêmes garanties qu'à la création (DEC-060, 3.4 et 8.1) doivent
+   * tenir à la modification, sous peine qu'un MANAGER ou OWNER légitime sur
+   * CETTE intervention la rattache à un logement ou à un affecté d'une
+   * AUTRE organisation ou d'un AUTRE immeuble, simplement parce que
+   * `updateInterventionFieldsTx` ne revérifie pas ces appartenances.
+   */
+  if ('apartmentId' in fields) {
+    if (current.incidentId) {
+      throw new InterventionValidationError({
+        apartmentId: [
+          "Le logement ne peut pas être modifié : l'intervention est liée à un incident.",
+        ],
+      });
+    }
+
+    if (fields.apartmentId) {
+      const apartment = await loadApartmentScope(db, fields.apartmentId);
+      if (
+        !apartment ||
+        apartment.propertyId !== current.propertyId ||
+        apartment.organizationId !== current.organizationId
+      ) {
+        throw new ResourceOutOfScopeError();
+      }
+    }
+  }
+
+  if (fields.assignedToUserId) {
+    const targetBelongs = await userBelongsToOrganization(
+      db,
+      fields.assignedToUserId,
+      current.organizationId,
+    );
+    if (!targetBelongs) throw new ResourceOutOfScopeError();
   }
 
   const updated = await updateInterventionFieldsTx(db, interventionId, fields, context);

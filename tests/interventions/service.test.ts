@@ -23,6 +23,7 @@ import {
 } from '../../src/modules/interventions/service';
 import { createTestDatabase, type TestDatabase } from '../helpers/database';
 import {
+  addAccess,
   addApartment,
   addBillableLease,
   addProperty,
@@ -231,6 +232,55 @@ describe('Service des interventions (DEC-060)', () => {
       );
 
       expect(updated.providerName).toBe('Plomberie Conakry');
+    });
+
+    it('un apartmentId hors du propertyId courant lève ResourceOutOfScopeError', async () => {
+      const intervention = await createOk();
+
+      await expect(
+        updateIntervention(
+          harness.db,
+          intervention.id,
+          { apartmentId: otherLease.apartmentId },
+          ownerContext,
+        ),
+      ).rejects.toThrow(ResourceOutOfScopeError);
+    });
+
+    it('modifier apartmentId alors qu un incident est lié lève InterventionValidationError', async () => {
+      const incident = await insertIncidentTx(harness.db, {
+        organizationId: SEED_IDS.organizationA,
+        propertyId: propertyInScope,
+        apartmentId: lease.apartmentId,
+        createdByUserId: SEED_IDS.ownerA,
+        title: 'Incident lié pour le test de modification',
+        description: 'Sert à vérifier le verrou sur apartmentId.',
+        priority: 'NORMAL',
+        category: 'OTHER',
+      });
+      const intervention = await createOk({ incidentId: incident.id });
+
+      await expect(
+        updateIntervention(
+          harness.db,
+          intervention.id,
+          { apartmentId: lease.apartmentId },
+          ownerContext,
+        ),
+      ).rejects.toThrow(InterventionValidationError);
+    });
+
+    it("un assignedToUserId d'une autre organisation lève ResourceOutOfScopeError", async () => {
+      const intervention = await createOk();
+
+      await expect(
+        updateIntervention(
+          harness.db,
+          intervention.id,
+          { assignedToUserId: SEED_IDS.ownerB },
+          ownerContext,
+        ),
+      ).rejects.toThrow(ResourceOutOfScopeError);
     });
 
     it('en IN_PROGRESS, modifier title lève InterventionValidationError', async () => {
@@ -466,6 +516,45 @@ describe('Service des interventions (DEC-060)', () => {
         expect(row).not.toHaveProperty('providerName');
         expect(row).not.toHaveProperty('estimatedCost');
       }
+    });
+
+    it('un même utilisateur OWNER dans une organisation et TENANT dans une autre ne reçoit la vue complète que pour ses lignes OWNER', async () => {
+      // DEC-003 : le cumul de rôles entre deux organisations est permis.
+      await addAccess(harness, {
+        userId: lease.tenantUserId,
+        role: 'OWNER',
+        organizationId: SEED_IDS.organizationB,
+      });
+      const mixedContext = await contextOf(harness, lease.tenantUserId);
+
+      const tenantSideIntervention = await createOk({
+        providerName: 'Plomberie Conakry',
+        estimatedCost: 77_000,
+      });
+
+      const ownerSideApartmentId = await addApartment(harness, propertyOtherOrg, 'MIX1', {
+        organizationId: SEED_IDS.organizationB,
+      });
+      const ownerSideIntervention = await createIntervention(
+        harness.db,
+        createValidIntervention({
+          propertyId: propertyOtherOrg,
+          apartmentId: ownerSideApartmentId,
+          providerName: 'Électricité Kaloum',
+          estimatedCost: 55_000,
+        }),
+        mixedContext,
+      );
+
+      const result = await listInterventions(harness.db, mixedContext, {});
+
+      const tenantRow = result.interventions.find((row) => row.id === tenantSideIntervention.id);
+      const ownerRow = result.interventions.find((row) => row.id === ownerSideIntervention.id);
+
+      expect(tenantRow).not.toHaveProperty('providerName');
+      expect(tenantRow).not.toHaveProperty('estimatedCost');
+      expect(ownerRow).toHaveProperty('providerName', 'Électricité Kaloum');
+      expect(ownerRow).toHaveProperty('estimatedCost', 55_000);
     });
   });
 
