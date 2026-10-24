@@ -148,6 +148,18 @@ const BY_ERROR_NAME: Record<string, { status: number; code: ApiErrorCode }> = {
   // RESOLVED -> IN_PROGRESS exige un motif (DEC-059, 6.3 et 8.3).
   MissingReasonError: { status: 422, code: 'VALIDATION_ERROR' },
 
+  InterventionValidationError: { status: 422, code: 'VALIDATION_ERROR' },
+
+  // Hors périmètre ou inexistante : 404, jamais 403 (DEC-060, 10.3).
+  InterventionNotFoundError: { status: 404, code: 'NOT_FOUND' },
+
+  // Une intervention COMPLETED ou CANCELLED ne se modifie plus (DEC-060, 4.6
+  // et 8.3) : l'appelant corrige sa requête, 422 et non 409.
+  InterventionTerminalError: { status: 422, code: 'VALIDATION_ERROR' },
+
+  // La transition vers COMPLETED exige un coût réel renseigné (DEC-060, 4.5).
+  MissingActualCostError: { status: 422, code: 'VALIDATION_ERROR' },
+
   WeakPasswordError: { status: 422, code: 'VALIDATION_ERROR' },
 };
 
