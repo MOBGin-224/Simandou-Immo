@@ -177,18 +177,29 @@ function interventionVisibilityCondition(db: InterventionsDatabase, context: Acc
   return or(propertyCondition, tenantCondition);
 }
 
+export type VisibleIncidentSummary = {
+  id: string;
+  organizationId: string;
+  propertyId: string;
+  apartmentId: string;
+};
+
 /**
  * Visibilité de l'INCIDENT parent (DEC-059, 4.2), répliquée ici plutôt
  * qu'importée : le dépôt Incidents ne l'exporte pas, et une intervention liée
  * doit pouvoir vérifier l'incident sans dépendre des internes d'un autre
  * module. La règle est verrouillée par DEC-017/DEC-059 et ne doit varier
  * qu'à cet endroit ET dans `src/modules/incidents/repository.ts`.
+ *
+ * Exportée (et non réduite à un booléen) car le service en a aussi besoin
+ * pour DEC-060, 3.4 : vérifier que l'incident est visible ET lire ses
+ * `propertyId`/`apartmentId`, pour les comparer à ceux de l'intervention.
  */
-async function isIncidentVisibleForContext(
+export async function loadVisibleIncidentSummary(
   db: InterventionsDatabase,
   incidentId: string,
   context: AccessContext,
-): Promise<boolean> {
+): Promise<VisibleIncidentSummary | null> {
   const scopes = readablePropertyScopes(context, 'incident.read');
   const propertyCondition = propertyScopeCondition(scopes, {
     organizationId: incidents.organizationId,
@@ -210,15 +221,20 @@ async function isIncidentVisibleForContext(
     : undefined;
 
   const visibilityCondition = or(propertyCondition, tenantCondition);
-  if (!visibilityCondition) return false;
+  if (!visibilityCondition) return null;
 
   const [row] = await db
-    .select({ id: incidents.id })
+    .select({
+      id: incidents.id,
+      organizationId: incidents.organizationId,
+      propertyId: incidents.propertyId,
+      apartmentId: incidents.apartmentId,
+    })
     .from(incidents)
     .where(and(eq(incidents.id, incidentId), visibilityCondition))
     .limit(1);
 
-  return Boolean(row);
+  return row ?? null;
 }
 
 /** Lecture jointe réutilisée par `findInterventionById` et la liste. */
@@ -333,6 +349,18 @@ export async function findInterventionById(
   db: InterventionsDatabase,
   interventionId: string,
   context: AccessContext,
+  projection: 'full',
+): Promise<InterventionFull | null>;
+export async function findInterventionById(
+  db: InterventionsDatabase,
+  interventionId: string,
+  context: AccessContext,
+  projection: 'minimal',
+): Promise<InterventionMinimal | null>;
+export async function findInterventionById(
+  db: InterventionsDatabase,
+  interventionId: string,
+  context: AccessContext,
   projection: InterventionProjection,
 ): Promise<InterventionFull | InterventionMinimal | null> {
   const visibilityCondition = interventionVisibilityCondition(db, context);
@@ -401,8 +429,8 @@ export async function listInterventionsForIncident(
   context: AccessContext,
   projection: InterventionProjection,
 ): Promise<Array<InterventionFull | InterventionMinimal>> {
-  const incidentVisible = await isIncidentVisibleForContext(db, incidentId, context);
-  if (!incidentVisible) return [];
+  const incidentSummary = await loadVisibleIncidentSummary(db, incidentId, context);
+  if (!incidentSummary) return [];
 
   const visibilityCondition = interventionVisibilityCondition(db, context);
   if (!visibilityCondition) return [];

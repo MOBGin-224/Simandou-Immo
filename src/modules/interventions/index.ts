@@ -10,13 +10,14 @@ export type {
   InterventionProjection,
   InterventionsDatabase,
   UpdateInterventionFields,
+  VisibleIncidentSummary,
 } from './repository';
 export {
   findInterventionById,
   insertInterventionTx,
   listInterventionsForContext,
-  listInterventionsForIncident,
   listInterventionStatusHistory,
+  loadVisibleIncidentSummary,
   projectIntervention,
   transitionInterventionStatusTx,
   updateInterventionFieldsTx,
@@ -33,3 +34,28 @@ export {
 } from './errors';
 
 export { ALLOWED_TRANSITIONS, isTransitionAllowed, type InterventionStatus } from './transitions';
+
+export {
+  createIntervention,
+  getIntervention,
+  listHistory,
+  listInterventions,
+  listInterventionsForIncident,
+  transitionStatus,
+  updateIntervention,
+} from './service';
+
+export {
+  createInterventionSchema,
+  listInterventionsQuerySchema,
+  parseCreateIntervention,
+  parseListInterventionsQuery,
+  parseTransitionStatus,
+  parseUpdateIntervention,
+  transitionStatusSchema,
+  updateInterventionSchema,
+  type CreateInterventionInput,
+  type ListInterventionsQuery,
+  type TransitionStatusInput,
+  type UpdateInterventionInput,
+} from './schemas';
