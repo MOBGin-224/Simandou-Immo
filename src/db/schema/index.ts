@@ -45,3 +45,8 @@ export * from './receipts';
  * Périmètre du Lot 13 : incidents, historique et commentaires (DEC-059).
  */
 export * from './incidents';
+
+/**
+ * Périmètre du Lot 14 : interventions et leur historique (DEC-060).
+ */
+export * from './interventions';

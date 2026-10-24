@@ -67,6 +67,7 @@ export const PERMISSIONS = [
   'incident.update',
 
   'intervention.create',
+  'intervention.read',
   'intervention.update',
 
   'expense.create',
@@ -125,6 +126,7 @@ const OWNER_PERMISSIONS: readonly Permission[] = [
   'incident.read',
   'incident.update',
   'intervention.create',
+  'intervention.read',
   'intervention.update',
   'expense.create',
   'expense.read',
@@ -194,6 +196,7 @@ const MANAGER_PERMISSIONS: readonly Permission[] = [
   'incident.read',
   'incident.update',
   'intervention.create',
+  'intervention.read',
   'intervention.update',
   'expense.create',
   'expense.read',
@@ -208,8 +211,9 @@ const MANAGER_PERMISSIONS: readonly Permission[] = [
  * Locataire : ses propres données, et rien d'autre.
  *
  * Il consulte son contrat, ses loyers, ses paiements, ses quittances, ses
- * charges, déclare et suit ses incidents. Il ne voit ni les autres locataires,
- * ni les finances de l'immeuble.
+ * charges, déclare et suit ses incidents, et consulte les interventions qui le
+ * concernent en version minimisée (DEC-060, 8.2 : sans coûts ni prestataire).
+ * Il ne voit ni les autres locataires, ni les finances de l'immeuble.
  *
  * `tenant.update` lui est accordée pour ses propres données, niveau 4 de la
  * portée. DEC-048 la réduit à son NOM seulement : le téléphone et l'email ne
@@ -235,6 +239,7 @@ const TENANT_PERMISSIONS: readonly Permission[] = [
   'charge.read',
   'incident.create',
   'incident.read',
+  'intervention.read',
   'document.read',
 ];
 
