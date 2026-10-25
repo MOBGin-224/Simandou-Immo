@@ -428,6 +428,7 @@ incident.read
 incident.update
 
 intervention.create
+intervention.read
 intervention.update
 
 expense.create

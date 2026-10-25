@@ -398,6 +398,23 @@ export default async function MyApartmentPage() {
           </Link>
         </div>
       </Card>
+
+      {/*
+        Pas de bouton de création : un locataire ne crée jamais d'intervention
+        (DEC-060, 8.1), à la différence des incidents qu'il déclare lui-même.
+        Même structure que « Mes quittances » ci-dessus pour cette raison.
+      */}
+      <Card className="flex flex-col gap-4">
+        <Overline>Interventions</Overline>
+        <p className="text-sm text-muted">
+          Suivez les interventions planifiées dans votre logement, liées ou non à un incident que
+          vous avez signalé.
+        </p>
+
+        <Link href="/interventions" className={buttonClasses('secondary', 'md', true)}>
+          Voir les interventions
+        </Link>
+      </Card>
     </div>
   );
 }
