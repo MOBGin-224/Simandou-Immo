@@ -55,6 +55,20 @@ export function isFullIntervention(
   return 'providerName' in item;
 }
 
+/**
+ * Transitions autorisées du cycle de l'intervention (DEC-018, DEC-060 4.2).
+ *
+ * Donnée de référence publique, dupliquée ici sans dépendance serveur :
+ * `src/modules/interventions/transitions.ts` en est la source côté backend,
+ * et les deux doivent rester identiques.
+ */
+export const ALLOWED_TRANSITIONS: Record<InterventionStatus, InterventionStatus[]> = {
+  PLANNED: ['IN_PROGRESS', 'CANCELLED'],
+  IN_PROGRESS: ['COMPLETED', 'CANCELLED'],
+  COMPLETED: [],
+  CANCELLED: [],
+};
+
 export type InterventionStatusHistoryEntry = {
   id: string;
   interventionId: string;

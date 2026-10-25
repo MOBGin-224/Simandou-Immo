@@ -30,7 +30,22 @@ import {
   type IncidentStatusHistoryEntry,
   type IncidentWithRelations,
 } from '@/modules/incidents/client';
+import {
+  INTERVENTION_STATUS_LABELS,
+  isFullIntervention,
+  listByIncidentRequest,
+  type InterventionFull,
+  type InterventionItem,
+  type InterventionStatus,
+} from '@/modules/interventions/client';
 import { listManagersRequest, type ManagerListItem } from '@/modules/managers/client';
+
+const INTERVENTION_STATUS_TONES: Record<InterventionStatus, BadgeTone> = {
+  PLANNED: 'neutral',
+  IN_PROGRESS: 'info',
+  COMPLETED: 'success',
+  CANCELLED: 'neutral',
+};
 
 const STATUS_TONES: Record<IncidentStatus, BadgeTone> = {
   OPEN: 'warning',
@@ -85,6 +100,9 @@ export default function IncidentDetailClient({
   const [incident, setIncident] = useState<IncidentWithRelations>(initialIncident);
   const [history, setHistory] = useState<IncidentStatusHistoryEntry[]>([]);
   const [comments, setComments] = useState<IncidentCommentWithAuthor[]>([]);
+  const [interventions, setInterventions] = useState<Array<InterventionItem | InterventionFull>>(
+    [],
+  );
   const [managers, setManagers] = useState<ManagerListItem[]>([]);
   const [managersError, setManagersError] = useState<string | null>(null);
 
@@ -137,9 +155,10 @@ export default function IncidentDetailClient({
     let cancelled = false;
 
     async function loadInitialData() {
-      const [historyResponse, commentsResponse] = await Promise.all([
+      const [historyResponse, commentsResponse, interventionsResponse] = await Promise.all([
         listIncidentHistoryRequest(incidentId),
         listCommentsRequest(incidentId),
+        listByIncidentRequest(incidentId),
       ]);
 
       if (cancelled) return;
@@ -152,6 +171,11 @@ export default function IncidentDetailClient({
       if (commentsResponse.ok) {
         const commentsBody = await commentsResponse.json();
         if (!cancelled) setComments(commentsBody.data ?? []);
+      }
+
+      if (interventionsResponse.ok) {
+        const interventionsBody = await interventionsResponse.json();
+        if (!cancelled) setInterventions(interventionsBody.data ?? []);
       }
     }
 
@@ -491,6 +515,46 @@ export default function IncidentDetailClient({
       <Card className="flex flex-col gap-3 p-5 sm:p-6">
         <h2 className="font-semibold text-ink">Description</h2>
         <p className="whitespace-pre-wrap text-sm text-ink">{data.description}</p>
+      </Card>
+
+      {/* Interventions liées (DEC-060, 3.5 et 12.3) */}
+      <Card className="flex flex-col gap-4 p-5 sm:p-6">
+        <h2 className="font-semibold text-ink">Interventions liées</h2>
+
+        {interventions.length === 0 ? (
+          <p className="text-sm text-muted">Aucune intervention pour cet incident.</p>
+        ) : (
+          <ul className="flex flex-col gap-3">
+            {interventions.map((item) => (
+              <li key={item.id}>
+                <Link
+                  href={`/interventions/${encodeURIComponent(item.id)}`}
+                  className="block transition-transform active:scale-[0.99]"
+                >
+                  <Card className="flex flex-col gap-2 p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="min-w-0 truncate text-sm font-medium text-ink">
+                        {item.title}
+                      </span>
+                      <Badge tone={INTERVENTION_STATUS_TONES[item.status]}>
+                        {INTERVENTION_STATUS_LABELS[item.status]}
+                      </Badge>
+                    </div>
+                    {isFullIntervention(item) && item.providerName ? (
+                      <span className="text-xs text-muted">Prestataire : {item.providerName}</span>
+                    ) : null}
+                  </Card>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {canManage ? (
+          <Link href="/interventions/nouvelle" className={buttonClasses('secondary', 'md', true)}>
+            Créer une intervention pour cet incident
+          </Link>
+        ) : null}
       </Card>
 
       {/* Section 3A : Affectation */}
